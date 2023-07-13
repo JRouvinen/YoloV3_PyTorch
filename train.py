@@ -4,12 +4,16 @@ from __future__ import division
 
 import os
 import argparse
+import datetime
+
 import tqdm
 import subprocess as sp
 import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
+import numpy as np
 
+import utils.writer
 from models import load_model
 from utils.logger import Logger
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
@@ -17,9 +21,9 @@ from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
 from utils.parse_config import parse_data_config
-from utils.loss import compute_loss
+from utils.loss import compute_loss, fitness
 from test import _evaluate, _create_validation_data_loader
-
+from utils.writer import csv_writer, img_writer_training, img_writer_evaluation
 from terminaltables import AsciiTable
 
 from torchsummary import summary
@@ -77,12 +81,12 @@ def run():
     parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
     parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
     parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
-    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--pretrained_weights", type=str,
                         help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
-    parser.add_argument("--checkpoint_interval", type=int, default=1,
+    parser.add_argument("--checkpoint_interval", type=int, default=10,
                         help="Interval of epochs between saving model weights")
-    parser.add_argument("--evaluation_interval", type=int, default=1,
+    parser.add_argument("--evaluation_interval", type=int, default=10,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
     parser.add_argument("--iou_thres", type=float, default=0.5,
@@ -108,6 +112,11 @@ def run():
     os.makedirs("output", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
 
+    # Create csv file
+    header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
+    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+    csv_writer(header,args.logdir+"/"+date+"_plots.csv")
+
     # Get data configuration
     data_config = parse_data_config(args.data)
     train_path = data_config["train"]
@@ -115,7 +124,7 @@ def run():
     class_names = load_classes(data_config["names"])
     gpu = args.gpu
     checkpoints_to_keep = args.checkpoint_store
-
+    best_fitness = 0
     checkpoints_saved = 0
     # ############
     # GPU memory check and setting
@@ -190,13 +199,31 @@ def run():
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
+    # #################
+    # Create Logging variables
+    # #################
+
+    # Matplotlib arrays
+    iou_loss_array = np.array([])
+    obj_loss_array = np.array([])
+    cls_loss_array = np.array([])
+    h_loss_array = np.array([])
+    loss_array = np.array([])
+    lr_array = np.array([])
+    epoch_array = np.array([])
+    precision_array = np.array([])
+    recall_array = np.array([])
+    mAP_array = np.array([])
+    f1_array = np.array([])
+
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
+    print(f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
+
     for epoch in range(1, args.epochs + 1):
 
         print("\n---- Training Model ----")
-        print(f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
@@ -262,6 +289,29 @@ def run():
 
             model.seen += imgs.size(0)
 
+        # ############
+        # Log progress writers
+        # ############
+        #
+        # csv writer
+        data = [epoch,
+                args.epochs,
+                float(loss_components[0]), #Iou Loss
+                float(loss_components[1]), #Object Loss
+                float(loss_components[2]), #Class Loss
+                float(loss_components[3]), #Loss
+                ("%.17f" % lr).rstrip('0').rstrip('.')
+                ]
+        csv_writer(data, args.logdir + "/" + date + "_plots.csv")
+
+        # img writer
+        epoch_array = np.concatenate((epoch_array, np.array([epoch])))
+        iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+        obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+        cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
+        loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
+        lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array, args.logdir + "/" + date)
         # #############
         # Save progress
         # #############
@@ -277,10 +327,11 @@ def run():
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
 
+
         # ########
         # Evaluate
         # ########
-
+        # Update best mAP
         if epoch % args.evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
@@ -304,7 +355,19 @@ def run():
                     ("validation/mAP", AP.mean()),
                     ("validation/f1", f1.mean())]
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
+                #img writer - evaluation
+                precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
+                recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
+                mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
+                f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, epoch, args.logdir + "/" + date)
 
+            fi = fitness(np.array(metrics_output).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
+            if fi > best_fitness:
+                best_fitness = fi
+                checkpoint_path = f"checkpoints/yolov3_ckpt_best.pth"
+                print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
+                torch.save(model.state_dict(), checkpoint_path)
 
 if __name__ == "__main__":
     run()

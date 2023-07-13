@@ -180,3 +180,9 @@ def build_targets(p, targets, model):
         tcls.append(c)
 
     return tcls, tbox, indices, anch
+
+
+def fitness(x):
+    # Model fitness as a weighted combination of metrics
+    w = [0.0, 0.0, 0.9, 0.1]  # weights for [P, R, mAP@0.5, f1]
+    return (x[:, :4] * w).sum(1)
