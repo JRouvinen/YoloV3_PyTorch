@@ -113,24 +113,27 @@ def run():
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
-    gpu = data_config["gpu"]
-    checkpoints_to_keep = data_config["checkpoint_store"]
+    gpu = args.gpu
+    checkpoints_to_keep = args.checkpoint_store
 
     checkpoints_saved = 0
     # ############
     # GPU memory check and setting
     # ############
-
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # DONE:Needs checkup on available gpu memory
     if gpu >= 0:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available() is True:
+            device = torch.device("cuda")
         # clear GPU cache
-        if device == torch.device("cuda"):
+        if device == torch.cuda.FloatTensor:
             torch.cuda.empty_cache()
             available_gpu_mem = get_gpu_memory()
             if available_gpu_mem[0] < 5000:
                 print(f'Not enough free GPU memory available [min 6GB] -> switching into cpu')
                 device = torch.device("cpu")
+
+                gpu = -1
     else:
         device = torch.device("cpu")
     print(f'Using cuda device - {device}')
@@ -139,7 +142,7 @@ def run():
     # Create model
     # ############
 
-    model = load_model(args.model, device,args.pretrained_weights)
+    model = load_model(args.model, gpu,args.pretrained_weights)
 
     # Print model
     if args.verbose:
@@ -193,7 +196,7 @@ def run():
     for epoch in range(1, args.epochs + 1):
 
         print("\n---- Training Model ----")
-
+        print(f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
