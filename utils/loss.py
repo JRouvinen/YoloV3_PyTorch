@@ -107,6 +107,8 @@ def compute_loss(predictions, targets, model):
             if ps.size(1) - 5 > 1:
                 # Hot one class encoding
                 t = torch.zeros_like(ps[:, 5:], device=device)  # targets
+                #print(t)
+                #print(t.shape)
                 t[range(num_targets), tcls[layer_index]] = 1
                 # Use the tensor to calculate the BCE loss
                 lcls += BCEcls(ps[:, 5:], t)  # BCE

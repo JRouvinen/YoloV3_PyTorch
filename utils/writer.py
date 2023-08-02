@@ -71,14 +71,14 @@ def img_writer_evaluation(precision, recall, mAP, f1, epoch, filename):
     ax_array[0, 1].set_xlabel('Epoch')
 
     # Plot for mAP
-    ax_array[0, 2].set_ylabel('mAP')
-    ax_array[0, 2].plot(x, mAP, marker = 'o')
-    ax_array[0, 2].set_xlabel('Epoch')
+    ax_array[1, 0].set_ylabel('mAP')
+    ax_array[1, 0].plot(x, mAP, marker = 'o')
+    ax_array[1, 0].set_xlabel('Epoch')
 
     # Plot for f1
-    ax_array[1, 0].set_ylabel('F1')
-    ax_array[1, 0].plot(x, f1, marker = 'o')
-    ax_array[1, 0].set_xlabel('Epoch')
+    ax_array[1, 1].set_ylabel('F1')
+    ax_array[1, 1].plot(x, f1, marker = 'o')
+    ax_array[1, 1].set_xlabel('Epoch')
 
 
     fig.savefig(filename+'_evaluation_metrics.png')
