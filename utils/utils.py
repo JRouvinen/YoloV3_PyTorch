@@ -374,10 +374,10 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     return output
 
 
-def print_environment_info():
+def print_environment_info(ver):
     """
-    Prints infos about the environment and the system.
-    This should help when people make issues containg the printout.
+    Prints information about the environment and the system.
+    This should help when people make issues containing the printout.
     """
 
     print("Environment information:")
@@ -385,11 +385,12 @@ def print_environment_info():
     # Print OS information
     print(f"System: {platform.system()} {platform.release()}")
 
-    # Print poetry package version
-    try:
-        print(f"Current Version: {subprocess.check_output(['poetry', 'version'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Not using the poetry package")
+    # Print current software version
+    if ver is not None:
+        print(f"Current Version: {ver}")
+
+    else:
+        print("Current Version: None")
 
     # Print commit hash if possible
     try:

@@ -74,7 +74,8 @@ def find_and_del_last_ckpt():
     os.remove(oldest_file)
 
 def run():
-    print_environment_info()
+    ver = "0.1.0"
+    print_environment_info(ver)
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                         help="Path to model definition file (.cfg)")
@@ -129,7 +130,7 @@ def run():
     class_names = load_classes(data_config["names"])
     gpu = args.gpu
     checkpoints_to_keep = args.checkpoint_store
-    best_fitness = 0
+    best_fitness = 0.0
     checkpoints_saved = 0
     # ############
     # GPU memory check and setting
@@ -378,14 +379,14 @@ def run():
                         f1.mean()  # f1
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
-
-            fi = fitness(np.array(metrics_output).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
-            print(f"---- Checkpoint fitness: '{fi}' ----")
-            if fi > best_fitness:
-                best_fitness = fi
-                checkpoint_path = f"checkpoints/yolov3_ckpt_best.pth"
-                print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
-                torch.save(model.state_dict(), checkpoint_path)
+            if metrics_output is not None:
+                fi = fitness(np.array(metrics_output).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
+                print(f"---- Checkpoint fitness: '{float(fi[0])}' ----")
+                if float(fi[0]) > best_fitness:
+                    best_fitness = fi[0]
+                    checkpoint_path = "checkpoints/yolov3_ckpt_best.pth"
+                    print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
+                    torch.save(model.state_dict(), checkpoint_path)
 
 if __name__ == "__main__":
     run()
