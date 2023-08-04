@@ -216,6 +216,7 @@ def run():
     loss_array = np.array([])
     lr_array = np.array([])
     epoch_array = np.array([])
+    eval_epoch_array = np.array([])
     precision_array = np.array([])
     recall_array = np.array([])
     mAP_array = np.array([])
@@ -362,11 +363,12 @@ def run():
                 #print("Evaluation metrics: ", evaluation_metrics)
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
                 #img writer - evaluation
+                eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
                 precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, epoch_array, args.logdir + "/" + date)
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, eval_epoch_array, args.logdir + "/" + date)
                 #evaluate csv writer
                 data = [epoch,
                         args.epochs,
