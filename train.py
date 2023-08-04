@@ -112,10 +112,15 @@ def run():
     os.makedirs("output", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
 
-    # Create csv file
+    # Create training csv file
     header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    csv_writer(header,args.logdir+"/"+date+"_plots.csv")
+    csv_writer(header,args.logdir+"/"+date+"_training_plots.csv")
+
+    # Create training csv file
+    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1']
+    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+    csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
 
     # Get data configuration
     data_config = parse_data_config(args.data)
@@ -293,7 +298,7 @@ def run():
         # Log progress writers
         # ############
         #
-        # csv writer
+        # training csv writer
         data = [epoch,
                 args.epochs,
                 float(loss_components[0]), #Iou Loss
@@ -302,7 +307,7 @@ def run():
                 float(loss_components[3]), #Loss
                 ("%.17f" % lr).rstrip('0').rstrip('.')
                 ]
-        csv_writer(data, args.logdir + "/" + date + "_plots.csv")
+        csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
 
         # img writer
         epoch_array = np.concatenate((epoch_array, np.array([epoch])))
@@ -354,15 +359,26 @@ def run():
                     ("validation/recall", recall.mean()),
                     ("validation/mAP", AP.mean()),
                     ("validation/f1", f1.mean())]
+                #print("Evaluation metrics: ", evaluation_metrics)
                 logger.list_of_scalars_summary(evaluation_metrics, epoch)
                 #img writer - evaluation
                 precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, epoch, args.logdir + "/" + date)
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, epoch_array, args.logdir + "/" + date)
+                #evaluate csv writer
+                data = [epoch,
+                        args.epochs,
+                        precision.mean(),  # Precision
+                        recall.mean(),  # Recall
+                        AP.mean(),  # mAP
+                        f1.mean()  # f1
+                        ]
+                csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
 
             fi = fitness(np.array(metrics_output).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
+            print(f"---- Checkpoint fitness: '{fi}' ----")
             if fi > best_fitness:
                 best_fitness = fi
                 checkpoint_path = f"checkpoints/yolov3_ckpt_best.pth"
