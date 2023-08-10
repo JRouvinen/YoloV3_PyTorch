@@ -330,7 +330,7 @@ def run():
             if checkpoints_saved == checkpoints_to_keep:
                 find_and_del_last_ckpt()
                 checkpoints_saved -= 1
-            checkpoint_path = f"checkpoints/yolov3_ckpt_{epoch}.pth"
+            checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
             print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
@@ -381,16 +381,7 @@ def run():
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                 ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
                 #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
-                #evaluate csv writer
-                data = [epoch,
-                        args.epochs,
-                        precision.mean(),  # Precision
-                        recall.mean(),  # Recall
-                        AP.mean(),  # mAP
-                        f1.mean(),  # f1
-                        ap_class.mean(), # AP
-                        curr_fitness # Fitness
-                        ]
+
             if metrics_output is not None:
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
@@ -399,9 +390,19 @@ def run():
                 #print("Best fitness: ", best_fitness)
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
-                    checkpoint_path = "checkpoints/yolov3_ckpt_best.pth"
+                    checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
+                    # evaluate csv writer
+                data = [epoch,
+                        args.epochs,
+                        precision.mean(),  # Precision
+                        recall.mean(),  # Recall
+                        AP.mean(),  # mAP
+                        f1.mean(),  # f1
+                        ap_class.mean(),  # AP
+                        curr_fitness  # Fitness
+                        ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
