@@ -119,7 +119,7 @@ def run():
     csv_writer(header,args.logdir+"/"+date+"_training_plots.csv")
 
     # Create training csv file
-    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS']
+    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS','Fitness']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
 
@@ -388,9 +388,9 @@ def run():
                         recall.mean(),  # Recall
                         AP.mean(),  # mAP
                         f1.mean(),  # f1
-                        ap_class.mean() # AP
+                        ap_class.mean(), # AP
+                        curr_fitness # Fitness
                         ]
-                csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
             if metrics_output is not None:
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
@@ -402,6 +402,7 @@ def run():
                     checkpoint_path = "checkpoints/yolov3_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
+                csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
 
