@@ -43,7 +43,10 @@ A minimal PyTorch implementation of YOLOv3.
 
 # Updates on original code
 - Updated requirements.txt
-- 
+
+# Guides
+https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
+
 # 0. Weights Download
 
 ## 0.1 darknet

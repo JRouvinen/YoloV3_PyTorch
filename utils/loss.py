@@ -185,6 +185,7 @@ def build_targets(p, targets, model):
 
 
 def fitness(x):
+    #print("X:", x)
     # Model fitness as a weighted combination of metrics
-    w = [0.0, 0.0, 0.9, 0.1]  # weights for [P, R, mAP@0.5, f1]
-    return (x[:, :4] * w).sum(1)
+    w = [0.0, 0.0, 0.8, 0.1, 0.1]  # weights for [P, R, mAP@0.5, f1, ap class]
+    return (x[:, :5] * w).sum(1)

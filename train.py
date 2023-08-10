@@ -98,7 +98,7 @@ def run():
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-    parser.add_argument("--checkpoint_store", type=int, default=10, help="How many checkpoints should be stored")
+    parser.add_argument("--checkpoint_store", type=int, default=5, help="How many checkpoints should be stored")
     parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="How many checkpoints should be stored")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
@@ -119,7 +119,7 @@ def run():
     csv_writer(header,args.logdir+"/"+date+"_training_plots.csv")
 
     # Create training csv file
-    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1']
+    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
 
@@ -222,6 +222,7 @@ def run():
     recall_array = np.array([])
     mAP_array = np.array([])
     f1_array = np.array([])
+    ap_cls_array = np.array([])
 
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
@@ -357,36 +358,51 @@ def run():
             if metrics_output is not None:
                 precision, recall, AP, f1, ap_class = metrics_output
                 evaluation_metrics = [
-                    ("validation/precision", precision.mean()),
-                    ("validation/recall", recall.mean()),
-                    ("validation/mAP", AP.mean()),
-                    ("validation/f1", f1.mean())]
+                    precision.mean(),
+                    recall.mean(),
+                    AP.mean(),
+                    f1.mean(),
+                    ap_class.mean()
+                ]
+                #print("Metrics output: ", metrics_output)
                 #print("Evaluation metrics: ", evaluation_metrics)
-                logger.list_of_scalars_summary(evaluation_metrics, epoch)
+                # Log the evaluation metrics
+                logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
+                logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
+                logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
+                logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
+                logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
+                #DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                 #img writer - evaluation
                 eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
                 precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, eval_epoch_array, args.logdir + "/" + date)
+                ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,eval_epoch_array, args.logdir + "/" + date)
                 #evaluate csv writer
                 data = [epoch,
                         args.epochs,
                         precision.mean(),  # Precision
                         recall.mean(),  # Recall
                         AP.mean(),  # mAP
-                        f1.mean()  # f1
+                        f1.mean(),  # f1
+                        ap_class.mean() # AP
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
             if metrics_output is not None:
-                fi = fitness(np.array(metrics_output).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
-                print(f"---- Checkpoint fitness: '{float(fi[0])}' ----")
-                if float(fi[0]) > best_fitness:
-                    best_fitness = fi[0]
+                fi = fitness(np.array(evaluation_metrics).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
+                curr_fitness = float(fi[0])
+                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' ----")
+                #print("Best fitness: ", best_fitness)
+                if curr_fitness > best_fitness:
+                    best_fitness = curr_fitness
                     checkpoint_path = "checkpoints/yolov3_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
 
 if __name__ == "__main__":
     run()
+
+# python train.py -m config/yolov3_ITDM_simple.cfg -d config/ITDM_simple.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1
