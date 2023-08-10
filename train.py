@@ -223,7 +223,7 @@ def run():
     mAP_array = np.array([])
     f1_array = np.array([])
     ap_cls_array = np.array([])
-
+    curr_fitness_array = np.array([])
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -380,7 +380,7 @@ def run():
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                 ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,eval_epoch_array, args.logdir + "/" + date)
+                #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
                 #evaluate csv writer
                 data = [epoch,
                         args.epochs,
@@ -394,6 +394,7 @@ def run():
             if metrics_output is not None:
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
+                curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' ----")
                 #print("Best fitness: ", best_fitness)
                 if curr_fitness > best_fitness:
@@ -401,6 +402,9 @@ def run():
                     checkpoint_path = "checkpoints/yolov3_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,
+                                      curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+
 
 if __name__ == "__main__":
     run()

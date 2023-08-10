@@ -318,6 +318,7 @@ class Darknet(nn.Module):
 
 
 def load_model(model_path, gpu, weights_path=None):
+    print("model gpu:",gpu)
     """Loads the yolo model from file.
 
     :param model_path: Path to model definition file (.cfg)

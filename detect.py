@@ -25,7 +25,7 @@ import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
 
-def detect_directory(model_path, weights_path, img_path, classes, output_path,
+def detect_directory(model_path, weights_path, img_path, classes, output_path,gpu,
                      batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
     """Detects objects on all images in specified directory and saves output images with drawn detections.
 
@@ -51,7 +51,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     :type nms_thres: float, optional
     """
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
-    model = load_model(model_path, weights_path)
+    model = load_model(model_path, gpu, weights_path)
     img_detections, imgs = detect(
         model,
         dataloader,
@@ -249,7 +249,8 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 
 
 def run():
-    print_environment_info()
+    ver = "0.0.1"
+    print_environment_info(ver)
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -261,6 +262,8 @@ def run():
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.4, help="IOU threshold for non-maximum suppression")
+    parser.add_argument("-g", "--gpu",type=int, default=-1, help="GPU to use")
+
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
 
@@ -273,6 +276,7 @@ def run():
         args.images,
         classes,
         args.output,
+        args.gpu,
         batch_size=args.batch_size,
         img_size=args.img_size,
         n_cpu=args.n_cpu,
