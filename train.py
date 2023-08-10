@@ -74,7 +74,7 @@ def find_and_del_last_ckpt():
     os.remove(oldest_file)
 
 def run():
-    ver = "0.1.0"
+    ver = "0.2.0"
     print_environment_info(ver)
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
