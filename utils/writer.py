@@ -75,7 +75,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ap_cls, ckpt_fitness,epoch
     ax_array[0, 0].grid(axis='y', linestyle='-')
     #ax_array[0, 0].invert_yaxis()
     ax_array[0, 0].set_xlabel('Epoch')
-    ax_array[0, 0].set_ybound([0, 1])
+    #ax_array[0, 0].set_ybound([0, 1])
 
 
     # Plot for recall
@@ -83,7 +83,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ap_cls, ckpt_fitness,epoch
     ax_array[0, 1].plot(x, recall, marker = 'o')
     ax_array[0, 1].grid(axis='y', linestyle='-')
     ax_array[0, 1].set_xlabel('Epoch')
-    ax_array[0, 1].set_ybound([0, 1])
+    #ax_array[0, 1].set_ybound([0, 1])
 
 
     # Plot for mAP
@@ -91,7 +91,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ap_cls, ckpt_fitness,epoch
     ax_array[0, 2].plot(x, mAP, marker = 'o')
     ax_array[0, 2].grid(axis='y', linestyle='-')
     ax_array[0, 2].set_xlabel('Epoch')
-    ax_array[0, 2].set_ybound([0, 1])
+    #ax_array[0, 2].set_ybound([0, 1])
 
 
     # Plot for f1
@@ -99,7 +99,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ap_cls, ckpt_fitness,epoch
     ax_array[1, 0].plot(x, f1, marker = 'o')
     ax_array[1, 0].grid(axis='y', linestyle='-')
     ax_array[1, 0].set_xlabel('Epoch')
-    ax_array[1, 0].set_ybound([0, 1])
+    #ax_array[1, 0].set_ybound([0, 1])
 
 
     # Plot for ap_cls

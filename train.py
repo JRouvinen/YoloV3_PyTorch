@@ -383,7 +383,8 @@ def run():
                 #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
 
             if metrics_output is not None:
-                fi = fitness(np.array(evaluation_metrics).reshape(1, -1))  # weighted combination of [P, R, mAP@0.5, f1]
+                w = [0.0, 0.05, 0.85, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                fi = fitness(np.array(evaluation_metrics).reshape(1, -1), w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' ----")
