@@ -118,3 +118,10 @@ def img_writer_evaluation(precision, recall, mAP, f1, ap_cls, ckpt_fitness,epoch
 
     fig.savefig(filename+'_evaluation_metrics.png')
     plt.close()
+
+def log_file_writer(data, filename):
+    #log_path = filename.replace("checkpoints", "")
+    with open(filename, 'a', encoding='UTF8') as f:
+        # write the data
+        f.write("\n"+data)
+    f.close()

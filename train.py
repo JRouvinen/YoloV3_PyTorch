@@ -21,9 +21,9 @@ from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
 from utils.parse_config import parse_data_config
-from utils.loss import compute_loss, fitness
+from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
-from utils.writer import csv_writer, img_writer_training, img_writer_evaluation
+from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer
 from terminaltables import AsciiTable
 
 from torchsummary import summary
@@ -74,8 +74,10 @@ def find_and_del_last_ckpt():
     os.remove(oldest_file)
 
 def run():
-    ver = "0.2.1"
-    print_environment_info(ver)
+    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+    ver = "0.2.2"
+    log_file_writer("Software version: " + ver, "logs/"+date+"log"+".txt")
+    print_environment_info(ver, "logs/"+date+"env"+".txt")
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                         help="Path to model definition file (.cfg)")
@@ -89,6 +91,8 @@ def run():
                         help="Interval of epochs between saving model weights")
     parser.add_argument("--evaluation_interval", type=int, default=10,
                         help="Interval of epochs between evaluations on validation set")
+    parser.add_argument("--auto_evaluation", type=bool, default=True,
+                        help="Starts evaluation when best training fitness is reached")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
     parser.add_argument("--iou_thres", type=float, default=0.5,
                         help="Evaluation: IOU threshold required to qualify as detected")
@@ -103,6 +107,7 @@ def run():
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
+    log_file_writer(f"Command line arguments: {args}", "logs/"+date+"log"+".txt")
 
     if args.seed != -1:
         provide_determinism(args.seed)
@@ -115,7 +120,6 @@ def run():
 
     # Create training csv file
     header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
-    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header,args.logdir+"/"+date+"_training_plots.csv")
 
     # Create training csv file
@@ -129,6 +133,9 @@ def run():
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
     gpu = args.gpu
+    auto_eval = args.auto_evaluation
+    best_training_fitness = 0.0
+    do_auto_eval = False
     checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
@@ -224,6 +231,8 @@ def run():
     f1_array = np.array([])
     ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
+
+
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -311,7 +320,6 @@ def run():
                 ("%.17f" % lr).rstrip('0').rstrip('.')
                 ]
         csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
-
         # img writer
         epoch_array = np.concatenate((epoch_array, np.array([epoch])))
         iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
@@ -335,12 +343,32 @@ def run():
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
 
+        if auto_eval is True:
+            # #############
+            # Training fitness evaluation
+            # #############
+            print("\n---- Auto evaluating model on training data ----")
+            training_evaluation_metrics = [
+                float(loss_components[0]),  # Iou Loss
+                float(loss_components[1]),  # Object Loss
+                float(loss_components[2]),  # Class Loss
+                float(loss_components[3]),  # Loss
+            ]
+            w_train = [0.25, 0.25, 0.25, 0.25]  # weights for [IOU, Class, Object, Loss]
+            fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
+
+            if fi_train > best_training_fitness:
+                print(f"\n---- Auto evaluation result: new best training fitness {fi_train} ----")
+                best_training_fitness = fi_train
+                do_auto_eval = True
 
         # ########
         # Evaluate
         # ########
         # Update best mAP
-        if epoch % args.evaluation_interval == 0:
+        if epoch % args.evaluation_interval == 0 or do_auto_eval is True:
+            if do_auto_eval is True:
+                do_auto_eval = False
             print("\n---- Evaluating Model ----")
             # Evaluate the model on the validation set
             metrics_output = _evaluate(
@@ -387,11 +415,11 @@ def run():
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1), w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' ----")
+                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {best_fitness}) ----")
                 #print("Best fitness: ", best_fitness)
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
-                    checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_best.pth"
+                    checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
                     # evaluate csv writer

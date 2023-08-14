@@ -10,6 +10,7 @@ import numpy as np
 import subprocess
 import random
 import imgaug as ia
+from utils.writer import log_file_writer
 
 
 def provide_determinism(seed=42):
@@ -374,26 +375,31 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
     return output
 
 
-def print_environment_info(ver):
+def print_environment_info(ver, filename):
     """
     Prints information about the environment and the system.
     This should help when people make issues containing the printout.
     """
 
     print("Environment information:")
-
+    log_file_writer("Environment information:", filename)
     # Print OS information
     print(f"System: {platform.system()} {platform.release()}")
-
+    log_file_writer(f"System: {platform.system()} {platform.release()}", filename)
     # Print current software version
     if ver is not None:
         print(f"Current Version: {ver}")
-
+        log_file_writer(f"Current Version: {ver}", filename)
     else:
         print("Current Version: None")
+        log_file_writer(f"Current Version: None", filename)
 
     # Print commit hash if possible
     try:
         print(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
+        log_file_writer(f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}", filename)
+
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("No git or repo found")
+        log_file_writer(f"No git or repo found", filename)
+
