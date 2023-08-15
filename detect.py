@@ -24,6 +24,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
+from utils.writer import log_file_writer
+
 
 def detect_directory(model_path, weights_path, img_path, classes, output_path,gpu,
                      batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
@@ -160,8 +162,10 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     # Iterate through images and save plot of detections
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
+        log_file_writer(f"Image {image_path}:", "output/detect.txt")
         _draw_and_save_output_image(
             image_path, detections, img_size, output_path, classes)
+
 
 
 def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes):
@@ -194,6 +198,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     for x1, y1, x2, y2, conf, cls_pred in detections:
 
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+        log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/detect.txt")
 
         box_w = x2 - x1
         box_h = y2 - y1
@@ -249,8 +254,8 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 
 
 def run():
-    ver = "0.0.1"
-    print_environment_info(ver)
+    ver = "0.1.0"
+    print_environment_info(ver, "output/detect.txt")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -266,6 +271,7 @@ def run():
 
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
+    log_file_writer(f"Command line arguments: {args}", "output/detect.txt")
 
     # Extract class names from file
     classes = load_classes(args.classes)  # List of class names
