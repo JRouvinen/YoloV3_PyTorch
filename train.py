@@ -75,7 +75,9 @@ def find_and_del_last_ckpt():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.2"
+    ver = "0.2.3"
+    # Create new log file
+    f = open("logs/"+date+"log"+".txt", "w")
     log_file_writer("Software version: " + ver, "logs/"+date+"log"+".txt")
     print_environment_info(ver, "logs/"+date+"env"+".txt")
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
