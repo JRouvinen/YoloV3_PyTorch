@@ -75,7 +75,7 @@ def find_and_del_last_ckpt():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.3"
+    ver = "0.2.4"
     # Create new log file
     f = open("logs/"+date+"log"+".txt", "w")
     f.close()
@@ -418,7 +418,7 @@ def run():
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1), w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {best_fitness}) ----")
+                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness,4)}) ----")
                 #print("Best fitness: ", best_fitness)
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
