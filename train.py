@@ -68,9 +68,16 @@ def get_gpu_memory():
     return memory_free_values
 
 def find_and_del_last_ckpt():
+    is_pth_file = False
     list_of_files = os.listdir('checkpoints/')
     full_path = ["checkpoints/{0}".format(x) for x in list_of_files]
     oldest_file = min(full_path, key=os.path.getctime)
+    while is_pth_file == False:
+        if oldest_file.endswith('.pth'):
+            is_pth_file = True
+        else:
+            full_path.remove(oldest_file)
+            oldest_file = min(full_path, key=os.path.getctime)
     os.remove(oldest_file)
 
 def run():
