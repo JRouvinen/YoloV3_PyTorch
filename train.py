@@ -82,12 +82,12 @@ def find_and_del_last_ckpt():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.4"
+    ver = "0.2.5"
     # Create new log file
     f = open("logs/"+date+"log"+".txt", "w")
     f.close()
     log_file_writer("Software version: " + ver, "logs/"+date+"log"+".txt")
-    print_environment_info(ver, "logs/"+date+"env"+".txt")
+    print_environment_info(ver, "logs/"+date+"log"+".txt")
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                         help="Path to model definition file (.cfg)")
@@ -357,7 +357,7 @@ def run():
             # #############
             # Training fitness evaluation
             # #############
-            print("\n---- Auto evaluating model on training data ----")
+            print("\n---- Auto evaluating model on training metrics ----")
             training_evaluation_metrics = [
                 float(loss_components[0]),  # Iou Loss
                 float(loss_components[1]),  # Object Loss
