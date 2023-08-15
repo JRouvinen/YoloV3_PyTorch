@@ -78,6 +78,7 @@ def run():
     ver = "0.2.3"
     # Create new log file
     f = open("logs/"+date+"log"+".txt", "w")
+    f.close()
     log_file_writer("Software version: " + ver, "logs/"+date+"log"+".txt")
     print_environment_info(ver, "logs/"+date+"env"+".txt")
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
