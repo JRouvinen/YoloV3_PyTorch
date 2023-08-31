@@ -60,7 +60,7 @@ black_and_white = True
 new_size = (1024, 1024) # new_size=(width, height) -> not used in this version
 resize = True
 #Version number
-ver = 0.1
+ver = 0.11
 #Files to process settigs
 random_start_point = random.randint(0, 10)
 
@@ -74,12 +74,12 @@ for filename in os.listdir(path):
     number_of_files += 1
 print(f"----- {number_of_files} files found -----")
 
-step = int(number_of_files*(percent_of_files/100))/2
+step = int(number_of_files/(number_of_files*(percent_of_files/100)))
 #print(f"step {step}")
 #print(f"random start {random_start_point}")
 file_indx = 0
 step_count = 0
-
+files_processed = 0
 #Create noise and blur files
 for filename in os.listdir(path):
     if file_indx > random_start_point:
@@ -97,6 +97,7 @@ for filename in os.listdir(path):
                     img = black_white_img
                     new_name_add += "bw"
                     img_modified = True
+                    files_processed += 1
 
             if img_noise is True:
                 if comb_rand == 2 or comb_rand == 4 or comb_rand == 5 or comb_rand == 7:
@@ -105,6 +106,7 @@ for filename in os.listdir(path):
                     img = noise_img
                     new_name_add += "_noise"
                     img_modified = True
+                    files_processed += 1
 
             if img_blur is True:
                 if comb_rand == 3 or comb_rand >= 5:
@@ -112,6 +114,7 @@ for filename in os.listdir(path):
                     img = blur_img
                     new_name_add += "_blur"
                     img_modified = True
+                    files_processed += 1
 
             if img_modified is True:
                 new_file_name = filename.split(".")
@@ -128,3 +131,5 @@ for filename in os.listdir(path):
 
     else:
         file_indx += 1
+
+print(f"----- {files_processed} files processed -----")
