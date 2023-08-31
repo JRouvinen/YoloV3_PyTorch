@@ -16,6 +16,8 @@ A minimal PyTorch implementation of YOLOv3.
 - Paper Yolo v4: https://arxiv.org/abs/2004.10934
 - Original darknet source code:https://github.com/AlexeyAB/darknet
 - More details: http://pjreddie.com/darknet/yolo/
+- Training YOLOV3: Deep Learning Based Custom Object Detection: https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
+- Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way: https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
 - Original code for this fork: 
 
 
@@ -43,9 +45,38 @@ A minimal PyTorch implementation of YOLOv3.
 
 # Updates on original code
 - Updated requirements.txt
+- 
 
-# Guides
-https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
+# Guide
+## 1.Dataset
+
+## 2.Data annotation
+
+## 3.Download the Pre-trained model
+
+## 4.Data file
+
+## 5.YOLOv3 configuration parameters
+
+### 5.1 Batch hyper-parameter in training YOLOv3
+
+### 5.2 Subdivisions configuration parameter in training YOLOv3
+
+### 5.3 Width, Height, Channels
+
+### 5.4 Momentum and Decay
+
+### 5.5 Learning Rate, Steps, Scales, Burn In (warm-up)
+
+### 5.6 Data augmentation
+
+### 5.7 Number of iterations
+
+## 6.Training YOLOv3
+
+### 6.1 When do we stop the training?
+
+## 7.Testing the model
 
 # 0. Weights Download
 

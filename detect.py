@@ -4,6 +4,8 @@ from __future__ import division
 
 import os
 import argparse
+import datetime
+
 import tqdm
 import random
 import numpy as np
@@ -27,7 +29,7 @@ from matplotlib.ticker import NullLocator
 from utils.writer import log_file_writer
 
 
-def detect_directory(model_path, weights_path, img_path, classes, output_path,gpu,
+def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,
                      batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
     """Detects objects on all images in specified directory and saves output images with drawn detections.
 
@@ -61,7 +63,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,gp
         conf_thres,
         nms_thres)
     _draw_and_save_output_images(
-        img_detections, imgs, img_size, output_path, classes)
+        img_detections, imgs, img_size, output_path, classes, date)
 
     print(f"---- Detections were saved to: '{output_path}' ----")
 
@@ -144,7 +146,7 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres):
     return img_detections, imgs
 
 
-def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, classes):
+def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, classes, date):
     """Draws detections in output images and stores them.
 
     :param img_detections: List of detections
@@ -162,13 +164,13 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     # Iterate through images and save plot of detections
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
-        log_file_writer(f"Image {image_path}:", "output/detect.txt")
+        log_file_writer(f"Image {image_path}:", "output/" + date + "_detect" + ".txt")
         _draw_and_save_output_image(
-            image_path, detections, img_size, output_path, classes)
+            image_path, detections, img_size, output_path, classes, date)
 
 
 
-def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes):
+def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes, date):
     """Draws detections in output image and stores this.
 
     :param image_path: Path to input image
@@ -198,7 +200,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     for x1, y1, x2, y2, conf, cls_pred in detections:
 
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
-        log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/detect.txt")
+        log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/" + date + "_detect" + ".txt")
 
         box_w = x2 - x1
         box_h = y2 - y1
@@ -254,8 +256,9 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 
 
 def run():
-    ver = "0.1.0"
-    print_environment_info(ver, "output/detect.txt")
+    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+    ver = "0.1.2"
+    print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -271,7 +274,10 @@ def run():
 
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
-    log_file_writer(f"Command line arguments: {args}", "output/detect.txt")
+    #Create_new detect_file
+    f = open("output/" + date + "detect" + ".txt", "w")
+    f.close()
+    log_file_writer(f"Command line arguments: {args}", "output/" + date + "_detect" + ".txt")
 
     # Extract class names from file
     classes = load_classes(args.classes)  # List of class names
@@ -282,12 +288,13 @@ def run():
         args.images,
         classes,
         args.output,
-        args.gpu,
+        args.gpu,date,
         batch_size=args.batch_size,
         img_size=args.img_size,
         n_cpu=args.n_cpu,
         conf_thres=args.conf_thres,
-        nms_thres=args.nms_thres)
+        nms_thres=args.nms_thres,
+        )
 
 
 if __name__ == '__main__':
