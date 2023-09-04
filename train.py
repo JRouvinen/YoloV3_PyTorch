@@ -80,9 +80,30 @@ def find_and_del_last_ckpt():
             oldest_file = min(full_path, key=os.path.getctime)
     os.remove(oldest_file)
 
+def check_folders():
+    pass
+local_path = os. getcwd()
+#Check if logs folder exists
+logs_path_there = os.path.exists(local_path+"/logs/")
+if not logs_path_there:
+    os.mkdir(local_path+"/logs/")
+#Check if checkpoints folder exists
+ckpt_path_there = os.path.exists(local_path+"/checkpoints/")
+if not ckpt_path_there:
+    os.mkdir(local_path+"/checkpoints/")
+#Check if checkpoints/best folder exists
+ckpt_best_path_there = os.path.exists(local_path+"/checkpoints/best/")
+if not ckpt_best_path_there:
+    os.mkdir(local_path+"/checkpoints/best/")
+#Check if output folder exists
+output_path_there = os.path.exists(local_path+"/output/")
+if not output_path_there:
+    os.mkdir(local_path+"/output/")
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     ver = "0.2.6"
+    #Check folders
+    check_folders()
     # Create new log file
     f = open("logs/"+date+"log"+".txt", "w")
     f.close()
@@ -150,7 +171,7 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     # ############
-    # GPU memory check and setting
+    # GPU memory check and setting TODO: Needs more calculations based on parameters
     # ############
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # DONE:Needs checkup on available gpu memory
@@ -432,25 +453,6 @@ def run():
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
-                    #####################################
-                    #Save evaluation stats for best model - V2.6
-                    #####################################
-                    #Check if log file for best model exists
-                    with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
-                        precision, recall, AP, f1, ap_class = metrics_output
-                        # Prints class AP and mean AP
-                        ap_table = [["Index", "Class", "AP"]]
-                        for i, c in enumerate(ap_class):
-                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                        #print(AsciiTable(ap_table).table)
-                        # write the data
-                        f.write(str(ap_table))
-                        #print(f"---- mAP {AP.mean():.5f} ----")
-                        # write the data
-                        f.write(f"\n + {AP.mean(): .5f}")
-
-                    f.close()
-
                     # evaluate csv writer
                 data = [epoch,
                         args.epochs,
