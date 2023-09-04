@@ -101,7 +101,7 @@ if not output_path_there:
     os.mkdir(local_path+"/output/")
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.6"
+    ver = "0.2.7"
     #Check folders
     check_folders()
     # Create new log file
@@ -453,7 +453,22 @@ def run():
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
-                    # evaluate csv writer
+                    ############################
+                    #Save best checkpoint evaluation stats - V2.7
+                    #############################
+                    # Open file
+                    with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
+                        # Evaluation stats
+                        precision, recall, AP, f1, ap_class = metrics_output
+                        # Gets class AP and mean AP
+                        ap_table = [["Index", "Class", "AP"]]
+                        for i, c in enumerate(ap_class):
+                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                        #print(AsciiTable(ap_table).table)
+                        f.write(str(ap_table))
+                        #print(f"---- mAP {AP.mean():.5f} ----")
+                        f.write(f"\n" + {"---- mAP {AP.mean():.5f} ----"})
+
                 data = [epoch,
                         args.epochs,
                         precision.mean(),  # Precision
