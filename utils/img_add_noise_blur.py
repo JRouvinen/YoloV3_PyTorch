@@ -12,6 +12,9 @@ import numpy as np
 import random
 import cv2
 
+from utils import progress_bar
+
+
 def sp_noise(image,prob):
     '''
     Add salt and pepper noise to image
@@ -53,14 +56,14 @@ noise_val = 0.05
 #Blur settings
 img_blur = True
 #Recommended values between 2 and 25
-blur_val = 10
+blur_val = 5
 #Black and white settings
 black_and_white = True
 #Image size settings
 new_size = (1024, 1024) # new_size=(width, height) -> not used in this version
 resize = True
 #Version number
-ver = 0.11
+ver = 0.12
 #Files to process settigs
 random_start_point = random.randint(0, 10)
 
@@ -82,6 +85,10 @@ step_count = 0
 files_processed = 0
 #Create noise and blur files
 for filename in os.listdir(path):
+    percents = round(file_indx / number_of_files * 100, 2)
+    percents = str(percents)
+    prog_bar = progress_bar.print_progress_bar(number_of_files, file_indx)
+    print(f'[-] Progress:|{prog_bar}| {percents}% done' + '\r', end='')
     if file_indx > random_start_point:
         if step_count == step:
             comb_rand = random.randint(1, 7)
@@ -92,12 +99,12 @@ for filename in os.listdir(path):
             new_name_add = "_"
             img_modified = False
             if black_and_white is True:
-                if comb_rand == 1 or comb_rand == 4 or comb_rand == 6 or comb_rand == 7:
-                    black_white_img = black_white(img)
-                    img = black_white_img
-                    new_name_add += "bw"
-                    img_modified = True
-                    files_processed += 1
+                #if comb_rand == 1 or comb_rand == 4 or comb_rand == 6 or comb_rand == 7:
+                black_white_img = black_white(img)
+                img = black_white_img
+                new_name_add += "bw"
+                img_modified = True
+                files_processed += 1
 
             if img_noise is True:
                 if comb_rand == 2 or comb_rand == 4 or comb_rand == 5 or comb_rand == 7:
@@ -126,10 +133,12 @@ for filename in os.listdir(path):
                 new_label_path = label_path.replace(".txt", new_name_add+".txt")
                 shutil.copyfile(label_path, new_label_path)
             step_count = 0
+            file_indx += 1
         else:
             step_count += 1
+            file_indx += 1
 
     else:
         file_indx += 1
 
-print(f"----- {files_processed} files processed -----")
+print(f"----- DONE!-----")
