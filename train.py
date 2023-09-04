@@ -82,7 +82,7 @@ def find_and_del_last_ckpt():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.5"
+    ver = "0.2.6"
     # Create new log file
     f = open("logs/"+date+"log"+".txt", "w")
     f.close()
@@ -432,6 +432,25 @@ def run():
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
+                    #####################################
+                    #Save evaluation stats for best model - V2.6
+                    #####################################
+                    #Check if log file for best model exists
+                    with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
+                        precision, recall, AP, f1, ap_class = metrics_output
+                        # Prints class AP and mean AP
+                        ap_table = [["Index", "Class", "AP"]]
+                        for i, c in enumerate(ap_class):
+                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                        #print(AsciiTable(ap_table).table)
+                        # write the data
+                        f.write(str(ap_table))
+                        #print(f"---- mAP {AP.mean():.5f} ----")
+                        # write the data
+                        f.write(f"\n + {AP.mean(): .5f}")
+
+                    f.close()
+
                     # evaluate csv writer
                 data = [epoch,
                         args.epochs,
