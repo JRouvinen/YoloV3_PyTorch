@@ -101,7 +101,7 @@ if not output_path_there:
     os.mkdir(local_path+"/output/")
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.7"
+    ver = "0.2.71"
     #Check folders
     check_folders()
     # Create new log file
@@ -462,12 +462,14 @@ def run():
                         precision, recall, AP, f1, ap_class = metrics_output
                         # Gets class AP and mean AP
                         ap_table = [["Index", "Class", "AP"]]
+                        f.write(str([["Index", "Class", "AP"]]) + "\n")
                         for i, c in enumerate(ap_class):
                             ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]])+"\n")
                         #print(AsciiTable(ap_table).table)
-                        f.write(str(ap_table))
+                        #f.write(str(ap_table))
                         #print(f"---- mAP {AP.mean():.5f} ----")
-                        f.write(f"\n" + {"---- mAP {AP.mean():.5f} ----"})
+                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5))+" ----")
 
                 data = [epoch,
                         args.epochs,
