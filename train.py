@@ -101,7 +101,7 @@ if not output_path_there:
     os.mkdir(local_path+"/output/")
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.71"
+    ver = "0.2.72"
     #Check folders
     check_folders()
     # Create new log file
@@ -282,6 +282,11 @@ def run():
 
             outputs = model(imgs)
 
+            # Updated on version V2.72
+            # Reset gradients
+            optimizer.zero_grad()
+            ###########################
+
             loss, loss_components = compute_loss(outputs, targets, model)
 
             loss.backward()
@@ -310,9 +315,10 @@ def run():
 
                 # Run optimizer
                 optimizer.step()
+                # Updated on version V2.72
                 # Reset gradients
-                optimizer.zero_grad()
-
+                #optimizer.zero_grad()
+                ###########################
             # ############
             # Log progress
             # ############
