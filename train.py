@@ -22,6 +22,7 @@ import utils.pytorch_warmup as warmup
 
 import utils.writer
 from models import load_model
+from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
 from utils.datasets import ListDataset
@@ -229,7 +230,6 @@ def run():
             if available_gpu_mem[0] < 5000:
                 print(f'Not enough free GPU memory available [min 6GB] -> switching into cpu')
                 device = torch.device("cpu")
-
                 gpu = -1
     else:
         device = torch.device("cpu")
@@ -243,6 +243,11 @@ def run():
     model = load_model(args.model, gpu, args.pretrained_weights)
 
     # ############
+    # Check AMP
+    # ############
+    amp = False  # check AMP -> not implemented
+
+    # ############
     # Log hyperparameters to clearml
     # ############
     task.connect_configuration(model.hyperparams)
@@ -252,7 +257,16 @@ def run():
     if args.verbose:
         summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
-    mini_batch_size = model.hyperparams['batch'] // model.hyperparams['subdivisions']
+    batch_size = model.hyperparams['batch']
+    # ############
+    # Batch size calculation - V0.3.1
+    # ############
+    try:
+        batch_size = check_train_batch_size(model, model.hyperparams['height'], amp)
+    except:
+        batch_size = model.hyperparams['batch']
+
+    mini_batch_size = batch_size // model.hyperparams['subdivisions']
 
     # #################
     # Create Dataloader
