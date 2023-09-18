@@ -357,6 +357,7 @@ def run():
     f1_array = np.array([])
     #ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
+    lr = model.hyperparams['learning_rate']
 
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
@@ -410,6 +411,9 @@ def run():
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
                 optimizer.zero_grad()
+
+            for g in optimizer.param_groups:
+                g['lr'] = lr
             #############################################################################
 
 
