@@ -393,20 +393,23 @@ def run():
                 optimizer.step()
                 with warmup_scheduler.dampening():
                     lr_scheduler.step()
-            #############################################################################
-            # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
-            # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
-            # Backward passes under autocast are not recommended.
-            # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-            scaler.scale(loss).backward()
+            else:
+                #############################################################################
+                # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
+                # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+                # Backward passes under autocast are not recommended.
+                # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+                scaler.scale(loss).backward()
 
-            # scaler.step() first unscales the gradients of the optimizer's assigned params.
-            # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-            # otherwise, optimizer.step() is skipped.
-            scaler.step(optimizer)
+                # scaler.step() first unscales the gradients of the optimizer's assigned params.
+                # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+                # otherwise, optimizer.step() is skipped.
+                scaler.step(optimizer)
 
-            # Updates the scale for next iteration.
-            scaler.update()
+                # Updates the scale for next iteration.
+                scaler.update()
+
+                optimizer.zero_grad()
             #############################################################################
 
 
