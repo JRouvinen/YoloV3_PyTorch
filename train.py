@@ -206,7 +206,7 @@ def run():
             clearml.Task.set_offline(offline_mode=True)
         # Create a new task
         task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-            'matplotlib': False, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
+            'matplotlib': True, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
             'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
             'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
             'megengine': False, 'jsonargparse': True, 'catboost': False})
@@ -467,7 +467,7 @@ def run():
                 ("train/obj_loss", float(loss_components[1])),
                 ("train/class_loss", float(loss_components[2])),
                 ("train/loss", float(loss_components[3])),
-                ("train/loss",("%.17f" % lr).rstrip('0').rstrip('.'))
+
             ]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
