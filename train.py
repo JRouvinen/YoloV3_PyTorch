@@ -9,9 +9,13 @@ import datetime
 import tqdm
 import subprocess as sp
 import torch
+from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import numpy as np
+# Added on V3.0.0
+import clearml
+import configparser
 
 import utils.writer
 from models import load_model
@@ -67,6 +71,7 @@ def get_gpu_memory():
     memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
     return memory_free_values
 
+
 def find_and_del_last_ckpt():
     is_pth_file = False
     list_of_files = os.listdir('checkpoints/')
@@ -80,35 +85,37 @@ def find_and_del_last_ckpt():
             oldest_file = min(full_path, key=os.path.getctime)
     os.remove(oldest_file)
 
+
 def check_folders():
-    pass
-local_path = os. getcwd()
-#Check if logs folder exists
-logs_path_there = os.path.exists(local_path+"/logs/")
-if not logs_path_there:
-    os.mkdir(local_path+"/logs/")
-#Check if checkpoints folder exists
-ckpt_path_there = os.path.exists(local_path+"/checkpoints/")
-if not ckpt_path_there:
-    os.mkdir(local_path+"/checkpoints/")
-#Check if checkpoints/best folder exists
-ckpt_best_path_there = os.path.exists(local_path+"/checkpoints/best/")
-if not ckpt_best_path_there:
-    os.mkdir(local_path+"/checkpoints/best/")
-#Check if output folder exists
-output_path_there = os.path.exists(local_path+"/output/")
-if not output_path_there:
-    os.mkdir(local_path+"/output/")
+    local_path = os.getcwd()
+    # Check if logs folder exists
+    logs_path_there = os.path.exists(local_path + "/logs/")
+    if not logs_path_there:
+        os.mkdir(local_path + "/logs/")
+    # Check if checkpoints folder exists
+    ckpt_path_there = os.path.exists(local_path + "/checkpoints/")
+    if not ckpt_path_there:
+        os.mkdir(local_path + "/checkpoints/")
+    # Check if checkpoints/best folder exists
+    ckpt_best_path_there = os.path.exists(local_path + "/checkpoints/best/")
+    if not ckpt_best_path_there:
+        os.mkdir(local_path + "/checkpoints/best/")
+    # Check if output folder exists
+    output_path_there = os.path.exists(local_path + "/output/")
+    if not output_path_there:
+        os.mkdir(local_path + "/output/")
+
+
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.72"
-    #Check folders
+    ver = "0.3.00"
+    # Check folders
     check_folders()
     # Create new log file
-    f = open("logs/"+date+"log"+".txt", "w")
+    f = open("logs/" + date + "log" + ".txt", "w")
     f.close()
-    log_file_writer("Software version: " + ver, "logs/"+date+"log"+".txt")
-    print_environment_info(ver, "logs/"+date+"log"+".txt")
+    log_file_writer("Software version: " + ver, "logs/" + date + "log" + ".txt")
+    print_environment_info(ver, "logs/" + date + "log" + ".txt")
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                         help="Path to model definition file (.cfg)")
@@ -133,12 +140,13 @@ def run():
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
+    parser.add_argument("--clearml", type=bool, default=True, help="Define if ClearML connection should be used")
     parser.add_argument("--checkpoint_store", type=int, default=5, help="How many checkpoints should be stored")
     parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="How many checkpoints should be stored")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
-    log_file_writer(f"Command line arguments: {args}", "logs/"+date+"log"+".txt")
+    log_file_writer(f"Command line arguments: {args}", "logs/" + date + "log" + ".txt")
 
     if args.seed != -1:
         provide_determinism(args.seed)
@@ -150,11 +158,11 @@ def run():
     os.makedirs("checkpoints", exist_ok=True)
 
     # Create training csv file
-    header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
-    csv_writer(header,args.logdir+"/"+date+"_training_plots.csv")
+    header = ['Epoch', 'Epochs', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
+    csv_writer(header, args.logdir + "/" + date + "_training_plots.csv")
 
     # Create training csv file
-    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS','Fitness']
+    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
 
@@ -170,6 +178,39 @@ def run():
     checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
+    clearml = data_config["clearml"]
+
+    ################
+    # Create ClearML task
+    ################
+    if clearml:
+        # Create a ConfigParser object
+        config = configparser.ConfigParser()
+
+        # Read the config file
+        config.read('/config/clearml.cfg')
+
+        # Access the parameters from the config file
+        proj_name = config.get('clearml', 'proj_name')
+        task_name = config.get('clearml', 'task_name')
+        offline = config.get('clearml', 'offline')
+        if task_name == 'date':
+            task_name = str(date)
+
+        if offline:
+            # Use the set_offline class method before initializing a Task
+            clearml.Task.set_offline(offline_mode=True)
+        # Create a new task
+        task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
+            'matplotlib': True, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
+            'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
+            'hydra': True, 'detect_repository': True, 'tfdefines': True, 'joblib': True,
+            'megengine': True, 'jsonargparse': True, 'catboost': False})
+        # Log model configurations
+        task.connect(args)
+        # Instantiate an OutputModel with a task object argument
+        output_model = clearml.OutputModel(task=task, framework="PyTorch")
+
     # ############
     # GPU memory check and setting TODO: Needs more calculations based on parameters
     # ############
@@ -195,7 +236,13 @@ def run():
     # Create model
     # ############
 
-    model = load_model(args.model, gpu,args.pretrained_weights)
+    model = load_model(args.model, gpu, args.pretrained_weights)
+
+    # ############
+    # Log hyperparameters to clearml
+    # ############
+    task.connect_configuration(model.hyperparams)
+    log_file_writer(f"Model hyperparameters: {model.hyperparams}", "logs/" + date + "log" + ".txt")
 
     # Print model
     if args.verbose:
@@ -244,6 +291,12 @@ def run():
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
     # #################
+    # Create GradScaler - V 3.0.0
+    # #################
+    # Creates a GradScaler once at the beginning of training.
+    scaler = GradScaler()
+
+    # #################
     # Create Logging variables
     # #################
 
@@ -263,11 +316,11 @@ def run():
     ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
 
-
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
-    print(f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
+    print(
+        f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
 
     for epoch in range(1, args.epochs + 1):
 
@@ -275,6 +328,11 @@ def run():
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
+            # Updated on version V3.0.0
+            # Reset gradients
+            optimizer.zero_grad()
+            ###########################
+
             batches_done = len(dataloader) * epoch + batch_i
 
             imgs = imgs.to(device, non_blocking=True)
@@ -282,14 +340,25 @@ def run():
 
             outputs = model(imgs)
 
-            # Updated on version V2.72
-            # Reset gradients
-            optimizer.zero_grad()
-            ###########################
-
             loss, loss_components = compute_loss(outputs, targets, model)
 
-            loss.backward()
+            #############################################################################
+            # Updated on version 3.0.0 - https://pytorch.org/docs/master/notes/amp_examples.html
+            # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+            # Backward passes under autocast are not recommended.
+            # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+            scaler.scale(loss).backward()
+
+            # scaler.step() first unscales the gradients of the optimizer's assigned params.
+            # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+            # otherwise, optimizer.step() is skipped.
+            scaler.step(optimizer)
+
+            # Updates the scale for next iteration.
+            scaler.update()
+            #############################################################################
+
+            #loss.backward()
 
             ###############
             # Run optimizer
@@ -317,7 +386,7 @@ def run():
                 optimizer.step()
                 # Updated on version V2.72
                 # Reset gradients
-                #optimizer.zero_grad()
+                # optimizer.zero_grad()
                 ###########################
             # ############
             # Log progress
@@ -350,10 +419,10 @@ def run():
         # training csv writer
         data = [epoch,
                 args.epochs,
-                float(loss_components[0]), #Iou Loss
-                float(loss_components[1]), #Object Loss
-                float(loss_components[2]), #Class Loss
-                float(loss_components[3]), #Loss
+                float(loss_components[0]),  # Iou Loss
+                float(loss_components[1]),  # Object Loss
+                float(loss_components[2]),  # Class Loss
+                float(loss_components[3]),  # Loss
                 ("%.17f" % lr).rstrip('0').rstrip('.')
                 ]
         csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
@@ -364,7 +433,25 @@ def run():
         cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
         loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
         lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array, args.logdir + "/" + date)
+        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
+                            args.logdir + "/" + date)
+
+        #######################
+        # ClearML logging
+        #######################
+        if clearml:
+            # Log evaluation metrics
+            task.get_logger().report_scalar(title='iou_loss', series='train', value=float(loss_components[0]),
+                                            iteration=batches_done)
+            task.get_logger().report_scalar(title='obj_loss', series='train', value=float(loss_components[1]),
+                                            iteration=batches_done)
+            task.get_logger().report_scalar(title='class_loss', series='train', value=float(loss_components[2]),
+                                            iteration=batches_done)
+            task.get_logger().report_scalar(title='loss', series='train', value=float(loss_components[3]),
+                                            iteration=batches_done)
+            task.get_logger().report_scalar(title='lr', series='train', value=("%.17f" % lr).rstrip('0').rstrip('.'),
+                                            iteration=batches_done)
+
         # #############
         # Save progress
         # #############
@@ -375,7 +462,9 @@ def run():
             if checkpoints_saved == checkpoints_to_keep:
                 find_and_del_last_ckpt()
                 checkpoints_saved -= 1
-            checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
+            #checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
+            # Updated on version 3.0.0 to save only last
+            checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_last.pth"
             print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
@@ -391,7 +480,7 @@ def run():
                 float(loss_components[2]),  # Class Loss
                 float(loss_components[3]),  # Loss
             ]
-            w_train = [0.25, 0.25, 0.25, 0.25]  # weights for [IOU, Class, Object, Loss]
+            w_train = [0.10, 0.35, 0.35, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
             if fi_train > best_training_fitness:
@@ -429,38 +518,49 @@ def run():
                     f1.mean(),
                     ap_class.mean()
                 ]
-                #print("Metrics output: ", metrics_output)
-                #print("Evaluation metrics: ", evaluation_metrics)
+                # print("Metrics output: ", metrics_output)
+                # print("Evaluation metrics: ", evaluation_metrics)
                 # Log the evaluation metrics
                 logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
                 logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
                 logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
                 logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
                 logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
-                #DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
-                #img writer - evaluation
+
+                # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
+                # img writer - evaluation
                 eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
                 precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                 ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
-                #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
+                # img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
 
             if metrics_output is not None:
-                w = [0.0, 0.05, 0.85, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
-                fi = fitness(np.array(evaluation_metrics).reshape(1, -1), w)  # weighted combination of [P, R, mAP@0.5, f1]
+                w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
+                             w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-                print(f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness,4)}) ----")
-                #print("Best fitness: ", best_fitness)
+                print(
+                    f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+                if best_fitness == 0:
+                    best_training_fitness = 0.0
+                # print("Best fitness: ", best_fitness)
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
                     print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                     torch.save(model.state_dict(), checkpoint_path)
                     ############################
-                    #Save best checkpoint evaluation stats - V2.7
+                    # ClearML model update - V 3.0.0
+                    ############################
+                    if clearml:
+                        task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
+
+                    ############################
+                    # Save best checkpoint evaluation stats - V2.7
                     #############################
                     # Open file
                     with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
@@ -471,11 +571,11 @@ def run():
                         f.write(str([["Index", "Class", "AP"]]) + "\n")
                         for i, c in enumerate(ap_class):
                             ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]])+"\n")
-                        #print(AsciiTable(ap_table).table)
-                        #f.write(str(ap_table))
-                        #print(f"---- mAP {AP.mean():.5f} ----")
-                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5))+" ----")
+                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
+                        # print(AsciiTable(ap_table).table)
+                        # f.write(str(ap_table))
+                        # print(f"---- mAP {AP.mean():.5f} ----")
+                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
 
                 data = [epoch,
                         args.epochs,
