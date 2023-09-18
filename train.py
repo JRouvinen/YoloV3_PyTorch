@@ -108,7 +108,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.00"
+    ver = "0.3.0"
     # Check folders
     check_folders()
     # Create new log file
@@ -125,14 +125,14 @@ def run():
     parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--pretrained_weights", type=str,
                         help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
-    parser.add_argument("--checkpoint_interval", type=int, default=10,
+    parser.add_argument("--checkpoint_interval", type=int, default=5,
                         help="Interval of epochs between saving model weights")
-    parser.add_argument("--evaluation_interval", type=int, default=10,
+    parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--auto_evaluation", type=bool, default=True,
                         help="Starts evaluation when best training fitness is reached")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-    parser.add_argument("--iou_thres", type=float, default=0.5,
+    parser.add_argument("--iou_thres", type=float, default=0.3,
                         help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5,
@@ -142,7 +142,7 @@ def run():
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
     parser.add_argument("--clearml", type=bool, default=True, help="Define if ClearML connection should be used")
     parser.add_argument("--checkpoint_store", type=int, default=5, help="How many checkpoints should be stored")
-    parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="How many checkpoints should be stored")
+    parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="Should the best checkpoint be saved")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
@@ -178,26 +178,26 @@ def run():
     checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
-    clearml = data_config["clearml"]
+    clearml_run = args.clearml
 
     ################
     # Create ClearML task
     ################
-    if clearml:
+    if clearml_run:
         # Create a ConfigParser object
         config = configparser.ConfigParser()
 
         # Read the config file
-        config.read('/config/clearml.cfg')
+        config.read(r'config/clearml.cfg')
 
         # Access the parameters from the config file
         proj_name = config.get('clearml', 'proj_name')
         task_name = config.get('clearml', 'task_name')
-        offline = config.get('clearml', 'offline')
+        offline = bool(config.get('clearml', 'offline'))
         if task_name == 'date':
             task_name = str(date)
 
-        if offline:
+        if offline is True:
             # Use the set_offline class method before initializing a Task
             clearml.Task.set_offline(offline_mode=True)
         # Create a new task
@@ -231,6 +231,7 @@ def run():
     else:
         device = torch.device("cpu")
     print(f'Using cuda device - {device}')
+    log_file_writer(f'Using cuda device - {device}', "logs/" + date + "log" + ".txt")
 
     # ############
     # Create model
@@ -439,7 +440,7 @@ def run():
         #######################
         # ClearML logging
         #######################
-        if clearml:
+        if clearml_run:
             # Log evaluation metrics
             task.get_logger().report_scalar(title='iou_loss', series='train', value=float(loss_components[0]),
                                             iteration=batches_done)
@@ -556,7 +557,7 @@ def run():
                     ############################
                     # ClearML model update - V 3.0.0
                     ############################
-                    if clearml:
+                    if clearml_run:
                         task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
 
                     ############################
