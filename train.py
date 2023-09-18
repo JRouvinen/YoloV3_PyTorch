@@ -13,9 +13,12 @@ from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 import torch.optim as optim
 import numpy as np
-# Added on V3.0.0
+# Added on V0.3.0
 import clearml
 import configparser
+
+#Added on V0.3.1
+import utils.pytorch_warmup as warmup
 
 import utils.writer
 from models import load_model
@@ -108,7 +111,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.0"
+    ver = "0.3.1"
     # Check folders
     check_folders()
     # Create new log file
@@ -132,7 +135,7 @@ def run():
     parser.add_argument("--auto_evaluation", type=bool, default=True,
                         help="Starts evaluation when best training fitness is reached")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-    parser.add_argument("--iou_thres", type=float, default=0.3,
+    parser.add_argument("--iou_thres", type=float, default=0.5,
                         help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5,
@@ -193,19 +196,19 @@ def run():
         # Access the parameters from the config file
         proj_name = config.get('clearml', 'proj_name')
         task_name = config.get('clearml', 'task_name')
-        offline = bool(config.get('clearml', 'offline'))
+        offline = config.get('clearml', 'offline')
         if task_name == 'date':
             task_name = str(date)
 
-        if offline is True:
+        if offline == "True":
             # Use the set_offline class method before initializing a Task
             clearml.Task.set_offline(offline_mode=True)
         # Create a new task
         task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-            'matplotlib': True, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
+            'matplotlib': False, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
             'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
-            'hydra': True, 'detect_repository': True, 'tfdefines': True, 'joblib': True,
-            'megengine': True, 'jsonargparse': True, 'catboost': False})
+            'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
+            'megengine': False, 'jsonargparse': True, 'catboost': False})
         # Log model configurations
         task.connect(args)
         # Instantiate an OutputModel with a task object argument
@@ -277,9 +280,10 @@ def run():
     params = [p for p in model.parameters() if p.requires_grad]
 
     if model.hyperparams['optimizer'] in [None, "adam"]:
-        optimizer = optim.Adam(
+        optimizer = optim.AdamW(
             params,
             lr=model.hyperparams['learning_rate'],
+            betas=(0.9, 0.999),
             weight_decay=model.hyperparams['decay'],
         )
     elif model.hyperparams['optimizer'] == "sgd":
@@ -290,6 +294,17 @@ def run():
             momentum=model.hyperparams['momentum'])
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
+
+    # ################
+    # Create lr scheduler for warmup - V 0.3.1
+    # ################
+    num_steps = len(dataloader) * args.epochs
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+
+    num_batches = len(dataloader)  # number of batches
+    warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
+
 
     # #################
     # Create GradScaler - V 3.0.0
@@ -305,7 +320,7 @@ def run():
     iou_loss_array = np.array([])
     obj_loss_array = np.array([])
     cls_loss_array = np.array([])
-    h_loss_array = np.array([])
+    #h_loss_array = np.array([])
     loss_array = np.array([])
     lr_array = np.array([])
     epoch_array = np.array([])
@@ -314,7 +329,7 @@ def run():
     recall_array = np.array([])
     mAP_array = np.array([])
     f1_array = np.array([])
-    ap_cls_array = np.array([])
+    #ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
 
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
@@ -328,8 +343,10 @@ def run():
         print("\n---- Training Model ----")
         model.train()  # Set model to training mode
 
+        integ_batch_num = i + num_batches * epoch  # number integrated batches (since train start)
+
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
-            # Updated on version V3.0.0
+            # Updated on version V0.3.0
             # Reset gradients
             optimizer.zero_grad()
             ###########################
@@ -342,9 +359,19 @@ def run():
             outputs = model(imgs)
 
             loss, loss_components = compute_loss(outputs, targets, model)
-
             #############################################################################
-            # Updated on version 3.0.0 - https://pytorch.org/docs/master/notes/amp_examples.html
+            # Updated on version 0.3.1
+            # https://github.com/Tony-Y/pytorch_warmup
+            #
+            #############################################################################
+            if integ_batch_num <= warmup_num:
+                #xi = [0, warmup_num]  # x interp
+                loss.backward()
+                optimizer.step()
+                with warmup_scheduler.dampening():
+                    lr_scheduler.step()
+            #############################################################################
+            # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
             # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
             # Backward passes under autocast are not recommended.
             # Backward ops run in the same dtype autocast chose for corresponding forward ops.
@@ -359,7 +386,6 @@ def run():
             scaler.update()
             #############################################################################
 
-            #loss.backward()
 
             ###############
             # Run optimizer
@@ -408,7 +434,7 @@ def run():
                 ("train/iou_loss", float(loss_components[0])),
                 ("train/obj_loss", float(loss_components[1])),
                 ("train/class_loss", float(loss_components[2])),
-                ("train/loss", to_cpu(loss).item())]
+                ("train/loss", float(loss_components[3])),]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
@@ -440,6 +466,7 @@ def run():
         #######################
         # ClearML logging
         #######################
+        '''
         if clearml_run:
             # Log evaluation metrics
             task.get_logger().report_scalar(title='iou_loss', series='train', value=float(loss_components[0]),
@@ -452,7 +479,7 @@ def run():
                                             iteration=batches_done)
             task.get_logger().report_scalar(title='lr', series='train', value=("%.17f" % lr).rstrip('0').rstrip('.'),
                                             iteration=batches_done)
-
+        '''
         # #############
         # Save progress
         # #############
@@ -464,7 +491,7 @@ def run():
                 find_and_del_last_ckpt()
                 checkpoints_saved -= 1
             #checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
-            # Updated on version 3.0.0 to save only last
+            # Updated on version 0.3.0 to save only last
             checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_last.pth"
             print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
@@ -526,7 +553,7 @@ def run():
                 logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
                 logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
                 logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
-                logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
+                #logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
 
                 # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                 # img writer - evaluation
@@ -535,7 +562,7 @@ def run():
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
+                #ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
                 # img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
 
             if metrics_output is not None:
@@ -584,11 +611,11 @@ def run():
                         recall.mean(),  # Recall
                         AP.mean(),  # mAP
                         f1.mean(),  # f1
-                        ap_class.mean(),  # AP
+                        #ap_class.mean(),  # AP
                         curr_fitness  # Fitness
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
 
 
