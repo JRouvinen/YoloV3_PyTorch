@@ -301,6 +301,16 @@ def run():
             weight_decay=model.hyperparams['decay'],
         )
     elif model.hyperparams['optimizer'] == "sgd":
+        #TODO: Bug when using sgd optimizer ->
+        '''
+         File "/content/YoloV3_PyTorch/train.py", line 317, in run
+            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+          File "/content/YoloV3_PyTorch/utils/pytorch_warmup/untuned.py", line 26, in __init__
+            warmup_period = [warmup_period_fn(x['betas'][1]) for x in optimizer.param_groups]
+          File "/content/YoloV3_PyTorch/utils/pytorch_warmup/untuned.py", line 26, in <listcomp>
+            warmup_period = [warmup_period_fn(x['betas'][1]) for x in optimizer.param_groups]
+        KeyError: 'betas'
+        '''
         optimizer = optim.SGD(
             params,
             lr=model.hyperparams['learning_rate'],
@@ -357,7 +367,6 @@ def run():
         print("\n---- Training Model ----")
         model.train()  # Set model to training mode
 
-        integ_batch_num = i + num_batches * epoch  # number integrated batches (since train start)
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             # Updated on version V0.3.0
@@ -366,7 +375,7 @@ def run():
             ###########################
 
             batches_done = len(dataloader) * epoch + batch_i
-
+            integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
 
