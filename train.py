@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.2"
+    ver = "0.3.2A"
     # Check folders
     check_folders()
     # Create new log file
@@ -367,7 +367,7 @@ def run():
 
     for epoch in range(1, args.epochs + 1):
 
-        print("\n---- Training Model ----")
+        print("\n- ▶ - Training Model - ▶ -")
         model.train()  # Set model to training mode
 
 
@@ -466,34 +466,36 @@ def run():
                 ("train/iou_loss", float(loss_components[0])),
                 ("train/obj_loss", float(loss_components[1])),
                 ("train/class_loss", float(loss_components[2])),
-                ("train/loss", float(loss_components[3])),]
+                ("train/loss", float(loss_components[3])),
+                ("train/loss",("%.17f" % lr).rstrip('0').rstrip('.'))
+            ]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
 
-            # ############
-            # Log progress writers
-            # ############
-            #
-            # training csv writer
-            data = [epoch,
-                    args.epochs,
-                    float(loss_components[0]),  # Iou Loss
-                    float(loss_components[1]),  # Object Loss
-                    float(loss_components[2]),  # Class Loss
-                    float(loss_components[3]),  # Loss
-                    ("%.17f" % lr).rstrip('0').rstrip('.')
-                    ]
-            csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
-            # img writer
-            epoch_array = np.concatenate((epoch_array, np.array([epoch])))
-            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
-            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
-            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
-            loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
-            lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-            img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
-                                args.logdir + "/" + date)
+        # ############
+        # Log progress writers
+        # ############
+        #
+        # training csv writer
+        data = [epoch,
+                args.epochs,
+                float(loss_components[0]),  # Iou Loss
+                float(loss_components[1]),  # Object Loss
+                float(loss_components[2]),  # Class Loss
+                float(loss_components[3]),  # Loss
+                ("%.17f" % lr).rstrip('0').rstrip('.') # Learning rate
+                ]
+        csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
+        # img writer
+        epoch_array = np.concatenate((epoch_array, np.array([epoch])))
+        iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+        obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+        cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
+        loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
+        lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
+                            args.logdir + "/" + date)
 
         # #############
         # Save progress
@@ -508,7 +510,7 @@ def run():
             #checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
             # Updated on version 0.3.0 to save only last
             checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_last.pth"
-            print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
+            print(f"- ❕ - Saving last checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
 
@@ -516,7 +518,7 @@ def run():
             # #############
             # Training fitness evaluation
             # #############
-            print("\n---- Auto evaluating model on training metrics ----")
+            print("\n- ❕ - Auto evaluating model on training metrics ----")
             training_evaluation_metrics = [
                 float(loss_components[0]),  # Iou Loss
                 float(loss_components[1]),  # Object Loss
@@ -526,21 +528,21 @@ def run():
             w_train = [0.10, 0.35, 0.35, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
-            if fi_train > best_training_fitness:
-                print(f"\n---- Auto evaluation result: New best training fitness {fi_train} ✅ ----")
+            if fi_train > best_training_fitness and epoch > args.evaluation_interval:
+                print(f"\n- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
             else:
-                print(f"\n---- Auto evaluation result: Training fitness {fi_train} ----")
+                print(f"\n- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
 
         # ########
         # Evaluate
         # ########
         # Update best mAP
-        if epoch % args.evaluation_interval == 0 or do_auto_eval is True:
+        if epoch % args.evaluation_interval == 0 and do_auto_eval is True:
             if do_auto_eval is True:
                 do_auto_eval = False
-            print("\n---- Evaluating Model ----")
+            print("\n- 🔁 - Evaluating Model ----")
             # Evaluate the model on the validation set
             metrics_output = _evaluate(
                 model,
@@ -586,12 +588,12 @@ def run():
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(
-                    f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+                    f"- ❕ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
-                    print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
+                    print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  - ⭐ -")
                     torch.save(model.state_dict(), checkpoint_path)
                     ############################
                     # ClearML model update - V 3.0.0
