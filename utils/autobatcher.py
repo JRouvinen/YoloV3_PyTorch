@@ -2,6 +2,7 @@ import time
 from copy import deepcopy
 import torch
 import numpy as np
+import torch.nn as nn
 
 try:
     import thop  # for FLOPs computation
