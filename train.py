@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.1"
+    ver = "0.3.2"
     # Check folders
     check_folders()
     # Create new log file
@@ -263,10 +263,12 @@ def run():
     # ############
     try:
         batch_size = check_train_batch_size(model, model.hyperparams['height'], amp)
+        sub_div = 1
     except:
         batch_size = model.hyperparams['batch']
+        sub_div = model.hyperparams['subdivisions']
 
-    mini_batch_size = batch_size // model.hyperparams['subdivisions']
+    mini_batch_size = batch_size // sub_div
 
     # #################
     # Create Dataloader
@@ -383,9 +385,9 @@ def run():
 
             loss, loss_components = compute_loss(outputs, targets, model)
             #############################################################################
+            # Run warmup
             # Updated on version 0.3.1
             # https://github.com/Tony-Y/pytorch_warmup
-            #
             #############################################################################
             if integ_batch_num <= warmup_num:
                 #xi = [0, warmup_num]  # x interp
@@ -400,23 +402,22 @@ def run():
                 # Backward passes under autocast are not recommended.
                 # Backward ops run in the same dtype autocast chose for corresponding forward ops.
                 scaler.scale(loss).backward()
-
+                scaler.unscale_(optimizer)  # unscale gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 # scaler.step() first unscales the gradients of the optimizer's assigned params.
                 # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
                 # otherwise, optimizer.step() is skipped.
-                scaler.step(optimizer)
-
-                # Updates the scale for next iteration.
+                scaler.step(optimizer)  # optimizer.step
                 scaler.update()
-
                 optimizer.zero_grad()
             #############################################################################
 
 
-            ###############
-            # Run optimizer
-            ###############
+            ######################################
+            # Run optimizer - Old implementation #
+            ######################################
 
+            '''
             if batches_done % model.hyperparams['subdivisions'] == 0:
                 # Adapt learning rate
                 # Get learning rate defined in cfg
@@ -441,6 +442,7 @@ def run():
                 # Reset gradients
                 # optimizer.zero_grad()
                 ###########################
+            '''
             # ############
             # Log progress
             # ############
@@ -465,47 +467,30 @@ def run():
 
             model.seen += imgs.size(0)
 
-        # ############
-        # Log progress writers
-        # ############
-        #
-        # training csv writer
-        data = [epoch,
-                args.epochs,
-                float(loss_components[0]),  # Iou Loss
-                float(loss_components[1]),  # Object Loss
-                float(loss_components[2]),  # Class Loss
-                float(loss_components[3]),  # Loss
-                ("%.17f" % lr).rstrip('0').rstrip('.')
-                ]
-        csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
-        # img writer
-        epoch_array = np.concatenate((epoch_array, np.array([epoch])))
-        iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
-        obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
-        cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
-        loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
-        lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
-                            args.logdir + "/" + date)
+            # ############
+            # Log progress writers
+            # ############
+            #
+            # training csv writer
+            data = [epoch,
+                    args.epochs,
+                    float(loss_components[0]),  # Iou Loss
+                    float(loss_components[1]),  # Object Loss
+                    float(loss_components[2]),  # Class Loss
+                    float(loss_components[3]),  # Loss
+                    ("%.17f" % lr).rstrip('0').rstrip('.')
+                    ]
+            csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
+            # img writer
+            epoch_array = np.concatenate((epoch_array, np.array([epoch])))
+            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
+            loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
+            lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+            img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
+                                args.logdir + "/" + date)
 
-        #######################
-        # ClearML logging
-        #######################
-        '''
-        if clearml_run:
-            # Log evaluation metrics
-            task.get_logger().report_scalar(title='iou_loss', series='train', value=float(loss_components[0]),
-                                            iteration=batches_done)
-            task.get_logger().report_scalar(title='obj_loss', series='train', value=float(loss_components[1]),
-                                            iteration=batches_done)
-            task.get_logger().report_scalar(title='class_loss', series='train', value=float(loss_components[2]),
-                                            iteration=batches_done)
-            task.get_logger().report_scalar(title='loss', series='train', value=float(loss_components[3]),
-                                            iteration=batches_done)
-            task.get_logger().report_scalar(title='lr', series='train', value=("%.17f" % lr).rstrip('0').rstrip('.'),
-                                            iteration=batches_done)
-        '''
         # #############
         # Save progress
         # #############
@@ -538,9 +523,11 @@ def run():
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
             if fi_train > best_training_fitness:
-                print(f"\n---- Auto evaluation result: new best training fitness {fi_train} ----")
+                print(f"\n---- Auto evaluation result: New best training fitness {fi_train} ✅ ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
+            else:
+                print(f"\n---- Auto evaluation result: Training fitness {fi_train} ----")
 
         # ########
         # Evaluate
@@ -572,8 +559,7 @@ def run():
                     f1.mean(),
                     ap_class.mean()
                 ]
-                # print("Metrics output: ", metrics_output)
-                # print("Evaluation metrics: ", evaluation_metrics)
+
                 # Log the evaluation metrics
                 logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
                 logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
@@ -588,8 +574,6 @@ def run():
                 recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                #ap_cls_array = np.concatenate((ap_cls_array, np.array([ap_class.mean()])))
-                # img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array,curr_fitness,eval_epoch_array, args.logdir + "/" + date)
 
             if metrics_output is not None:
                 w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
@@ -599,9 +583,7 @@ def run():
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(
                     f"---- Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
-                if best_fitness == 0:
-                    best_training_fitness = 0.0
-                # print("Best fitness: ", best_fitness)
+
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
@@ -626,9 +608,7 @@ def run():
                         for i, c in enumerate(ap_class):
                             ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
                             f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
-                        # print(AsciiTable(ap_table).table)
-                        # f.write(str(ap_table))
-                        # print(f"---- mAP {AP.mean():.5f} ----")
+
                         f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
 
                 data = [epoch,
@@ -637,7 +617,6 @@ def run():
                         recall.mean(),  # Recall
                         AP.mean(),  # mAP
                         f1.mean(),  # f1
-                        #ap_class.mean(),  # AP
                         curr_fitness  # Fitness
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
