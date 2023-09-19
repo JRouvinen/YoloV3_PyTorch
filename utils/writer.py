@@ -52,7 +52,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename)
     ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    if lr.mean() > 5:
+    if epoch.mean() > 200:
         ax_array[1, 1].set_yscale('log')
     ax_array[1, 1].set_xlabel('Iteration')
 

@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4E"
+    ver = "0.3.4F"
     # Check folders
     check_folders()
     # Create new log file
@@ -309,7 +309,7 @@ def run():
         optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
 
     else:
-        print("Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
+        print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
 
     if model.hyperparams['optimizer'] == "adam":
         # ################
@@ -353,7 +353,7 @@ def run():
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
     print(
-        f"- ❕ - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
+        f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print("\n- 🔛 - Starting Model Training regime ----")
     for epoch in range(1, args.epochs + 1):
 
@@ -675,7 +675,7 @@ def run():
                         # ClearML artifact logger - V0.3.3
                         # ############
                         if clearml_run:
-                            task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table,
+                            task.logger.report_table(title="mAP Metrics", table=ap_table,
                                                      iteration=epoch)
 
                 data = [epoch,
