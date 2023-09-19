@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.3A"
+    ver = "0.3.3B"
     # Check folders
     check_folders()
     # Create new log file
@@ -405,15 +405,21 @@ def run():
                 # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
                 # Backward passes under autocast are not recommended.
                 # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-                scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)  # unscale gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                ##################################
+                # Commented out in Version 0.3.3B
+                #scaler.scale(loss).backward()
+                #scaler.unscale_(optimizer)  # unscale gradients
+                #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 # scaler.step() first unscales the gradients of the optimizer's assigned params.
                 # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
                 # otherwise, optimizer.step() is skipped.
-                scaler.step(optimizer)  # optimizer.step
-                scaler.update()
-                optimizer.zero_grad()
+                #scaler.step(optimizer)  # optimizer.step
+                #scaler.update()
+                #optimizer.zero_grad()
+                ##################################
+                # Added on version 0.3.3B
+                loss.backward()
+                optimizer.step()
 
             lr = optimizer.param_groups[0]['lr']
 
@@ -485,7 +491,7 @@ def run():
                 task.logger.report_scalar(title="Train", series="Class loss", iteration=batch_i, value=float(loss_components[2]))
                 task.logger.report_scalar(title="Train", series="Loss", iteration=batch_i, value=float(loss_components[3]))
                 task.logger.report_scalar(title="Train", series="Batch loss", iteration=batch_i, value=to_cpu(loss).item())
-                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batch_i, value=("%.17f" % lr).rstrip('0').rstrip('.'))
+                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batch_i, value=lr)
 
         # ############
         # Log progress writers
