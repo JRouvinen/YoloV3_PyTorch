@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4C"
+    ver = "0.3.4E"
     # Check folders
     check_folders()
     # Create new log file
