@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.3"
+    ver = "0.3.3A"
     # Check folders
     check_folders()
     # Create new log file
@@ -207,7 +207,7 @@ def run():
             clearml.Task.set_offline(offline_mode=True)
         # Create a new task
         task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-            'matplotlib': False, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
+            'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
             'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
             'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
             'megengine': False, 'jsonargparse': True, 'catboost': False})
@@ -485,7 +485,7 @@ def run():
                 task.logger.report_scalar(title="Train", series="Class loss", iteration=batch_i, value=float(loss_components[2]))
                 task.logger.report_scalar(title="Train", series="Loss", iteration=batch_i, value=float(loss_components[3]))
                 task.logger.report_scalar(title="Train", series="Batch loss", iteration=batch_i, value=to_cpu(loss).item())
-                task.logger.report_scalar(title="Train", series="Learning rate", iteration=batch_i, value=("%.17f" % lr).rstrip('0').rstrip('.'))
+                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batch_i, value=("%.17f" % lr).rstrip('0').rstrip('.'))
 
         # ############
         # Log progress writers
@@ -505,8 +505,7 @@ def run():
         # ClearML table logger - V0.3.3
         # ############
         if clearml_run:
-            task.logger.report_table(title="Training", table=args.logdir + "/" + date + "_training_plots.csv",
-                                     iteration=batch_i)
+            task.logger.report_table("Training", "Plots", iteration=batch_i, url=args.logdir + "/" + date + "_training_plots.csv")
 
         # img writer
         epoch_array = np.concatenate((epoch_array, np.array([epoch])))
@@ -676,7 +675,8 @@ def run():
                 # ClearML table logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_table(title="Evaluation", table=args.logdir + "/" + date + "_evaluation_plots.csv", iteration=batch_i)
+                    task.logger.report_table("Evaluation", "Plots", iteration=batch_i,
+                                         url=args.logdir + "/" + date + "_evaluation_plots.csv")
 
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
