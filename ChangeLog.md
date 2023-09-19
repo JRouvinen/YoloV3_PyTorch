@@ -38,4 +38,7 @@ Documentation: https://pytorch.org/docs/master/notes/amp_examples.html
 
 ### Save only last checkpoint instead of x number latest
 
+### Implementation of RMSprop optimizer
+Documentation: https://github.com/bentrevett/a-tour-of-pytorch-optimizers/blob/main/a-tour-of-pytorch-optimizers.ipynb
+
 # Open issues / bugs:

@@ -183,6 +183,7 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     clearml_run = args.clearml
+    device = torch.device("cpu")
 
     ################
     # Create ClearML task - version 0.3.0
@@ -304,8 +305,11 @@ def run():
             momentum=model.hyperparams['momentum'],
             nesterov=model.hyperparams['nesterov'],
         )
+    elif model.hyperparams['optimizer'] == "rmsprop":
+        optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
+
     else:
-        print("Unknown optimizer. Please choose between (adam, sgd).")
+        print("Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
 
     if model.hyperparams['optimizer'] == "adam":
         # ################
@@ -373,6 +377,9 @@ def run():
             outputs = model(imgs)
 
             loss, loss_components = compute_loss(outputs, targets, model)
+
+
+
             #############################################################################
             # Run warmup
             # Updated on version 0.3.1
