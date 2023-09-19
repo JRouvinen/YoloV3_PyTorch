@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4B"
+    ver = "0.3.4C"
     # Check folders
     check_folders()
     # Create new log file
@@ -568,13 +568,13 @@ def run():
             # ClearML training fitness logger - V0.3.4
             # ############
             if clearml_run:
-                task.logger.report_scalar(title="Training Fitness", series="", iteration=batch_i,
-                                          value=fi_train)
+                task.logger.report_scalar(title="Training", series="Fitness", iteration=batch_i,
+                                          value=float(fi_train[0]))
         # ########
         # Evaluate
         # ########
         # Update best mAP
-        if epoch % args.evaluation_interval == 0 and do_auto_eval is True:
+        if epoch % args.evaluation_interval == 0 or do_auto_eval is True:
             if do_auto_eval is True:
                 do_auto_eval = False
             print("\n- 🔄 - Evaluating Model ----")
@@ -637,7 +637,8 @@ def run():
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(
                     f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
-
+                if curr_fitness == 0:
+                    best_training_fitness = 0.0
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
@@ -653,7 +654,7 @@ def run():
                     # ClearML fitness logger - V0.3.3
                     # ############
                     if clearml_run:
-                        task.logger.report_scalar(title="Ckpt Fitness", series="", iteration=epoch,
+                        task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
                                                   value=curr_fitness)
                     ############################
                     # Save best checkpoint evaluation stats - V2.7
