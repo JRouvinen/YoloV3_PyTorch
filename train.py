@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4F"
+    ver = "0.3.4G"
     # Check folders
     check_folders()
     # Create new log file
@@ -675,8 +675,7 @@ def run():
                         # ClearML artifact logger - V0.3.3
                         # ############
                         if clearml_run:
-                            task.logger.report_table(title="mAP Metrics", table=ap_table,
-                                                     iteration=epoch)
+                            task.upload_artifact(name='Eval_stats', artifact_object='checkpoints/best/eval_stats.txt')
 
                 data = [epoch,
                         args.epochs,
