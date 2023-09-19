@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.2A"
+    ver = "0.3.3"
     # Check folders
     check_folders()
     # Create new log file
@@ -185,7 +185,7 @@ def run():
     clearml_run = args.clearml
 
     ################
-    # Create ClearML task
+    # Create ClearML task - version 0.3.0
     ################
     if clearml_run:
         # Create a ConfigParser object
@@ -206,33 +206,26 @@ def run():
             clearml.Task.set_offline(offline_mode=True)
         # Create a new task
         task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-            'matplotlib': True, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
+            'matplotlib': False, 'tensorflow': True, 'tensorboard': True, 'pytorch': True,
             'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
             'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
             'megengine': False, 'jsonargparse': True, 'catboost': False})
         # Log model configurations
         task.connect(args)
         # Instantiate an OutputModel with a task object argument
-        output_model = clearml.OutputModel(task=task, framework="PyTorch")
+        clearml.OutputModel(task=task, framework="PyTorch")
 
     # ############
     # GPU memory check and setting TODO: Needs more calculations based on parameters
     # ############
+
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # DONE:Needs checkup on available gpu memory
     if gpu >= 0:
         if torch.cuda.is_available() is True:
             device = torch.device("cuda")
-        # clear GPU cache
-        if device == torch.cuda.FloatTensor:
-            torch.cuda.empty_cache()
-            available_gpu_mem = get_gpu_memory()
-            if available_gpu_mem[0] < 5000:
-                print(f'Not enough free GPU memory available [min 6GB] -> switching into cpu')
-                device = torch.device("cpu")
-                gpu = -1
-    else:
-        device = torch.device("cpu")
+        else:
+            device = torch.device("cpu")
     print(f'Using cuda device - {device}')
     log_file_writer(f'Using cuda device - {device}', "logs/" + date + "log" + ".txt")
 
@@ -250,7 +243,8 @@ def run():
     # ############
     # Log hyperparameters to clearml
     # ############
-    task.connect_configuration(model.hyperparams)
+    if clearml_run:
+        task.connect_configuration(model.hyperparams)
     log_file_writer(f"Model hyperparameters: {model.hyperparams}", "logs/" + date + "log" + ".txt")
 
     # Print model
@@ -303,37 +297,31 @@ def run():
             weight_decay=model.hyperparams['decay'],
         )
     elif model.hyperparams['optimizer'] == "sgd":
-        #TODO: Bug when using sgd optimizer ->
-        '''
-         File "/content/YoloV3_PyTorch/train.py", line 317, in run
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-          File "/content/YoloV3_PyTorch/utils/pytorch_warmup/untuned.py", line 26, in __init__
-            warmup_period = [warmup_period_fn(x['betas'][1]) for x in optimizer.param_groups]
-          File "/content/YoloV3_PyTorch/utils/pytorch_warmup/untuned.py", line 26, in <listcomp>
-            warmup_period = [warmup_period_fn(x['betas'][1]) for x in optimizer.param_groups]
-        KeyError: 'betas'
-        '''
         optimizer = optim.SGD(
             params,
             lr=model.hyperparams['learning_rate'],
             weight_decay=model.hyperparams['decay'],
-            momentum=model.hyperparams['momentum'])
+            momentum=model.hyperparams['momentum'],
+            nesterov=model.hyperparams['nesterov'],
+        )
     else:
         print("Unknown optimizer. Please choose between (adam, sgd).")
 
-    # ################
-    # Create lr scheduler for warmup - V 0.3.1
-    # ################
-    num_steps = len(dataloader) * args.epochs
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+    if model.hyperparams['optimizer'] == "adam":
+        # ################
+        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
+        # ################
+        num_steps = len(dataloader) * args.epochs
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+
 
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
 
 
     # #################
-    # Create GradScaler - V 3.0.0
+    # Create GradScaler - V 0.3.0
     # #################
     # Creates a GradScaler once at the beginning of training.
     scaler = GradScaler()
@@ -391,11 +379,19 @@ def run():
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
-                #xi = [0, warmup_num]  # x interp
-                loss.backward()
-                optimizer.step()
-                with warmup_scheduler.dampening():
-                    lr_scheduler.step()
+                if model.hyperparams['optimizer'] == "adam":
+                    loss.backward()
+                    optimizer.step()
+                    with warmup_scheduler.dampening():
+                        lr_scheduler.step()
+                else:
+                    loss.backward()
+                    # Burn in
+                    lr *= (batches_done / model.hyperparams['burn_in'])
+                    for g in optimizer.param_groups:
+                        g['lr'] = lr
+                    optimizer.step()
+
             else:
                 #############################################################################
                 # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
@@ -412,8 +408,8 @@ def run():
                 scaler.update()
                 optimizer.zero_grad()
 
-            for g in optimizer.param_groups:
-                g['lr'] = lr
+            lr = optimizer.param_groups[0]['lr']
+
             #############################################################################
 
 
@@ -473,6 +469,17 @@ def run():
 
             model.seen += imgs.size(0)
 
+            # ############
+            # ClearML progress logger - V0.3.3
+            # ############
+            if clearml_run:
+                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batch_i, value=float(loss_components[0]))
+                task.logger.report_scalar(title="Train", series="Object loss", iteration=batch_i, value=float(loss_components[1]))
+                task.logger.report_scalar(title="Train", series="Class loss", iteration=batch_i, value=float(loss_components[2]))
+                task.logger.report_scalar(title="Train", series="Loss", iteration=batch_i, value=float(loss_components[3]))
+                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batch_i, value=to_cpu(loss).item())
+                task.logger.report_scalar(title="Train", series="Learning rate", iteration=batch_i, value=("%.17f" % lr).rstrip('0').rstrip('.'))
+
         # ############
         # Log progress writers
         # ############
@@ -487,6 +494,13 @@ def run():
                 ("%.17f" % lr).rstrip('0').rstrip('.') # Learning rate
                 ]
         csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
+        # ############
+        # ClearML table logger - V0.3.3
+        # ############
+        if clearml_run:
+            task.logger.report_table(title="Training", table=args.logdir + "/" + date + "_training_plots.csv",
+                                     iteration=batch_i)
+
         # img writer
         epoch_array = np.concatenate((epoch_array, np.array([epoch])))
         iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
@@ -573,6 +587,20 @@ def run():
                 logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
                 #logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
 
+                # ############
+                # ClearML validation logger - V0.3.3
+                # ############
+                if clearml_run:
+                    task.logger.report_scalar(title="Validation", series="Precision", iteration=batch_i,
+                                              value=float(precision.mean()))
+                    task.logger.report_scalar(title="Validation", series="Recall", iteration=batch_i,
+                                              value=float(recall.mean()))
+                    task.logger.report_scalar(title="Validation", series="mAP", iteration=batch_i,
+                                              value=float(AP.mean()))
+                    task.logger.report_scalar(title="Validation", series="F1", iteration=batch_i,
+                                              value=float(f1.mean()))
+
+
                 # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                 # img writer - evaluation
                 eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
@@ -601,6 +629,12 @@ def run():
                     if clearml_run:
                         task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
 
+                    # ############
+                    # ClearML fitness logger - V0.3.3
+                    # ############
+                    if clearml_run:
+                        task.logger.report_scalar(title="Fitness", series="", iteration=batch_i,
+                                              value=curr_fitness)
                     ############################
                     # Save best checkpoint evaluation stats - V2.7
                     #############################
@@ -616,6 +650,11 @@ def run():
                             f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
 
                         f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
+                        # ############
+                        # ClearML artifact logger - V0.3.3
+                        # ############
+                        if clearml_run:
+                            task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table, iteration=batch_i)
 
                 data = [epoch,
                         args.epochs,
@@ -626,6 +665,12 @@ def run():
                         curr_fitness  # Fitness
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
+                # ############
+                # ClearML table logger - V0.3.3
+                # ############
+                if clearml_run:
+                    task.logger.report_table(title="Evaluation", table=args.logdir + "/" + date + "_evaluation_plots.csv", iteration=batch_i)
+
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
 
