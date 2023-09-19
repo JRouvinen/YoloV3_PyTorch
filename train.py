@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4"
+    ver = "0.3.4A"
     # Check folders
     check_folders()
     # Create new log file
@@ -162,10 +162,10 @@ def run():
     os.makedirs("checkpoints", exist_ok=True)
 
     # Create training csv file
-    header = ['Epoch', 'Epochs', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
+    header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
     csv_writer(header, args.logdir + "/" + date + "_training_plots.csv")
 
-    # Create training csv file
+    # Create evaluation csv file
     header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
@@ -353,7 +353,7 @@ def run():
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
     print(
-        f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
+        f"- ❕ - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print("\n- 🔛 - Starting Model Training regime ----")
     for epoch in range(1, args.epochs + 1):
 
@@ -394,12 +394,12 @@ def run():
                     optimizer.step()
 
             else:
-
-                loss.backward()
                 if model.hyperparams['optimizer'] == 'adam':
+                    loss.backward()
                     optimizer.step()
                     lr_scheduler.step()
                 else:
+                    loss.backward()
                     optimizer.step()
                     #############################################################################
                     # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
@@ -501,8 +501,7 @@ def run():
             # ############
             #
             # training csv writer
-            data = [epoch,
-                    args.epochs,
+            data = [batches_done,
                     float(loss_components[0]),  # Iou Loss
                     float(loss_components[1]),  # Object Loss
                     float(loss_components[2]),  # Class Loss
@@ -559,12 +558,18 @@ def run():
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
             if fi_train > best_training_fitness and epoch > args.evaluation_interval:
-                print(f"\n- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
+                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
             else:
-                print(f"\n- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
+                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
 
+            # ############
+            # ClearML training fitness logger - V0.3.4
+            # ############
+            if clearml_run:
+                task.logger.report_scalar(title="Training Fitness", series="", iteration=batch_i,
+                                          value=fi_train)
         # ########
         # Evaluate
         # ########
@@ -648,7 +653,7 @@ def run():
                     # ClearML fitness logger - V0.3.3
                     # ############
                     if clearml_run:
-                        task.logger.report_scalar(title="Fitness", series="", iteration=batch_i,
+                        task.logger.report_scalar(title="Ckpt Fitness", series="", iteration=epoch,
                                                   value=curr_fitness)
                     ############################
                     # Save best checkpoint evaluation stats - V2.7
@@ -670,7 +675,7 @@ def run():
                         # ############
                         if clearml_run:
                             task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table,
-                                                     iteration=batch_i)
+                                                     iteration=epoch)
 
                 data = [epoch,
                         args.epochs,
@@ -685,7 +690,7 @@ def run():
                 # ClearML table logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_table("Evaluation", "Plots", iteration=batch_i,
+                    task.logger.report_table("Evaluation", "Plots", iteration=epoch,
                                              url=args.logdir + "/" + date + "_evaluation_plots.csv")
 
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
