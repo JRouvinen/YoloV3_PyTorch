@@ -2,7 +2,7 @@ import csv
 import matplotlib.pyplot as plt
 import numpy as np
 def csv_writer(data, filename):
-    #header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
+    #header = ['Iterations','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
     #header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1']
     #log_path = filename.replace("checkpoints", "")
     with open(filename, 'a', encoding='UTF8') as f:
@@ -25,25 +25,25 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename)
     ax_array[0, 0].set_ylabel('IoU loss')
     ax_array[0, 0].plot(x, iou_loss, marker = 'o')
     ax_array[0, 0].grid(axis='y', linestyle='-')
-    ax_array[0, 0].set_xlabel('Epoch')
+    ax_array[0, 0].set_xlabel('Iteration')
 
     # Plot for obj loss
     ax_array[0, 1].set_ylabel('Object loss')
     ax_array[0, 1].plot(x, obj_loss, marker = 'o')
     ax_array[0, 1].grid(axis='y', linestyle='-')
-    ax_array[0, 1].set_xlabel('Epoch')
+    ax_array[0, 1].set_xlabel('Iteration')
 
     # Plot for cls loss
     ax_array[0, 2].set_ylabel('Class loss')
     ax_array[0, 2].plot(x, cls_loss, marker = 'o')
     ax_array[0, 2].grid(axis='y', linestyle='-')
-    ax_array[0, 2].set_xlabel('Epoch')
+    ax_array[0, 2].set_xlabel('Iteration')
 
     # Plot for loss
     ax_array[1, 0].set_ylabel('Loss')
     ax_array[1, 0].plot(x, loss, marker = 'o')
     ax_array[1, 0].grid(axis='y', linestyle='-')
-    ax_array[1, 0].set_xlabel('Epoch')
+    ax_array[1, 0].set_xlabel('Iteration')
 
     # Plot for learning rate
     ax_array[1, 1].set_ylabel('Learning rate')
@@ -52,7 +52,9 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename)
     ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    ax_array[1, 1].set_xlabel('Epoch')
+    if epoch.mean() > 200:
+        ax_array[1, 1].set_yscale('log')
+    ax_array[1, 1].set_xlabel('Iteration')
 
 
     fig.savefig(filename+'_training_metrics.png')

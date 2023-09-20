@@ -17,7 +17,7 @@ import numpy as np
 import clearml
 import configparser
 
-#Added on V0.3.1
+# Added on V0.3.1
 import utils.pytorch_warmup as warmup
 
 import utils.writer
@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.3C"
+    ver = "0.3.4H"
     # Check folders
     check_folders()
     # Create new log file
@@ -162,10 +162,10 @@ def run():
     os.makedirs("checkpoints", exist_ok=True)
 
     # Create training csv file
-    header = ['Epoch', 'Epochs', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
+    header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
     csv_writer(header, args.logdir + "/" + date + "_training_plots.csv")
 
-    # Create training csv file
+    # Create evaluation csv file
     header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
     csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
@@ -217,7 +217,7 @@ def run():
         clearml.OutputModel(task=task, framework="PyTorch")
 
     # ############
-    # GPU memory check and setting TODO: Needs more calculations based on parameters
+    # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
     # ############
 
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -309,7 +309,7 @@ def run():
         optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
 
     else:
-        print("Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
+        print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
 
     if model.hyperparams['optimizer'] == "adam":
         # ################
@@ -319,10 +319,8 @@ def run():
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
         warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
-
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
-
 
     # #################
     # Create GradScaler - V 0.3.0
@@ -338,7 +336,7 @@ def run():
     iou_loss_array = np.array([])
     obj_loss_array = np.array([])
     cls_loss_array = np.array([])
-    #h_loss_array = np.array([])
+    batches_array = np.array([])
     loss_array = np.array([])
     lr_array = np.array([])
     epoch_array = np.array([])
@@ -347,21 +345,19 @@ def run():
     recall_array = np.array([])
     mAP_array = np.array([])
     f1_array = np.array([])
-    #ap_cls_array = np.array([])
+    # ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
-    global_iterations = 0
+
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
     print(
-        f"You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir}")
-
+        f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
+    print("\n- 🔛 - Starting Model Training regime ----")
     for epoch in range(1, args.epochs + 1):
 
-        print("\n- ▶ - Training Model - ▶ -")
         model.train()  # Set model to training mode
-
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             # Updated on version V0.3.0
@@ -377,8 +373,6 @@ def run():
             outputs = model(imgs)
 
             loss, loss_components = compute_loss(outputs, targets, model)
-
-
 
             #############################################################################
             # Run warmup
@@ -400,32 +394,35 @@ def run():
                     optimizer.step()
 
             else:
-                #TODO: learning rate scheduler needs to be fixed -> lr freeses after warmup
-                #############################################################################
-                # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
-                # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
-                # Backward passes under autocast are not recommended.
-                # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-                ##################################
-                # Commented out in Version 0.3.3B
-                #scaler.scale(loss).backward()
-                #scaler.unscale_(optimizer)  # unscale gradients
-                #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                # scaler.step() first unscales the gradients of the optimizer's assigned params.
-                # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-                # otherwise, optimizer.step() is skipped.
-                #scaler.step(optimizer)  # optimizer.step
-                #scaler.update()
-                #optimizer.zero_grad()
-                ##################################
-                # Added on version 0.3.3B
-                loss.backward()
-                optimizer.step()
+                if model.hyperparams['optimizer'] == 'adam':
+                    loss.backward()
+                    optimizer.step()
+                    lr_scheduler.step()
+                else:
+                    loss.backward()
+                    optimizer.step()
+                    #############################################################################
+                    # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
+                    # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
+                    # Backward passes under autocast are not recommended.
+                    # Backward ops run in the same dtype autocast chose for corresponding forward ops.
+                    ##################################
+                    # Commented out in Version 0.3.3B
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    #scaler.step() first unscales the gradients of the optimizer's assigned params.
+                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+                    # otherwise, optimizer.step() is skipped.
+                    scaler.step(optimizer)  # optimizer.step
+                    scaler.update()
+                    optimizer.zero_grad()
+                    ##################################
+                    # Added on version 0.3.3B
 
             lr = optimizer.param_groups[0]['lr']
-            global_iterations += 1
-            #############################################################################
 
+            #############################################################################
 
             ######################################
             # Run optimizer - Old implementation #
@@ -487,42 +484,47 @@ def run():
             # ClearML progress logger - V0.3.3
             # ############
             if clearml_run:
-                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batches_done, value=float(loss_components[0]))
-                task.logger.report_scalar(title="Train", series="Object loss", iteration=batches_done, value=float(loss_components[1]))
-                task.logger.report_scalar(title="Train", series="Class loss", iteration=batches_done, value=float(loss_components[2]))
-                task.logger.report_scalar(title="Train", series="Loss", iteration=batches_done, value=float(loss_components[3]))
-                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batches_done, value=to_cpu(loss).item())
+                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batches_done,
+                                          value=float(loss_components[0]))
+                task.logger.report_scalar(title="Train", series="Object loss", iteration=batches_done,
+                                          value=float(loss_components[1]))
+                task.logger.report_scalar(title="Train", series="Class loss", iteration=batches_done,
+                                          value=float(loss_components[2]))
+                task.logger.report_scalar(title="Train", series="Loss", iteration=batches_done,
+                                          value=float(loss_components[3]))
+                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batches_done,
+                                          value=to_cpu(loss).item())
                 task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batches_done, value=lr)
 
-        # ############
-        # Log progress writers
-        # ############
-        #
-        # training csv writer
-        data = [epoch,
-                args.epochs,
-                float(loss_components[0]),  # Iou Loss
-                float(loss_components[1]),  # Object Loss
-                float(loss_components[2]),  # Class Loss
-                float(loss_components[3]),  # Loss
-                ("%.17f" % lr).rstrip('0').rstrip('.') # Learning rate
-                ]
-        csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
-        # ############
-        # ClearML table logger - V0.3.3
-        # ############
-        if clearml_run:
-            task.logger.report_table("Training", "Plots", iteration=batches_done, url=args.logdir + "/" + date + "_training_plots.csv")
+            # ############
+            # Log training progress writers
+            # ############
+            #
+            # training csv writer
+            data = [batches_done,
+                    float(loss_components[0]),  # Iou Loss
+                    float(loss_components[1]),  # Object Loss
+                    float(loss_components[2]),  # Class Loss
+                    float(loss_components[3]),  # Loss
+                    ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
+                    ]
+            csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
+            # ############
+            # ClearML table logger - V0.3.3
+            # ############
+            if clearml_run:
+                task.logger.report_table("Training", "Plots", iteration=batches_done,
+                                         url=args.logdir + "/" + date + "_training_plots.csv")
 
-        # img writer
-        epoch_array = np.concatenate((epoch_array, np.array([epoch])))
-        iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
-        obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
-        cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
-        loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
-        lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-        img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, epoch_array,
-                            args.logdir + "/" + date)
+            # img writer
+            batches_array = np.concatenate((batches_array, np.array([batches_done])))
+            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
+            loss_array = np.concatenate((loss_array, np.array([float(loss_components[3])])))
+            lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+            img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, batches_array,
+                                args.logdir + "/" + date)
 
         # #############
         # Save progress
@@ -534,10 +536,10 @@ def run():
             if checkpoints_saved == checkpoints_to_keep:
                 find_and_del_last_ckpt()
                 checkpoints_saved -= 1
-            #checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
+            # checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
             # Updated on version 0.3.0 to save only last
             checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_last.pth"
-            print(f"- ❕ - Saving last checkpoint to: '{checkpoint_path}' ----")
+            print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
 
@@ -545,7 +547,7 @@ def run():
             # #############
             # Training fitness evaluation
             # #############
-            print("\n- ❕ - Auto evaluating model on training metrics ----")
+            print("\n- 🔄 - Auto evaluating model on training metrics ----")
             training_evaluation_metrics = [
                 float(loss_components[0]),  # Iou Loss
                 float(loss_components[1]),  # Object Loss
@@ -556,20 +558,26 @@ def run():
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
             if fi_train > best_training_fitness and epoch > args.evaluation_interval:
-                print(f"\n- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
+                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
             else:
-                print(f"\n- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
+                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
 
+            # ############
+            # ClearML training fitness logger - V0.3.4
+            # ############
+            if clearml_run:
+                task.logger.report_scalar(title="Training", series="Fitness", iteration=batch_i,
+                                          value=float(fi_train[0]))
         # ########
         # Evaluate
         # ########
         # Update best mAP
-        if epoch % args.evaluation_interval == 0 and do_auto_eval is True:
+        if epoch % args.evaluation_interval == 0 or do_auto_eval is True:
             if do_auto_eval is True:
                 do_auto_eval = False
-            print("\n- 🔁 - Evaluating Model ----")
+            print("\n- 🔄 - Evaluating Model ----")
             # Evaluate the model on the validation set
             metrics_output = _evaluate(
                 model,
@@ -598,21 +606,20 @@ def run():
                 logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
                 logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
                 logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
-                #logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
+                # logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
 
                 # ############
                 # ClearML validation logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_scalar(title="Validation", series="Precision", iteration=epoch,
+                    task.logger.report_scalar(title="Validation", series="Precision", iteration=batch_i,
                                               value=float(precision.mean()))
-                    task.logger.report_scalar(title="Validation", series="Recall", iteration=epoch,
+                    task.logger.report_scalar(title="Validation", series="Recall", iteration=batch_i,
                                               value=float(recall.mean()))
-                    task.logger.report_scalar(title="Validation", series="mAP", iteration=epoch,
+                    task.logger.report_scalar(title="Validation", series="mAP", iteration=batch_i,
                                               value=float(AP.mean()))
-                    task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
+                    task.logger.report_scalar(title="Validation", series="F1", iteration=batch_i,
                                               value=float(f1.mean()))
-
 
                 # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                 # img writer - evaluation
@@ -629,12 +636,13 @@ def run():
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                 print(
-                    f"- ❕ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
-
+                    f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+                if curr_fitness == 0:
+                    best_training_fitness = 0.0
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
-                    print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  - ⭐ -")
+                    print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                     torch.save(model.state_dict(), checkpoint_path)
                     ############################
                     # ClearML model update - V 3.0.0
@@ -646,8 +654,8 @@ def run():
                     # ClearML fitness logger - V0.3.3
                     # ############
                     if clearml_run:
-                        task.logger.report_scalar(title="Fitness", series="", iteration=epoch,
-                                              value=curr_fitness)
+                        task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
+                                                  value=curr_fitness)
                     ############################
                     # Save best checkpoint evaluation stats - V2.7
                     #############################
@@ -666,8 +674,8 @@ def run():
                         # ############
                         # ClearML artifact logger - V0.3.3
                         # ############
-                        if clearml_run:
-                            task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table, iteration=epoch)
+                        #if clearml_run:
+                        #    task.upload_artifact(name='Eval_stats', artifact_object='checkpoints/best/eval_stats.txt')
 
                 data = [epoch,
                         args.epochs,
@@ -683,7 +691,7 @@ def run():
                 # ############
                 if clearml_run:
                     task.logger.report_table("Evaluation", "Plots", iteration=epoch,
-                                         url=args.logdir + "/" + date + "_evaluation_plots.csv")
+                                             url=args.logdir + "/" + date + "_evaluation_plots.csv")
 
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)

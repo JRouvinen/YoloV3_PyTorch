@@ -33,8 +33,8 @@ def profile(input, ops, n=10, device=None):
     results = []
     if not isinstance(device, torch.device):
         device = select_device(device)
-    print(f"{'Params':>12s}{'GFLOPs':>12s}{'GPU_mem (GB)':>14s}{'forward (ms)':>14s}{'backward (ms)':>14s}"
-          f"{'input':>24s}{'output':>24s}")
+    print(f"- 🔃 - {'Params':>12s}{'GFLOPs':>12s}{'GPU_mem (GB)':>14s}{'forward (ms)':>14s}{'backward (ms)':>14s}"
+          f"{'input':>24s}{'output':>24s} ----")
 
     for x in input if isinstance(input, list) else [input]:
         x = x.to(device)
@@ -64,7 +64,7 @@ def profile(input, ops, n=10, device=None):
                 mem = torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0  # (GB)
                 s_in, s_out = (tuple(x.shape) if isinstance(x, torch.Tensor) else 'list' for x in (x, y))  # shapes
                 p = sum(x.numel() for x in m.parameters()) if isinstance(m, nn.Module) else 0  # parameters
-                print(f'{p:12}{flops:12.4g}{mem:>14.3f}{tf:14.4g}{tb:14.4g}{str(s_in):>24s}{str(s_out):>24s}')
+                print(f'---- {p:12}{flops:12.4g}{mem:>14.3f}{tf:14.4g}{tb:14.4g}{str(s_in):>24s}{str(s_out):>24s} ----')
                 results.append([p, flops, mem, tf, tb, s_in, s_out])
             except Exception as e:
                 print(e)
@@ -85,10 +85,10 @@ def autobatch(model, imagesize=640, fraction=0.8, batch_size=16):
     print(f'Computing optimal batch size for --imagesize {imagesize}')
     device = next(model.parameters()).device  # get model device
     if device.type == 'cpu':
-        print(f'CUDA not detected, using default CPU batch-size {batch_size}')
+        print(f'- ⚠️ - CUDA not detected, using default CPU batch-size {batch_size} ----')
         return batch_size
     if torch.backends.cudnn.benchmark:
-        print(f'⚠️ Requires torch.backends.cudnn.benchmark=False, using default batch-size {batch_size}')
+        print(f'- ⚠️ - Requires torch.backends.cudnn.benchmark=False, using default batch-size {batch_size} ----')
         return batch_size
 
     # Inspect CUDA memory
@@ -99,7 +99,7 @@ def autobatch(model, imagesize=640, fraction=0.8, batch_size=16):
     r = torch.cuda.memory_reserved(device) / gb  # GiB reserved
     a = torch.cuda.memory_allocated(device) / gb  # GiB allocated
     f = t - (r + a)  # GiB free
-    print(f'{d} ({properties.name}) {t:.2f}G total, {r:.2f}G reserved, {a:.2f}G allocated, {f:.2f}G free')
+    print(f'- ↩ - {d} ({properties.name}) {t:.2f}G total, {r:.2f}G reserved, {a:.2f}G allocated, {f:.2f}G free ----')
 
     # Profile batch sizes
     batch_sizes = [1, 2, 4, 8, 16]
@@ -119,8 +119,8 @@ def autobatch(model, imagesize=640, fraction=0.8, batch_size=16):
             b = batch_sizes[max(i - 1, 0)]  # select prior safe point
     if b < 1 or b > 1024:  # b outside of safe range
         b = batch_size
-        print(f'WARNING ⚠️ CUDA anomaly detected, recommend restart environment and retry command.')
+        print(f'- WARNING ⚠️ - CUDA anomaly detected, recommend restart environment and retry command. ----')
 
     fraction = (np.polyval(p, b) + r + a) / t  # actual fraction predicted
-    print(f'Using batch-size {b} for {d} {t * fraction:.2f}G/{t:.2f}G ({fraction * 100:.0f}%) ✅')
+    print(f'- ✅ - Using batch-size {b} for {d} {t * fraction:.2f}G/{t:.2f}G ({fraction * 100:.0f}%) ----')
     return b
