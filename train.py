@@ -188,6 +188,13 @@ def run():
     ################
     # Create ClearML task - version 0.3.0
     ################
+    '''
+    This code block checks if the variable clearml_run is true, and if so, reads parameters from a configuration 
+    file named clearml.cfg. It then initializes a ClearML task with the specified project and task names, and sets 
+    the offline mode if specified in the configuration file. The code also disables auto-connecting to certain 
+    frameworks and connects the task to the provided arguments. Finally, it instantiates an OutputModel object 
+    for the PyTorch framework with the newly created task.
+    '''
     if clearml_run:
         # Create a ConfigParser object
         config = configparser.ConfigParser()
@@ -215,7 +222,19 @@ def run():
         task.connect(args)
         # Instantiate an OutputModel with a task object argument
         clearml.OutputModel(task=task, framework="PyTorch")
-
+    '''
+    The code first checks if a GPU is available and assigns the device accordingly. 
+    If a GPU is available, it assigns the device as "cuda", otherwise it assigns it as "cpu". 
+    The device is then printed and logged.
+    The code then loads the model using the specified model file and GPU. 
+    It also checks if Automatic Mixed Precision (AMP) is enabled, but this feature is not implemented.
+    If the code is running with ClearML integration, it logs the model hyperparameters.
+    If the verbose flag is set, it prints a summary of the model.
+    The code then calculates the batch size based on the model's hyperparameters, height, and AMP. 
+    If the calculation fails, it falls back to using the batch size specified in the hyperparameters.
+    Finally, the code sets the mini-batch size by dividing the batch size by the number of subdivisions 
+    specified in the hyperparameters.
+    '''
     # ############
     # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
     # ############
@@ -264,7 +283,23 @@ def run():
         sub_div = model.hyperparams['subdivisions']
 
     mini_batch_size = batch_size // sub_div
-
+    '''
+    The code snippet is creating a dataloader for training and validation data. It first calls the  
+    `_create_data_loader`  function to create the training dataloader, passing the path to the training data, 
+    mini-batch size, model height, number of CPUs, and a flag indicating whether to use multiscale training. 
+    Then, it calls the  `_create_validation_data_loader`  function to create the validation dataloader, 
+    passing the path to the validation data, mini-batch size, model height, and number of CPUs.
+    After creating the dataloaders, the code snippet creates an optimizer for the model. 
+    It checks the optimizer specified in the model's hyperparameters and creates the corresponding optimizer object. 
+    The supported optimizers are Adam, SGD, and RMSprop. If an unknown optimizer is specified, a warning message is printed.
+    If the optimizer is Adam, the code snippet also creates a learning rate scheduler for warmup. 
+    It calculates the total number of steps (number of batches * number of epochs) and passes it to the  
+    `CosineAnnealingLR`  scheduler. It also creates a warmup scheduler using the  `UntunedLinearWarmup`  
+    class from the  `warmup`  module.
+    Finally, the code snippet calculates the number of batches and the number of warmup iterations. 
+    The number of batches is the length of the training dataloader, 
+    and the number of warmup iterations is set to the maximum of 3 epochs or 100 iterations.
+    '''
     # #################
     # Create Dataloader
     # #################
@@ -355,6 +390,29 @@ def run():
     print(
         f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print("\n- 🔛 - Starting Model Training regime ----")
+    '''
+    This code snippet is training a model for a certain number of epochs. 
+    Inside the training loop, the model is set to training mode using  `model.train()` . 
+    Then, for each batch in the dataloader, the gradients are reset using  `optimizer.zero_grad()` .
+    Next, the current batch and epoch numbers are calculated to keep track of the progress. 
+    The input images and targets are moved to the device and the model is used to generate outputs for the images.
+    The loss and its components are computed using the  `compute_loss`  function. 
+    There is a conditional block that handles the warmup phase of the training. 
+    If the number of integrated batches is less than or equal to the warmup number, the model's optimizer is checked. 
+    If it is "adam", the gradients are computed and the optimizer is updated with  `optimizer.step()` . 
+    Additionally, a warmup scheduler is used to adjust the learning rate.
+    If the optimizer is not "adam", the learning rate is adjusted manually based on the number of batches done so far. 
+    The gradients are computed and the optimizer is updated with the adjusted learning rate.
+    After the warmup phase, the same conditional block is executed, but this time the learning rate is 
+    adjusted using a learning rate scheduler.
+    There is an additional conditional block that was added in version 0.3.0. 
+    It uses automatic mixed precision (AMP) training to scale the loss and compute scaled gradients. 
+    This block is commented out in version 0.3.3B.
+    Finally, the learning rate is updated based on the value in the optimizer's parameter groups.
+    Overall, this code snippet performs the training loop for a model, handles warmup, 
+    and optionally uses AMP for mixed precision training.
+    '''
+
     for epoch in range(1, args.epochs + 1):
 
         model.train()  # Set model to training mode
@@ -423,7 +481,20 @@ def run():
             lr = optimizer.param_groups[0]['lr']
 
             #############################################################################
+            '''
+            The code snippet logs the progress of the training process. 
+            It prints the loss values and other metrics to the console if the  `verbose`  flag is set to  `True`. 
+            It also logs these metrics to TensorBoard for visualization.
 
+            The code snippet also logs the learning rate to TensorBoard and uses 
+            the ClearML library to log the loss values and learning rate.
+            
+            The logged metrics include IoU loss, object loss, class loss, total loss, and batch loss. 
+            These metrics provide insights into the performance of the model during training.
+            
+            The code snippet demonstrates good logging practices by providing informative and 
+            organized logs for monitoring and analysis.
+            '''
 
             # ############
             # Log progress
@@ -468,7 +539,17 @@ def run():
                 task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                           value=to_cpu(loss).item())
                 task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
-
+            '''
+            The code snippet shows the training loop for a YOLOv3 object detection model. 
+            It includes the training process, logging of progress, saving of checkpoints, 
+            and auto-evaluation of the model's fitness on training metrics. 
+            The training progress is logged in a CSV file and image files. 
+            Checkpoints are saved every specified number of epochs, and only a limited number of checkpoints are stored. 
+            The model's fitness is evaluated using a weighted sum of the IOU loss, class loss, object loss, and 
+            total loss. If the auto-evaluated fitness is better than the previous best, 
+            it is considered a new best and saved. 
+            The ClearML library is used for logging the training fitness.
+            '''
             # ############
             # Log training progress writers
             # ############
@@ -538,6 +619,23 @@ def run():
             if clearml_run:
                 task.logger.report_scalar(title="Training", series="Fitness", iteration=batch_i,
                                           value=float(fi_train[0]))
+        '''
+        This code snippet is evaluating the performance of a YOLOv3 model on the validation set. 
+        It starts by checking if it's time to perform an evaluation based on the specified evaluation interval or 
+        if an auto evaluation is triggered. 
+
+        During the evaluation, the model is passed to the  `_evaluate`  function along with the validation dataloader, 
+        class names, and other parameters. The function calculates various metrics such as precision, recall, 
+        average precision (AP), and F1 score. These metrics are then logged and displayed. 
+        Additionally, the best mean average precision (mAP) is updated if the current fitness (weighted combination of 
+        precision, recall, mAP, and F1 score) is better than the previous best fitness. 
+        
+        If the current fitness is better than the previous best fitness, the model's state dictionary is saved as a checkpoint. 
+        The evaluation metrics and class-wise APs are also saved in a text file. 
+        
+        Finally, the evaluation metrics and fitness values are stored in arrays for plotting purposes. 
+        These arrays are then saved as CSV and image files for visualization.
+        '''
         # ########
         # Evaluate
         # ########
