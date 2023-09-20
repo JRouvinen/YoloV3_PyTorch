@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.5B"
+    ver = "0.3.5C"
     # Check folders
     check_folders()
     # Create new log file
@@ -330,7 +330,7 @@ def run():
     # ################
     # Create optimizer
     # ################
-
+    '''
     params = [p for p in model.parameters() if p.requires_grad]
 
     if model.hyperparams['optimizer'] in [None, "adam"]:
@@ -361,7 +361,7 @@ def run():
         num_steps = len(dataloader) * args.epochs
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
         warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-
+    '''
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
 
@@ -372,8 +372,15 @@ def run():
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
     model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
-    optimizer = smart_optimizer(model, model.hyperparams['optimizer'], model.hyperparams['lr0'], model.hyperparams['momentum'], model.hyperparams['decay'])
+    optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
 
+    if model.hyperparams['optimizer'] == "adam":
+        # ################
+        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
+        # ################
+        num_steps = len(dataloader) * args.epochs
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
     # #################
     # Create GradScaler - V 0.3.0
