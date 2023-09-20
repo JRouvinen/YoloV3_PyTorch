@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.5"
+    ver = "0.3.5A"
     # Check folders
     check_folders()
     # Create new log file
@@ -213,16 +213,17 @@ def run():
         if offline == "True":
             # Use the set_offline class method before initializing a Task
             clearml.Task.set_offline(offline_mode=True)
-        # Create a new task
-        task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-            'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
-            'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
-            'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
-            'megengine': False, 'jsonargparse': True, 'catboost': False})
-        # Log model configurations
-        task.connect(args)
-        # Instantiate an OutputModel with a task object argument
-        clearml.OutputModel(task=task, framework="PyTorch")
+        if clearml_run:
+            # Create a new task
+            task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
+                'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
+                'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
+                'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
+                'megengine': False, 'jsonargparse': True, 'catboost': False})
+            # Log model configurations
+            task.connect(args)
+            # Instantiate an OutputModel with a task object argument
+            clearml.OutputModel(task=task, framework="PyTorch")
     '''
     The code first checks if a GPU is available and assigns the device accordingly. 
     If a GPU is available, it assigns the device as "cuda", otherwise it assigns it as "cpu". 
