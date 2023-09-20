@@ -132,7 +132,6 @@ def run():
                         help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
     parser.add_argument("--checkpoint_interval", type=int, default=5,
                         help="Interval of epochs between saving model weights")
-    parser.add_argument("-cl","--clearml", type=bool, default=True, help="Define if ClearML connection should be used")
     parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--auto_evaluation", type=bool, default=True,
@@ -205,7 +204,7 @@ def run():
     task_name = config.get('clearml', 'task_name')
     offline = config.get('clearml', 'offline')
     clearml_run = bool(config.get('clearml', 'clearml_run'))
-
+    print('clearml_run',clearml_run)
     if clearml_run:
         if task_name == 'date':
             task_name = str(date)
