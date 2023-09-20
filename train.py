@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.5A"
+    ver = "0.3.5B"
     # Check folders
     check_folders()
     # Create new log file
@@ -204,6 +204,7 @@ def run():
     task_name = config.get('clearml', 'task_name')
     offline = config.get('clearml', 'offline')
     clearml_run = bool(config.get('clearml', 'clearml_run'))
+    print(config.get('clearml', 'clearml_run'))
     print('clearml_run',clearml_run)
     if clearml_run:
         if task_name == 'date':
