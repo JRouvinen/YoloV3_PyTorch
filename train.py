@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4H"
+    ver = "0.3.4I"
     # Check folders
     check_folders()
     # Create new log file
@@ -424,36 +424,7 @@ def run():
 
             #############################################################################
 
-            ######################################
-            # Run optimizer - Old implementation #
-            ######################################
 
-            '''
-            if batches_done % model.hyperparams['subdivisions'] == 0:
-                # Adapt learning rate
-                # Get learning rate defined in cfg
-                lr = model.hyperparams['learning_rate']
-                if batches_done < model.hyperparams['burn_in']:
-                    # Burn in
-                    lr *= (batches_done / model.hyperparams['burn_in'])
-                else:
-                    # Set and parse the learning rate to the steps defined in the cfg
-                    for threshold, value in model.hyperparams['lr_steps']:
-                        if batches_done > threshold:
-                            lr *= value
-                # Log the learning rate
-                logger.scalar_summary("train/learning_rate", lr, batches_done)
-                # Set learning rate
-                for g in optimizer.param_groups:
-                    g['lr'] = lr
-
-                # Run optimizer
-                optimizer.step()
-                # Updated on version V2.72
-                # Reset gradients
-                # optimizer.zero_grad()
-                ###########################
-            '''
             # ############
             # Log progress
             # ############
@@ -477,6 +448,8 @@ def run():
 
             ]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
+            #Tensorflow logger - learning rate V0.3.4I
+            logger.scalar_summary("train/learning rate", lr, batches_done)
 
             model.seen += imgs.size(0)
 
@@ -484,17 +457,17 @@ def run():
             # ClearML progress logger - V0.3.3
             # ############
             if clearml_run:
-                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batches_done,
+                task.logger.report_scalar(title="Train/Losses", series="IoU loss", iteration=batches_done,
                                           value=float(loss_components[0]))
-                task.logger.report_scalar(title="Train", series="Object loss", iteration=batches_done,
+                task.logger.report_scalar(title="Train/Losses", series="Object loss", iteration=batches_done,
                                           value=float(loss_components[1]))
-                task.logger.report_scalar(title="Train", series="Class loss", iteration=batches_done,
+                task.logger.report_scalar(title="Train/Losses", series="Class loss", iteration=batches_done,
                                           value=float(loss_components[2]))
-                task.logger.report_scalar(title="Train", series="Loss", iteration=batches_done,
+                task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
                                           value=float(loss_components[3]))
-                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batches_done,
+                task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                           value=to_cpu(loss).item())
-                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batches_done, value=lr)
+                task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
 
             # ############
             # Log training progress writers
@@ -509,12 +482,7 @@ def run():
                     ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
                     ]
             csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
-            # ############
-            # ClearML table logger - V0.3.3
-            # ############
-            if clearml_run:
-                task.logger.report_table("Training", "Plots", iteration=batches_done,
-                                         url=args.logdir + "/" + date + "_training_plots.csv")
+
 
             # img writer
             batches_array = np.concatenate((batches_array, np.array([batches_done])))
@@ -671,11 +639,7 @@ def run():
                             f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
 
                         f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
-                        # ############
-                        # ClearML artifact logger - V0.3.3
-                        # ############
-                        #if clearml_run:
-                        #    task.upload_artifact(name='Eval_stats', artifact_object='checkpoints/best/eval_stats.txt')
+
 
                 data = [epoch,
                         args.epochs,
@@ -686,12 +650,6 @@ def run():
                         curr_fitness  # Fitness
                         ]
                 csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
-                # ############
-                # ClearML table logger - V0.3.3
-                # ############
-                if clearml_run:
-                    task.logger.report_table("Evaluation", "Plots", iteration=epoch,
-                                             url=args.logdir + "/" + date + "_evaluation_plots.csv")
 
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
