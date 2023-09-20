@@ -132,6 +132,7 @@ def run():
                         help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
     parser.add_argument("--checkpoint_interval", type=int, default=5,
                         help="Interval of epochs between saving model weights")
+    parser.add_argument("-cl","--clearml", type=bool, default=True, help="Define if ClearML connection should be used")
     parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--auto_evaluation", type=bool, default=True,
@@ -145,7 +146,6 @@ def run():
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-    parser.add_argument("--clearml", type=bool, default=True, help="Define if ClearML connection should be used")
     parser.add_argument("--checkpoint_store", type=int, default=5, help="How many checkpoints should be stored")
     parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="Should the best checkpoint be saved")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
@@ -183,7 +183,7 @@ def run():
     checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
-    clearml_run = args.clearml
+    clearml_run = bool(args.clearml)
     device = torch.device("cpu")
 
     ################
@@ -213,7 +213,7 @@ def run():
         if offline == "True":
             # Use the set_offline class method before initializing a Task
             clearml.Task.set_offline(offline_mode=True)
-        if clearml_run:
+        if clearml_run is True:
             # Create a new task
             task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
                 'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
