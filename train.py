@@ -24,6 +24,7 @@ import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
+from utils.smart_optimizer import smart_optimizer
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
@@ -112,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.4I"
+    ver = "0.3.5"
     # Check folders
     check_folders()
     # Create new log file
@@ -256,6 +257,11 @@ def run():
     model = load_model(args.model, gpu, args.pretrained_weights)
 
     # ############
+    # Freeze model layers
+    # ############
+    # -- Not implemented --
+
+    # ############
     # Check AMP
     # ############
     amp = False  # check AMP -> not implemented
@@ -356,6 +362,16 @@ def run():
 
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
+
+    # ################
+    # Create smart optimizer - V 0.3.5
+    # ################
+    # Optimizer
+    nbs = 64  # nominal batch size
+    accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
+    model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
+    optimizer = smart_optimizer(model, model.hyperparams['optimizer'], model.hyperparams['lr0'], model.hyperparams['momentum'], model.hyperparams['decay'])
+
 
     # #################
     # Create GradScaler - V 0.3.0
