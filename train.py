@@ -204,7 +204,7 @@ def run():
     proj_name = config.get('clearml', 'proj_name')
     task_name = config.get('clearml', 'task_name')
     offline = config.get('clearml', 'offline')
-    clearml_run = config.get('clearml', 'clearml_run')
+    clearml_run = bool(config.get('clearml', 'clearml_run'))
 
     if clearml_run:
         if task_name == 'date':
