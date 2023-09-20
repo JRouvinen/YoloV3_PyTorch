@@ -112,7 +112,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.3B"
+    ver = "0.3.3C"
     # Check folders
     check_folders()
     # Create new log file
@@ -350,7 +350,7 @@ def run():
     #ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
-
+    global_iterations = 0
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -400,6 +400,7 @@ def run():
                     optimizer.step()
 
             else:
+                #TODO: learning rate scheduler needs to be fixed -> lr freeses after warmup
                 #############################################################################
                 # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
                 # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
@@ -422,7 +423,7 @@ def run():
                 optimizer.step()
 
             lr = optimizer.param_groups[0]['lr']
-
+            global_iterations += 1
             #############################################################################
 
 
@@ -486,12 +487,12 @@ def run():
             # ClearML progress logger - V0.3.3
             # ############
             if clearml_run:
-                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batch_i, value=float(loss_components[0]))
-                task.logger.report_scalar(title="Train", series="Object loss", iteration=batch_i, value=float(loss_components[1]))
-                task.logger.report_scalar(title="Train", series="Class loss", iteration=batch_i, value=float(loss_components[2]))
-                task.logger.report_scalar(title="Train", series="Loss", iteration=batch_i, value=float(loss_components[3]))
-                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batch_i, value=to_cpu(loss).item())
-                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batch_i, value=lr)
+                task.logger.report_scalar(title="Train", series="IoU loss", iteration=batches_done, value=float(loss_components[0]))
+                task.logger.report_scalar(title="Train", series="Object loss", iteration=batches_done, value=float(loss_components[1]))
+                task.logger.report_scalar(title="Train", series="Class loss", iteration=batches_done, value=float(loss_components[2]))
+                task.logger.report_scalar(title="Train", series="Loss", iteration=batches_done, value=float(loss_components[3]))
+                task.logger.report_scalar(title="Train", series="Batch loss", iteration=batches_done, value=to_cpu(loss).item())
+                task.logger.report_scalar(title="Learning rate", series="Lr", iteration=batches_done, value=lr)
 
         # ############
         # Log progress writers
@@ -511,7 +512,7 @@ def run():
         # ClearML table logger - V0.3.3
         # ############
         if clearml_run:
-            task.logger.report_table("Training", "Plots", iteration=batch_i, url=args.logdir + "/" + date + "_training_plots.csv")
+            task.logger.report_table("Training", "Plots", iteration=batches_done, url=args.logdir + "/" + date + "_training_plots.csv")
 
         # img writer
         epoch_array = np.concatenate((epoch_array, np.array([epoch])))
@@ -603,13 +604,13 @@ def run():
                 # ClearML validation logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_scalar(title="Validation", series="Precision", iteration=batch_i,
+                    task.logger.report_scalar(title="Validation", series="Precision", iteration=epoch,
                                               value=float(precision.mean()))
-                    task.logger.report_scalar(title="Validation", series="Recall", iteration=batch_i,
+                    task.logger.report_scalar(title="Validation", series="Recall", iteration=epoch,
                                               value=float(recall.mean()))
-                    task.logger.report_scalar(title="Validation", series="mAP", iteration=batch_i,
+                    task.logger.report_scalar(title="Validation", series="mAP", iteration=epoch,
                                               value=float(AP.mean()))
-                    task.logger.report_scalar(title="Validation", series="F1", iteration=batch_i,
+                    task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
                                               value=float(f1.mean()))
 
 
@@ -645,7 +646,7 @@ def run():
                     # ClearML fitness logger - V0.3.3
                     # ############
                     if clearml_run:
-                        task.logger.report_scalar(title="Fitness", series="", iteration=batch_i,
+                        task.logger.report_scalar(title="Fitness", series="", iteration=epoch,
                                               value=curr_fitness)
                     ############################
                     # Save best checkpoint evaluation stats - V2.7
@@ -666,7 +667,7 @@ def run():
                         # ClearML artifact logger - V0.3.3
                         # ############
                         if clearml_run:
-                            task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table, iteration=batch_i)
+                            task.logger.report_table(title="mAP Metrics", table=AsciiTable(data).table, iteration=epoch)
 
                 data = [epoch,
                         args.epochs,
@@ -681,7 +682,7 @@ def run():
                 # ClearML table logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_table("Evaluation", "Plots", iteration=batch_i,
+                    task.logger.report_table("Evaluation", "Plots", iteration=epoch,
                                          url=args.logdir + "/" + date + "_evaluation_plots.csv")
 
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,

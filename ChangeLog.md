@@ -42,3 +42,5 @@ Documentation: https://pytorch.org/docs/master/notes/amp_examples.html
 Documentation: https://github.com/bentrevett/a-tour-of-pytorch-optimizers/blob/main/a-tour-of-pytorch-optimizers.ipynb
 
 # Open issues / bugs:
+1. rmsprop optimizer zeroes learning rate too fast
+2. adam optimizer -> after warmup learning rate freezes 
