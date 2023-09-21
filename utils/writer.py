@@ -11,7 +11,7 @@ def csv_writer(data, filename):
         table_writer.writerow(data)
     f.close()
 
-def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename):
+def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, iteration, filename):
     #header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']    # img_writer_data = global_step,x_loss,y_loss,w_loss,h_loss,conf_loss,cls_loss,loss,recall,precision
     #log_path = filename.replace("checkpoints", "")
     # Placing the plots in the plane
@@ -19,7 +19,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename)
     #fig.set_dpi(1240)
     ax_array = fig.subplots(2, 3, squeeze=False)
     # Using Numpy to create an array x
-    x = epoch
+    x = iteration
 
     # Plot for iou loss
     ax_array[0, 0].set_ylabel('IoU loss')
@@ -52,7 +52,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, epoch, filename)
     ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    if epoch.mean() > 200:
+    if iteration.mean() > 1000:
         ax_array[1, 1].set_yscale('log')
     ax_array[1, 1].set_xlabel('Iteration')
 
