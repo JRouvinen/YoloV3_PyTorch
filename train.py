@@ -112,8 +112,8 @@ def check_folders():
 
 
 def run():
-    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.8B"
+    date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    ver = "0.3.8C"
     # Check folders
     check_folders()
     # Create new log file
@@ -172,7 +172,7 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
-    date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    #date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     epoch_start = ""
     epoch_end = ""
     exec_time = 0
@@ -451,8 +451,8 @@ def run():
 
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
-        if epoch > 0:
-            print(f'Estimated execution time: {(exec_time*args.epochs)/3600} hours')
+        if epoch > 1:
+            print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
