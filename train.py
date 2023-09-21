@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.8"
+    ver = "0.3.8A"
     # Check folders
     check_folders()
     # Create new log file
@@ -166,7 +166,7 @@ def run():
         model_name = model_name + '_' + str(date)
 
     gpu = args.gpu
-    auto_eval = args.auto_evaluation
+    auto_eval = True
     best_training_fitness = 0.0
     best_fitness = 0.0
     checkpoints_saved = 0
