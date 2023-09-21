@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.6B"
+    ver = "0.3.7"
     # Check folders
     check_folders()
     # Create new log file
@@ -593,14 +593,15 @@ def run():
             # ############
             # ClearML csv reporter logger - V0.3.6
             # ############
-            # Report table - CSV from path
-            csv_url = args.logdir + "/" + date + "_training_plots.csv"
-            task.logger.report_table(
-                "Evaluation plots",
-                "remote csv",
-                iteration=batches_done,
-                url=csv_url
-            )
+            if clearml_run:
+                # Report table - CSV from path
+                csv_url = args.logdir + "/" + date + "_training_plots.csv"
+                task.logger.report_table(
+                    "Training plots",
+                    "training_plots.csv",
+                    iteration=batches_done,
+                    url=csv_url
+                )
 
             # img writer
             batches_array = np.concatenate((batches_array, np.array([batches_done])))
@@ -732,6 +733,13 @@ def run():
             print(
                 f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
+            if clearml_run:
+                # ############
+                # ClearML fitness logger - V0.3.3
+                # ############
+                if clearml_run:
+                    task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
+                                              value=curr_fitness)
             # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
             # img writer - evaluation
             eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
@@ -742,14 +750,6 @@ def run():
             img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                   curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
 
-        # Update best mAP
-        if epoch % args.evaluation_interval == 0 or do_auto_eval is True and metrics_output is not None:
-            if do_auto_eval is True:
-                do_auto_eval = False
-
-            # Update best fitness
-            if curr_fitness == 0:
-                best_training_fitness = 0.0
             if curr_fitness > best_fitness:
                 best_fitness = curr_fitness
                 checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
@@ -761,12 +761,7 @@ def run():
                 if clearml_run:
                     task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
 
-                # ############
-                # ClearML fitness logger - V0.3.3
-                # ############
-                if clearml_run:
-                    task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
-                                              value=curr_fitness)
+
                 ############################
                 # Save best checkpoint evaluation stats - V2.7
                 #############################
@@ -796,17 +791,15 @@ def run():
             # ############
             # ClearML csv reporter logger - V0.3.6
             # ############
-            # Report table - CSV from path
-            csv_url = args.logdir + "/" + date + "_evaluation_plots.csv"
-            task.logger.report_table(
-                "Evaluation plots",
-                "remote csv",
-                iteration=epoch,
-                url=csv_url
-            )
-
-
-
+            if clearml_run:
+                # Report table - CSV from path
+                csv_url = args.logdir + "/" + date + "_evaluation_plots.csv"
+                task.logger.report_table(
+                    "Evaluation plots",
+                    "evaluation_plots.csv",
+                    iteration=epoch,
+                    url=csv_url
+                )
 
 if __name__ == "__main__":
     run()
