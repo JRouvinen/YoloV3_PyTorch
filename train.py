@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.7"
+    ver = "0.3.8"
     # Check folders
     check_folders()
     # Create new log file
@@ -134,8 +134,6 @@ def run():
                         help="Interval of epochs between saving model weights")
     parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
-    parser.add_argument("--auto_evaluation", type=bool, default=True,
-                        help="Starts evaluation when best training fitness is reached")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
     parser.add_argument("--iou_thres", type=float, default=0.5,
                         help="Evaluation: IOU threshold required to qualify as detected")
@@ -145,7 +143,6 @@ def run():
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-    parser.add_argument("--checkpoint_store", type=int, default=5, help="How many checkpoints should be stored")
     parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="Should the best checkpoint be saved")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
@@ -157,19 +154,6 @@ def run():
 
     logger = Logger(args.logdir)  # Tensorboard logger
 
-    # Create output directories if missing
-    os.makedirs("output", exist_ok=True)
-    os.makedirs("checkpoints", exist_ok=True)
-
-    # Create training csv file
-    header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
-    csv_writer(header, args.logdir + "/" + date + "_training_plots.csv")
-
-    # Create evaluation csv file
-    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
-    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    csv_writer(header, args.logdir + "/" + date + "_evaluation_plots.csv")
-
     # Get data configuration
     data_config = parse_data_config(args.data)
     train_path = data_config["train"]
@@ -179,17 +163,35 @@ def run():
     if model_name == '':
         model_name = str(date)
     else:
-        model_name = model_name+'_'+str(date)
+        model_name = model_name + '_' + str(date)
 
     gpu = args.gpu
     auto_eval = args.auto_evaluation
     best_training_fitness = 0.0
-    do_auto_eval = False
-    checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
+    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
 
+    # Create output directories if missing
+    #os.makedirs("output", exist_ok=True)
+    #os.makedirs("checkpoints", exist_ok=True)
+
+    ################
+    # Create CSV files - version 0.3.8
+    ################
+
+    # Create training csv file
+    header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
+    csv_writer(header, args.logdir + "/" + model_name + "_training_plots.csv")
+
+    # Create evaluation csv file
+    header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
+    csv_writer(header, args.logdir + "/" + model_name + "_evaluation_plots.csv")
+
+    # Create validation csv file
+    header = ['Index', 'Class', 'AP']
+    csv_writer(header, f"checkpoints/best/{model_name}_eval_stats.csv")
 
     ################
     # Create ClearML task - version 0.3.0
@@ -208,9 +210,8 @@ def run():
     config.read(r'config/clearml.cfg')
     # Access the parameters from the config file
     proj_name = config.get('clearml', 'proj_name')
-    task_name = config.get('clearml', 'task_name')
+    #task_name = config.get('clearml', 'task_name')
     offline = config.get('clearml', 'offline')
-    #clearml_run = bool(config.get('clearml', 'clearml_run'))
     if config.get('clearml', 'clearml_run') == "True":
         clearml_run = True
     else:
@@ -767,9 +768,9 @@ def run():
                 if clearml_run:
                     task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
 
-
+                '''
                 ############################
-                # Save best checkpoint evaluation stats - V2.7
+                # Save best checkpoint evaluation stats - V2.7 => Depricated in V0.3.8
                 #############################
                 # Open file
                 with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
@@ -780,10 +781,54 @@ def run():
                     f.write(str([["Index", "Class", "AP"]]) + "\n")
                     for i, c in enumerate(ap_class):
                         ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                        data = [c, # Class index
+                                class_names[c],  # Class name
+                                "%.5f" % AP[i],  # Class AP
+                                ]
+
+                        csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
+
                         f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
 
                     f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
+                '''
+                ############################
+                # Save best checkpoint evaluation stats into csv - V0.3.8
+                #############################
 
+                precision, recall, AP, f1, ap_class = metrics_output
+                # Gets class AP and mean AP
+                for i, c in enumerate(ap_class):
+                    data = [c,  # Class index
+                            class_names[c],  # Class name
+                            "%.5f" % AP[i],  # Class AP
+                            ]
+
+                    csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv")
+
+                #Write mAP value as last line
+                data = ["--",  #
+                        'mAP',  #
+                        str(round(AP.mean(), 5)),
+                        ]
+                csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv")
+
+                # ############
+                # ClearML csv reporter logger - V0.3.8
+                # ############
+                if clearml_run:
+                    # Report table - CSV from path
+                    csv_url = f"checkpoints/best/{model_name}_eval_stats.csv"
+                    task.logger.report_table(
+                        "Model evaluation stats",
+                        f"{model_name}_eval_stats.csv",
+                        iteration=epoch,
+                        url=csv_url
+                    )
+
+            ############################
+            # Model evaluation plots logging
+            #############################
 
             data = [epoch,
                     args.epochs,
