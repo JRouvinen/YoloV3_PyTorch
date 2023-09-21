@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.6"
+    ver = "0.3.6A"
     # Check folders
     check_folders()
     # Create new log file
@@ -595,7 +595,7 @@ def run():
             # ############
             # Report table - CSV from path
             csv_url = args.logdir + "/" + date + "_training_plots.csv"
-            task.logger().report_table(
+            task.logger.report_table(
                 "Evaluation plots",
                 "remote csv",
                 iteration=batches_done,
@@ -794,7 +794,7 @@ def run():
             # ############
             # Report table - CSV from path
             csv_url = args.logdir + "/" + date + "_evaluation_plots.csv"
-            task.logger().report_table(
+            task.logger.report_table(
                 "Evaluation plots",
                 "remote csv",
                 iteration=epoch,
