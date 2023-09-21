@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.5C"
+    ver = "0.3.6"
     # Check folders
     check_folders()
     # Create new log file
@@ -330,7 +330,7 @@ def run():
     # ################
     # Create optimizer
     # ################
-    '''
+
     params = [p for p in model.parameters() if p.requires_grad]
 
     if model.hyperparams['optimizer'] in [None, "adam"]:
@@ -361,19 +361,20 @@ def run():
         num_steps = len(dataloader) * args.epochs
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
         warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-    '''
+
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
-
+    #TODO: Smart optimizer doesn't seem to work correctly
+    '''
     # ################
-    # Create smart optimizer - V 0.3.5
+    # Create smart optimizer - V 0.3.5 
     # ################
     # Optimizer
     nbs = 64  # nominal batch size
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
     model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
     optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-
+    '''
     if model.hyperparams['optimizer'] == "adam":
         # ################
         # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
@@ -589,6 +590,17 @@ def run():
                     ]
             csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
 
+            # ############
+            # ClearML csv reporter logger - V0.3.6
+            # ############
+            # Report table - CSV from path
+            csv_url = args.logdir + "/" + date + "_training_plots.csv"
+            task.logger().report_table(
+                "Evaluation plots",
+                "remote csv",
+                iteration=batches_done,
+                url=csv_url
+            )
 
             # img writer
             batches_array = np.concatenate((batches_array, np.array([batches_done])))
@@ -642,7 +654,7 @@ def run():
             # ClearML training fitness logger - V0.3.4
             # ############
             if clearml_run:
-                task.logger.report_scalar(title="Training", series="Fitness", iteration=batch_i,
+                task.logger.report_scalar(title="Training", series="Fitness", iteration=epoch,
                                           value=float(fi_train[0]))
         '''
         This code snippet is evaluating the performance of a YOLOv3 model on the validation set. 
@@ -664,118 +676,132 @@ def run():
         # ########
         # Evaluate
         # ########
+
+        # Do evaluation on every epoch for better logging
+        print("\n- 🔄 - Evaluating Model ----")
+        # Evaluate the model on the validation set
+        metrics_output = _evaluate(
+            model,
+            validation_dataloader,
+            class_names,
+            img_size=model.hyperparams['height'],
+            iou_thres=args.iou_thres,
+            conf_thres=args.conf_thres,
+            nms_thres=args.nms_thres,
+            verbose=args.verbose,
+            device=device
+        )
+
+        if metrics_output is not None:
+            precision, recall, AP, f1, ap_class = metrics_output
+            evaluation_metrics = [
+                precision.mean(),
+                recall.mean(),
+                AP.mean(),
+                f1.mean(),
+                ap_class.mean()
+            ]
+
+            # Log the evaluation metrics
+            logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
+            logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
+            logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
+            logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
+            # logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
+
+            # ############
+            # ClearML validation logger - V0.3.3
+            # ############
+            if clearml_run:
+                task.logger.report_scalar(title="Validation", series="Precision", iteration=epoch,
+                                          value=float(precision.mean()))
+                task.logger.report_scalar(title="Validation", series="Recall", iteration=epoch,
+                                          value=float(recall.mean()))
+                task.logger.report_scalar(title="Validation", series="mAP", iteration=epoch,
+                                          value=float(AP.mean()))
+                task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
+                                          value=float(f1.mean()))
+
+            # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
+            # img writer - evaluation
+            eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
+            precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
+            recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
+            mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
+            f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
+            img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
+                                  curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+
         # Update best mAP
-        if epoch % args.evaluation_interval == 0 or do_auto_eval is True:
+        if epoch % args.evaluation_interval == 0 or do_auto_eval is True and metrics_output is not None:
             if do_auto_eval is True:
                 do_auto_eval = False
-            print("\n- 🔄 - Evaluating Model ----")
-            # Evaluate the model on the validation set
-            metrics_output = _evaluate(
-                model,
-                validation_dataloader,
-                class_names,
-                img_size=model.hyperparams['height'],
-                iou_thres=args.iou_thres,
-                conf_thres=args.conf_thres,
-                nms_thres=args.nms_thres,
-                verbose=args.verbose,
-                device=device
-            )
 
-            if metrics_output is not None:
-                precision, recall, AP, f1, ap_class = metrics_output
-                evaluation_metrics = [
-                    precision.mean(),
-                    recall.mean(),
-                    AP.mean(),
-                    f1.mean(),
-                    ap_class.mean()
-                ]
-
-                # Log the evaluation metrics
-                logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
-                logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
-                logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
-                logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
-                # logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
+            w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+            fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
+                         w)  # weighted combination of [P, R, mAP@0.5, f1]
+            curr_fitness = float(fi[0])
+            curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
+            print(
+                f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+            if curr_fitness == 0:
+                best_training_fitness = 0.0
+            if curr_fitness > best_fitness:
+                best_fitness = curr_fitness
+                checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
+                print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
+                torch.save(model.state_dict(), checkpoint_path)
+                ############################
+                # ClearML model update - V 3.0.0
+                ############################
+                if clearml_run:
+                    task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
 
                 # ############
-                # ClearML validation logger - V0.3.3
+                # ClearML fitness logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_scalar(title="Validation", series="Precision", iteration=batch_i,
-                                              value=float(precision.mean()))
-                    task.logger.report_scalar(title="Validation", series="Recall", iteration=batch_i,
-                                              value=float(recall.mean()))
-                    task.logger.report_scalar(title="Validation", series="mAP", iteration=batch_i,
-                                              value=float(AP.mean()))
-                    task.logger.report_scalar(title="Validation", series="F1", iteration=batch_i,
-                                              value=float(f1.mean()))
+                    task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
+                                              value=curr_fitness)
+                ############################
+                # Save best checkpoint evaluation stats - V2.7
+                #############################
+                # Open file
+                with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
+                    # Evaluation stats
+                    precision, recall, AP, f1, ap_class = metrics_output
+                    # Gets class AP and mean AP
+                    ap_table = [["Index", "Class", "AP"]]
+                    f.write(str([["Index", "Class", "AP"]]) + "\n")
+                    for i, c in enumerate(ap_class):
+                        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                        f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
 
-                # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
-                # img writer - evaluation
-                eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
-                precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
-                recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
-                mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
-                f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-
-            if metrics_output is not None:
-                w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
-                fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
-                             w)  # weighted combination of [P, R, mAP@0.5, f1]
-                curr_fitness = float(fi[0])
-                curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-                print(
-                    f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
-                if curr_fitness == 0:
-                    best_training_fitness = 0.0
-                if curr_fitness > best_fitness:
-                    best_fitness = curr_fitness
-                    checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
-                    print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
-                    torch.save(model.state_dict(), checkpoint_path)
-                    ############################
-                    # ClearML model update - V 3.0.0
-                    ############################
-                    if clearml_run:
-                        task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
-
-                    # ############
-                    # ClearML fitness logger - V0.3.3
-                    # ############
-                    if clearml_run:
-                        task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
-                                                  value=curr_fitness)
-                    ############################
-                    # Save best checkpoint evaluation stats - V2.7
-                    #############################
-                    # Open file
-                    with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
-                        # Evaluation stats
-                        precision, recall, AP, f1, ap_class = metrics_output
-                        # Gets class AP and mean AP
-                        ap_table = [["Index", "Class", "AP"]]
-                        f.write(str([["Index", "Class", "AP"]]) + "\n")
-                        for i, c in enumerate(ap_class):
-                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
-
-                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
+                    f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
 
 
-                data = [epoch,
-                        args.epochs,
-                        precision.mean(),  # Precision
-                        recall.mean(),  # Recall
-                        AP.mean(),  # mAP
-                        f1.mean(),  # f1
-                        curr_fitness  # Fitness
-                        ]
-                csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
+            data = [epoch,
+                    args.epochs,
+                    precision.mean(),  # Precision
+                    recall.mean(),  # Recall
+                    AP.mean(),  # mAP
+                    f1.mean(),  # f1
+                    curr_fitness  # Fitness
+                    ]
+            csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
+            # ############
+            # ClearML csv reporter logger - V0.3.6
+            # ############
+            # Report table - CSV from path
+            csv_url = args.logdir + "/" + date + "_evaluation_plots.csv"
+            task.logger().report_table(
+                "Evaluation plots",
+                "remote csv",
+                iteration=epoch,
+                url=csv_url
+            )
 
-                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
-                                      curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
-# YoloV3 PyTorch
+# YoloV3 PyTorch ChangeLog 
 
 ## This is an changelog file for this project
-
+### Updated 20.9.2023 - 16:54
 
 # Version / Changes
 
@@ -43,4 +43,5 @@ Documentation: https://github.com/bentrevett/a-tour-of-pytorch-optimizers/blob/m
 
 # Open issues / bugs:
 1. rmsprop optimizer zeroes learning rate too fast
-2. adam optimizer -> after warmup learning rate freezes 
+2. *.best.pth is not stored into correct folder (might be runpod issue)
+3. Smart optimizer doesn't seem to work corretly -> training takes quite long time

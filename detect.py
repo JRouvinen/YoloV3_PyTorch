@@ -257,7 +257,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.1.2"
+    ver = "0.1.3"
     print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
@@ -266,7 +266,7 @@ def run():
     parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
     parser.add_argument("-o", "--output", type=str, default="output", help="Path to output directory")
     parser.add_argument("-b", "--batch_size", type=int, default=1, help="Size of each image batch")
-    parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
+    parser.add_argument("--img_size", type=int, default=640, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.4, help="IOU threshold for non-maximum suppression")
@@ -275,7 +275,7 @@ def run():
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
     #Create_new detect_file
-    f = open("output/" + date + "detect" + ".txt", "w")
+    f = open("output/" + date + "_detect" + ".txt", "w")
     f.close()
     log_file_writer(f"Command line arguments: {args}", "output/" + date + "_detect" + ".txt")
 
