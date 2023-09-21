@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.6A"
+    ver = "0.3.6B"
     # Check folders
     check_folders()
     # Create new log file
@@ -721,6 +721,16 @@ def run():
                                           value=float(AP.mean()))
                 task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
                                           value=float(f1.mean()))
+            # ############
+            # Current fitness calculation - V0.3.6B
+            # ############
+            w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+            fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
+                         w)  # weighted combination of [P, R, mAP@0.5, f1]
+            curr_fitness = float(fi[0])
+            curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
+            print(
+                f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
             # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
             # img writer - evaluation
@@ -737,13 +747,7 @@ def run():
             if do_auto_eval is True:
                 do_auto_eval = False
 
-            w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
-            fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
-                         w)  # weighted combination of [P, R, mAP@0.5, f1]
-            curr_fitness = float(fi[0])
-            curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-            print(
-                f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+            # Update best fitness
             if curr_fitness == 0:
                 best_training_fitness = 0.0
             if curr_fitness > best_fitness:
