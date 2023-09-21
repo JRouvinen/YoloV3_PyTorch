@@ -175,6 +175,12 @@ def run():
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
+    model_name = data_config["model_name"]
+    if model_name == '':
+        model_name = str(date)
+    else:
+        model_name = model_name+'_'+str(date)
+
     gpu = args.gpu
     auto_eval = args.auto_evaluation
     best_training_fitness = 0.0
@@ -183,6 +189,7 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
+
 
     ################
     # Create ClearML task - version 0.3.0
@@ -210,8 +217,7 @@ def run():
         clearml_run = False
 
     if clearml_run:
-        if task_name == 'date':
-            task_name = str(date)
+        task_name = model_name
         if offline == "True":
             # Use the set_offline class method before initializing a Task
             clearml.Task.set_offline(offline_mode=True)
@@ -588,14 +594,14 @@ def run():
                     float(loss_components[3]),  # Loss
                     ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
                     ]
-            csv_writer(data, args.logdir + "/" + date + "_training_plots.csv")
+            csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv")
 
             # ############
             # ClearML csv reporter logger - V0.3.6
             # ############
             if clearml_run:
                 # Report table - CSV from path
-                csv_url = args.logdir + "/" + date + "_training_plots.csv"
+                csv_url = args.logdir + "/" + model_name + "_training_plots.csv"
                 task.logger.report_table(
                     "Training plots",
                     "training_plots.csv",
@@ -617,18 +623,18 @@ def run():
         # Save progress
         # #############
 
-        # Save model to checkpoint file
-        # DONE: needs worker to count how many checkpoints should be stored or best stored
-        if epoch % args.checkpoint_interval == 0:
-            if checkpoints_saved == checkpoints_to_keep:
-                find_and_del_last_ckpt()
-                checkpoints_saved -= 1
-            # checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_{epoch}.pth"
-            # Updated on version 0.3.0 to save only last
-            checkpoint_path = f"checkpoints/yolov3_{date}_ckpt_last.pth"
-            print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
-            torch.save(model.state_dict(), checkpoint_path)
-            checkpoints_saved += 1
+        # Save last model to checkpoint file
+
+        # Updated on version 0.3.0 to save only last
+        checkpoint_path = f"checkpoints/{model_name}_ckpt_last.pth"
+        print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
+        torch.save(model.state_dict(), checkpoint_path)
+        checkpoints_saved += 1
+        ############################
+        # ClearML last model update - V 0.3.7
+        ############################
+        if clearml_run:
+            task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
 
         if auto_eval is True:
             # #############
@@ -752,21 +758,21 @@ def run():
 
             if curr_fitness > best_fitness:
                 best_fitness = curr_fitness
-                checkpoint_path = f"checkpoints/best/yolov3_{date}_ckpt_best.pth"
+                checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
                 print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                 torch.save(model.state_dict(), checkpoint_path)
                 ############################
                 # ClearML model update - V 3.0.0
                 ############################
                 if clearml_run:
-                    task.update_output_model(model_path=f"checkpoints/best/yolov3_{date}_ckpt_best.pth")
+                    task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
 
 
                 ############################
                 # Save best checkpoint evaluation stats - V2.7
                 #############################
                 # Open file
-                with open('checkpoints/best/eval_stats.txt', 'w', encoding='UTF8') as f:
+                with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
                     # Evaluation stats
                     precision, recall, AP, f1, ap_class = metrics_output
                     # Gets class AP and mean AP
@@ -787,13 +793,13 @@ def run():
                     f1.mean(),  # f1
                     curr_fitness  # Fitness
                     ]
-            csv_writer(data, args.logdir + "/" + date + "_evaluation_plots.csv")
+            csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
             # ############
             # ClearML csv reporter logger - V0.3.6
             # ############
             if clearml_run:
                 # Report table - CSV from path
-                csv_url = args.logdir + "/" + date + "_evaluation_plots.csv"
+                csv_url = args.logdir + "/" + model_name + "_evaluation_plots.csv"
                 task.logger.report_table(
                     "Evaluation plots",
                     "evaluation_plots.csv",
