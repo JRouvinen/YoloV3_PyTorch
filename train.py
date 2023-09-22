@@ -576,19 +576,19 @@ def run():
                 print(AsciiTable(
                     [
                         ["Type", "Value"],
-                        ["IoU loss", float(loss_components[0].item())],
-                        ["Object loss", float(loss_components[1].item())],
-                        ["Class loss", float(loss_components[2].item())],
-                        ["Loss", float(loss_components[3].item())],
+                        ["IoU loss", float(loss_components[0])],
+                        ["Object loss", float(loss_components[1])],
+                        ["Class loss", float(loss_components[2])],
+                        ["Loss", float(loss_components[3])],
                         ["Batch loss", to_cpu(loss).item()],
                     ]).table)
 
             # Tensorboard logging
             tensorboard_log = [
-                ("train/iou_loss", float(loss_components.tensor.item())),
-                ("train/obj_loss", float(loss_components[1].item())),
-                ("train/class_loss", float(loss_components[2].item())),
-                ("train/loss", float(loss_components[3].item())),
+                ("train/iou_loss", float(loss_components[0])),
+                ("train/obj_loss", float(loss_components[1])),
+                ("train/class_loss", float(loss_components[2])),
+                ("train/loss", float(loss_components[3])),
 
             ]
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
@@ -602,13 +602,13 @@ def run():
             # ############
             if clearml_run:
                 task.logger.report_scalar(title="Train/Losses", series="IoU loss", iteration=batches_done,
-                                          value=float(loss_components[0].item()))
+                                          value=float(loss_components[0]))
                 task.logger.report_scalar(title="Train/Losses", series="Object loss", iteration=batches_done,
-                                          value=float(loss_components[1].item()))
+                                          value=float(loss_components[1]))
                 task.logger.report_scalar(title="Train/Losses", series="Class loss", iteration=batches_done,
-                                          value=float(loss_components[2].item()))
+                                          value=float(loss_components[2]))
                 task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
-                                          value=float(loss_components[3].item()))
+                                          value=float(loss_components[3]))
                 task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                           value=to_cpu(loss).item())
                 task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
@@ -629,10 +629,10 @@ def run():
             #
             # training csv writer
             data = [batches_done,
-                    float(loss_components[0].item()),  # Iou Loss
-                    float(loss_components[1].item()),  # Object Loss
-                    float(loss_components[2].item()),  # Class Loss
-                    float(loss_components[3].item()),  # Loss
+                    float(loss_components[0]),  # Iou Loss
+                    float(loss_components[1]),  # Object Loss
+                    float(loss_components[2]),  # Class Loss
+                    float(loss_components[3]),  # Loss
                     ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
                     ]
             csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv")
@@ -652,9 +652,9 @@ def run():
 
             # img writer
             batches_array = np.concatenate((batches_array, np.array([batches_done])))
-            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0].item())])))
-            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1].item())])))
-            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2].item())])))
+            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
             loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
             lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
             img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, batches_array,
@@ -680,10 +680,10 @@ def run():
             # #############
             print("\n- 🔄 - Auto evaluating model on training metrics ----")
             training_evaluation_metrics = [
-                float(loss_components[0].item()),  # Iou Loss
-                float(loss_components[1].item()),  # Object Loss
-                float(loss_components[2].item()),  # Class Loss
-                float(loss_components[3].item()),  # Loss
+                float(loss_components[0]),  # Iou Loss
+                float(loss_components[1]),  # Object Loss
+                float(loss_components[2]),  # Class Loss
+                float(loss_components[3]),  # Loss
             ]
             w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
