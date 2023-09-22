@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.8D"
+    ver = "0.3.9"
     # Check folders
     check_folders()
     # Create new log file
@@ -636,11 +636,7 @@ def run():
         print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
         torch.save(model.state_dict(), checkpoint_path)
         checkpoints_saved += 1
-        ############################
-        # ClearML last model update - V 0.3.7
-        ############################
-        if clearml_run:
-            task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
+
 
         if auto_eval is True:
             # #############
@@ -669,6 +665,9 @@ def run():
             if clearml_run:
                 task.logger.report_scalar(title="Training", series="Fitness", iteration=epoch,
                                           value=float(fi_train[0]))
+
+
+
         '''
         This code snippet is evaluating the performance of a YOLOv3 model on the validation set. 
         It starts by checking if it's time to perform an evaluation based on the specified evaluation interval or 
@@ -857,6 +856,12 @@ def run():
                     url=csv_url
                 )
 
+            ############################
+            # ClearML last model update - V 0.3.7
+            ############################
+            if clearml_run:
+                task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
+                
             epoch_end = time.time()
             exec_time = epoch_end-epoch_start
 
