@@ -628,7 +628,7 @@ def run():
             # ############
             #
             # training csv writer
-            if loss_components.dim > 0:
+            if loss_components.dim() > 0:
                 data = [batches_done,
                         float(loss_components[0]),  # Iou Loss
                         float(loss_components[1]),  # Object Loss
