@@ -585,7 +585,7 @@ def run():
 
             # Tensorboard logging
             tensorboard_log = [
-                ("train/iou_loss", float(loss_components[0].tensor.item())),
+                ("train/iou_loss", float(loss_components.tensor.item())),
                 ("train/obj_loss", float(loss_components[1].item())),
                 ("train/class_loss", float(loss_components[2].item())),
                 ("train/loss", float(loss_components[3].item())),
