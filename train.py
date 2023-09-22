@@ -900,8 +900,8 @@ def run():
             if clearml_run:
                 task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
                 
-            epoch_end = time.time()
-            exec_time = epoch_end-epoch_start
+        epoch_end = time.time()
+        exec_time = epoch_end-epoch_start
 
 if __name__ == "__main__":
     run()
