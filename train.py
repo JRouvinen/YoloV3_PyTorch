@@ -170,6 +170,7 @@ def run():
     checkpoints_to_keep = args.checkpoint_store
     best_fitness = 0.0
     checkpoints_saved = 0
+    device = torch.device("cpu")
     # ############
     # GPU memory check and setting TODO: Needs more calculations based on parameters
     # ############
@@ -185,7 +186,6 @@ def run():
             if available_gpu_mem[0] < 5000:
                 print(f'Not enough free GPU memory available [min 6GB] -> switching into cpu')
                 device = torch.device("cpu")
-
                 gpu = -1
     else:
         device = torch.device("cpu")
