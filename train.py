@@ -177,6 +177,7 @@ def run():
     epoch_end = ""
     exec_time = 0
     do_auto_eval = False
+    smart_optimizer = True
     # Create output directories if missing
     #os.makedirs("output", exist_ok=True)
     #os.makedirs("checkpoints", exist_ok=True)
@@ -338,61 +339,66 @@ def run():
         model.hyperparams['height'],
         args.n_cpu)
 
-    # ################
-    # Create optimizer
-    # ################
-
-    params = [p for p in model.parameters() if p.requires_grad]
-
-    if model.hyperparams['optimizer'] in [None, "adam"]:
-        optimizer = optim.AdamW(
-            params,
-            lr=model.hyperparams['learning_rate'],
-            betas=(0.9, 0.999),
-            weight_decay=model.hyperparams['decay'],
-        )
-    elif model.hyperparams['optimizer'] == "sgd":
-        optimizer = optim.SGD(
-            params,
-            lr=model.hyperparams['learning_rate'],
-            weight_decay=model.hyperparams['decay'],
-            momentum=model.hyperparams['momentum'],
-            nesterov=model.hyperparams['nesterov'],
-        )
-    elif model.hyperparams['optimizer'] == "rmsprop":
-        optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
-
-    else:
-        print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
-
-    if model.hyperparams['optimizer'] == "adam":
-        # ################
-        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-        # ################
-        num_steps = len(dataloader) * args.epochs
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-
     num_batches = len(dataloader)  # number of batches
-    warmup_num = max(round(3 * num_batches), 100)  # number of warmup iterations, max(3 epochs, 100 iterations)
+    warmup_num = max(
+        round(3 * num_batches), 100
+    )  # number of warmup iterations, max(3 epochs, 100 iterations)
+
+    if not smart_optimizer:
+        # ################
+        # Create optimizer
+        # ################
+
+        params = [p for p in model.parameters() if p.requires_grad]
+
+        if model.hyperparams['optimizer'] in [None, "adam"]:
+            optimizer = optim.AdamW(
+                params,
+                lr=model.hyperparams['learning_rate'],
+                betas=(0.9, 0.999),
+                weight_decay=model.hyperparams['decay'],
+            )
+        elif model.hyperparams['optimizer'] == "sgd":
+            optimizer = optim.SGD(
+                params,
+                lr=model.hyperparams['learning_rate'],
+                weight_decay=model.hyperparams['decay'],
+                momentum=model.hyperparams['momentum'],
+                nesterov=model.hyperparams['nesterov'],
+            )
+        elif model.hyperparams['optimizer'] == "rmsprop":
+            optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
+
+        else:
+            print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
+
+        if model.hyperparams['optimizer'] == "adam":
+            # ################
+            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
+            # ################
+            num_steps = len(dataloader) * args.epochs
+            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+
+
     #TODO: Smart optimizer doesn't seem to work correctly
-    '''
-    # ################
-    # Create smart optimizer - V 0.3.5 
-    # ################
-    # Optimizer
-    nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
-    model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
-    optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-    '''
-    if model.hyperparams['optimizer'] == "adam":
+    else:
         # ################
-        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
+        # Create smart optimizer - V 0.3.5
         # ################
-        num_steps = len(dataloader) * args.epochs
-        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+        # Optimizer
+        nbs = 64  # nominal batch size
+        accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
+        model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
+        optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
+
+        if model.hyperparams['optimizer'] == "adam":
+            # ################
+            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
+            # ################
+            num_steps = len(dataloader) * args.epochs
+            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
     # #################
     # Create GradScaler - V 0.3.0
