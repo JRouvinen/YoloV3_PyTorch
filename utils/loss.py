@@ -108,9 +108,15 @@ def compute_loss(predictions, targets, model):
         # Classification of the objectness the sequel
         # Calculate the BCE loss between the on the fly generated target and the network prediction
         lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
+
+    lbox *= 0.05
+    lobj *= 1.0
+    lcls *= 0.5
+
     # Merge losses
     loss = lbox + lobj + lcls
     return loss, to_cpu(torch.cat((lbox, lobj, lcls, loss)))
+
     ''' OLD IMPLEMENTATION
     # Check which device was used
     device = targets.device
