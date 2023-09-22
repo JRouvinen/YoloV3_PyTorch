@@ -674,7 +674,7 @@ def run():
         checkpoints_saved += 1
 
 
-        if auto_eval is True and loss_components.dim > 0:
+        if auto_eval is True and loss_components.dim() > 0:
             # #############
             # Training fitness evaluation
             # Calculate weighted loss -> smaller losses better training fitness
