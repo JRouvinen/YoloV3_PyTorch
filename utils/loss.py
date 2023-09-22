@@ -115,7 +115,7 @@ def compute_loss(predictions, targets, model):
     losses = [lbox, lobj, lcls, loss]
     non_empty_losses = [l for l in losses if l.dim() > 0]
     if len(non_empty_losses) > 0:
-        concatenated_loss = torch.cat(non_empty_losses)
+        concatenated_loss = torch.cat(losses)
     else:
         concatenated_loss = torch.tensor(0.0)  # or any other appropriate default value
 
