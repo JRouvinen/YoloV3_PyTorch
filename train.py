@@ -176,6 +176,7 @@ def run():
     epoch_start = ""
     epoch_end = ""
     exec_time = 0
+    do_auto_eval = False
     # Create output directories if missing
     #os.makedirs("output", exist_ok=True)
     #os.makedirs("checkpoints", exist_ok=True)
@@ -652,7 +653,7 @@ def run():
             w_train = [0.10, 0.35, 0.35, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
-            if fi_train > best_training_fitness and epoch > args.evaluation_interval:
+            if fi_train > best_training_fitness:
                 print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
@@ -688,173 +689,174 @@ def run():
         # ########
         # Evaluate
         # ########
+        if epoch % args.evaluation_interval == 0 or do_auto_eval:
+            auto_eval = False
+            # Do evaluation on every epoch for better logging
+            print("\n- 🔄 - Evaluating Model ----")
+            # Evaluate the model on the validation set
+            metrics_output = _evaluate(
+                model,
+                validation_dataloader,
+                class_names,
+                img_size=model.hyperparams['height'],
+                iou_thres=args.iou_thres,
+                conf_thres=args.conf_thres,
+                nms_thres=args.nms_thres,
+                verbose=args.verbose,
+                device=device
+            )
 
-        # Do evaluation on every epoch for better logging
-        print("\n- 🔄 - Evaluating Model ----")
-        # Evaluate the model on the validation set
-        metrics_output = _evaluate(
-            model,
-            validation_dataloader,
-            class_names,
-            img_size=model.hyperparams['height'],
-            iou_thres=args.iou_thres,
-            conf_thres=args.conf_thres,
-            nms_thres=args.nms_thres,
-            verbose=args.verbose,
-            device=device
-        )
+            if metrics_output is not None:
+                precision, recall, AP, f1, ap_class = metrics_output
+                evaluation_metrics = [
+                    precision.mean(),
+                    recall.mean(),
+                    AP.mean(),
+                    f1.mean(),
+                    ap_class.mean()
+                ]
 
-        if metrics_output is not None:
-            precision, recall, AP, f1, ap_class = metrics_output
-            evaluation_metrics = [
-                precision.mean(),
-                recall.mean(),
-                AP.mean(),
-                f1.mean(),
-                ap_class.mean()
-            ]
+                # Log the evaluation metrics
+                logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
+                logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
+                logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
+                logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
+                # logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
 
-            # Log the evaluation metrics
-            logger.scalar_summary("validation/precision", float(precision.mean()), epoch)
-            logger.scalar_summary("validation/recall", float(recall.mean()), epoch)
-            logger.scalar_summary("validation/mAP", float(AP.mean()), epoch)
-            logger.scalar_summary("validation/f1", float(f1.mean()), epoch)
-            # logger.scalar_summary("validation/ap_class", float(ap_class.mean()), epoch)
-
-            # ############
-            # ClearML validation logger - V0.3.3
-            # ############
-            if clearml_run:
-                task.logger.report_scalar(title="Validation", series="Precision", iteration=epoch,
-                                          value=float(precision.mean()))
-                task.logger.report_scalar(title="Validation", series="Recall", iteration=epoch,
-                                          value=float(recall.mean()))
-                task.logger.report_scalar(title="Validation", series="mAP", iteration=epoch,
-                                          value=float(AP.mean()))
-                task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
-                                          value=float(f1.mean()))
-            # ############
-            # Current fitness calculation - V0.3.6B
-            # ############
-            w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
-            fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
-                         w)  # weighted combination of [P, R, mAP@0.5, f1]
-            curr_fitness = float(fi[0])
-            curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-            print(
-                f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
-
-            if clearml_run:
                 # ############
-                # ClearML fitness logger - V0.3.3
+                # ClearML validation logger - V0.3.3
                 # ############
                 if clearml_run:
-                    task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
-                                              value=curr_fitness)
-            # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
-            # img writer - evaluation
-            eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
-            precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
-            recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
-            mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
-            f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-            img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
-                                  curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+                    task.logger.report_scalar(title="Validation", series="Precision", iteration=epoch,
+                                              value=float(precision.mean()))
+                    task.logger.report_scalar(title="Validation", series="Recall", iteration=epoch,
+                                              value=float(recall.mean()))
+                    task.logger.report_scalar(title="Validation", series="mAP", iteration=epoch,
+                                              value=float(AP.mean()))
+                    task.logger.report_scalar(title="Validation", series="F1", iteration=epoch,
+                                              value=float(f1.mean()))
+                # ############
+                # Current fitness calculation - V0.3.6B
+                # ############
+                w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
+                             w)  # weighted combination of [P, R, mAP@0.5, f1]
+                curr_fitness = float(fi[0])
+                curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
+                print(
+                    f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
-            if curr_fitness > best_fitness:
-                best_fitness = curr_fitness
-                checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
-                print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
-                torch.save(model.state_dict(), checkpoint_path)
-                ############################
-                # ClearML model update - V 3.0.0
-                ############################
                 if clearml_run:
-                    task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
+                    # ############
+                    # ClearML fitness logger - V0.3.3
+                    # ############
+                    if clearml_run:
+                        task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
+                                                  value=curr_fitness)
+                # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
+                # img writer - evaluation
+                eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
+                precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
+                recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
+                mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
+                f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
+                img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
+                                      curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
 
-                '''
-                ############################
-                # Save best checkpoint evaluation stats - V2.7 => Depricated in V0.3.8
-                #############################
-                # Open file
-                with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
-                    # Evaluation stats
+                if curr_fitness > best_fitness:
+                    best_fitness = curr_fitness
+                    checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
+                    print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
+                    torch.save(model.state_dict(), checkpoint_path)
+                    ############################
+                    # ClearML model update - V 3.0.0
+                    ############################
+                    if clearml_run:
+                        task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
+
+                    '''
+                    ############################
+                    # Save best checkpoint evaluation stats - V2.7 => Depricated in V0.3.8
+                    #############################
+                    # Open file
+                    with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
+                        # Evaluation stats
+                        precision, recall, AP, f1, ap_class = metrics_output
+                        # Gets class AP and mean AP
+                        ap_table = [["Index", "Class", "AP"]]
+                        f.write(str([["Index", "Class", "AP"]]) + "\n")
+                        for i, c in enumerate(ap_class):
+                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
+                            data = [c, # Class index
+                                    class_names[c],  # Class name
+                                    "%.5f" % AP[i],  # Class AP
+                                    ]
+    
+                            csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
+    
+                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
+    
+                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
+                    '''
+                    ############################
+                    # Save best checkpoint evaluation stats into csv - V0.3.8
+                    #############################
+
                     precision, recall, AP, f1, ap_class = metrics_output
                     # Gets class AP and mean AP
-                    ap_table = [["Index", "Class", "AP"]]
-                    f.write(str([["Index", "Class", "AP"]]) + "\n")
                     for i, c in enumerate(ap_class):
-                        ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                        data = [c, # Class index
+                        data = [c,  # Class index
                                 class_names[c],  # Class name
                                 "%.5f" % AP[i],  # Class AP
                                 ]
 
-                        csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
+                        csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv")
 
-                        f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
-
-                    f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
-                '''
-                ############################
-                # Save best checkpoint evaluation stats into csv - V0.3.8
-                #############################
-
-                precision, recall, AP, f1, ap_class = metrics_output
-                # Gets class AP and mean AP
-                for i, c in enumerate(ap_class):
-                    data = [c,  # Class index
-                            class_names[c],  # Class name
-                            "%.5f" % AP[i],  # Class AP
+                    #Write mAP value as last line
+                    data = ["--",  #
+                            'mAP',  #
+                            str(round(AP.mean(), 5)),
                             ]
-
                     csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv")
 
-                #Write mAP value as last line
-                data = ["--",  #
-                        'mAP',  #
-                        str(round(AP.mean(), 5)),
-                        ]
-                csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv")
+                    # ############
+                    # ClearML csv reporter logger - V0.3.8
+                    # ############
+                    if clearml_run:
+                        # Report table - CSV from path
+                        csv_url = f"checkpoints/best/{model_name}_eval_stats.csv"
+                        task.logger.report_table(
+                            "Model evaluation stats",
+                            f"{model_name}_eval_stats.csv",
+                            iteration=epoch,
+                            url=csv_url
+                        )
 
+                ############################
+                # Model evaluation plots logging
+                #############################
+
+                data = [epoch,
+                        args.epochs,
+                        precision.mean(),  # Precision
+                        recall.mean(),  # Recall
+                        AP.mean(),  # mAP
+                        f1.mean(),  # f1
+                        curr_fitness  # Fitness
+                        ]
+                csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
                 # ############
-                # ClearML csv reporter logger - V0.3.8
+                # ClearML csv reporter logger - V0.3.6
                 # ############
                 if clearml_run:
                     # Report table - CSV from path
-                    csv_url = f"checkpoints/best/{model_name}_eval_stats.csv"
+                    csv_url = args.logdir + "/" + model_name + "_evaluation_plots.csv"
                     task.logger.report_table(
-                        "Model evaluation stats",
-                        f"{model_name}_eval_stats.csv",
+                        "Evaluation plots",
+                        "evaluation_plots.csv",
                         iteration=epoch,
                         url=csv_url
                     )
-
-            ############################
-            # Model evaluation plots logging
-            #############################
-
-            data = [epoch,
-                    args.epochs,
-                    precision.mean(),  # Precision
-                    recall.mean(),  # Recall
-                    AP.mean(),  # mAP
-                    f1.mean(),  # f1
-                    curr_fitness  # Fitness
-                    ]
-            csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
-            # ############
-            # ClearML csv reporter logger - V0.3.6
-            # ############
-            if clearml_run:
-                # Report table - CSV from path
-                csv_url = args.logdir + "/" + model_name + "_evaluation_plots.csv"
-                task.logger.report_table(
-                    "Evaluation plots",
-                    "evaluation_plots.csv",
-                    iteration=epoch,
-                    url=csv_url
-                )
 
             ############################
             # ClearML last model update - V 0.3.7
