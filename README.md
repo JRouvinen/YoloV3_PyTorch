@@ -58,7 +58,7 @@ A minimal PyTorch implementation of YOLOv3.
 ## 4.Data file
 
 ## 5.YOLOv3 configuration parameters
-
+filters = (classes + 5) x 3
 ### 5.1 Batch hyper-parameter in training YOLOv3
 
 ### 5.2 Subdivisions configuration parameter in training YOLOv3
