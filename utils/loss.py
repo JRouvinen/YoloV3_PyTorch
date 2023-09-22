@@ -109,13 +109,16 @@ def compute_loss(predictions, targets, model):
         # Calculate the BCE loss between the on the fly generated target and the network prediction
         lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
 
-    lbox *= 0.05
-    lobj *= 1.0
-    lcls *= 0.5
-
     # Merge losses
     loss = lbox + lobj + lcls
-    return loss, to_cpu(torch.cat((lbox, lobj, lcls, loss)))
+    losses = [lbox, lobj, lcls, loss]
+    non_empty_losses = [l for l in losses if l.dim() > 0]
+    if len(non_empty_losses) > 0:
+        concatenated_loss = torch.cat(non_empty_losses)
+    else:
+        concatenated_loss = torch.tensor(0.0)  # or any other appropriate default value
+
+    return loss, to_cpu(concatenated_loss)
 
     ''' OLD IMPLEMENTATION
     # Check which device was used
