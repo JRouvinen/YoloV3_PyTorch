@@ -99,6 +99,55 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
     :type: device: torch.device
     :return: is used to define gpu / cpu Tensor
     """
+    # Performance improved version - 0.3.9
+    model.eval()  # Set model to evaluation mode
+    
+    if not isinstance(model, torch.nn.Module):
+        raise ValueError("model must be an instance of torch.nn.Module")
+    
+    if not isinstance(dataloader, torch.utils.data.DataLoader):
+        raise ValueError("dataloader must be an instance of torch.utils.data.DataLoader")
+    
+    if not device.type in ["cuda", "cpu"]:
+        raise ValueError("Invalid device type")
+    
+    if device.type == "cuda" and not torch.cuda.is_available():
+        raise ValueError("CUDA is not available")
+    
+    if device.type == "cuda":
+        Tensor = torch.cuda.FloatTensor
+    else:
+        Tensor = torch.FloatTensor
+    
+    labels = []
+    sample_metrics = []  # List of tuples (TP, confs, pred)
+    for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
+        # Extract labels
+        labels += targets[:, 1].tolist()
+        # Rescale target
+        targets[:, 2:] = xywh2xyxy(targets[:, 2:])
+        targets[:, 2:] *= img_size
+        imgs = Variable(imgs.type(Tensor), requires_grad=False)
+        with torch.no_grad():
+            outputs = model(imgs)
+            outputs = non_max_suppression(
+                outputs, conf_thres=conf_thres, iou_thres=nms_thres
+            )
+        sample_metrics.extend(
+            get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
+        )
+    
+    if len(sample_metrics) == 0:  # No detections over whole validation set.
+        print("---- No detections over whole validation set ----")
+        return None
+    
+    # Concatenate sample statistics
+    true_positives, pred_scores, pred_labels = map(np.concatenate, zip(*sample_metrics))
+    metrics_output = ap_per_class(true_positives, pred_scores, pred_labels, labels)
+    print_eval_stats(metrics_output, class_names, verbose)
+    return metrics_output
+
+    '''
     model.eval()  # Set model to evaluation mode
     # DONE:Needs gpu availability check and arg parameter check
     if device.type == "cuda":
@@ -136,7 +185,7 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
     print_eval_stats(metrics_output, class_names, verbose)
 
     return metrics_output
-
+    '''
 
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
     """

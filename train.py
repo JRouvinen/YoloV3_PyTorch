@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.9"
+    ver = "0.3.11"
     # Check folders
     check_folders()
     # Create new log file
@@ -483,13 +483,12 @@ def run():
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
+                loss.backward()
                 if model.hyperparams['optimizer'] == "adam":
-                    loss.backward()
                     optimizer.step()
                     with warmup_scheduler.dampening():
                         lr_scheduler.step()
                 else:
-                    loss.backward()
                     # Burn in
                     lr *= (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
@@ -498,10 +497,32 @@ def run():
 
             else:
                 if model.hyperparams['optimizer'] == 'adam':
+                    '''
                     loss.backward()
                     optimizer.step()
                     lr_scheduler.step()
+                    # Commented out in Version 0.3.3B
+                    scaler.scale(loss).backward()
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    # scaler.step() first unscales the gradients of the optimizer's assigned params.
+                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
+                    # otherwise, optimizer.step() is skipped.
+                    scaler.step(optimizer)  # optimizer.step
+                    scaler.update()
+                    optimizer.zero_grad()
+                    ##################################
+                    # Added on version 0.3.3B
+                    '''
+                    # Performance improved version - 0.3.9
+                    optimizer.zero_grad()
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
+                    optimizer.step()
+                    optimizer.zero_grad()
+
                 else:
+                    '''
                     loss.backward()
                     optimizer.step()
                     #############################################################################
@@ -522,6 +543,13 @@ def run():
                     optimizer.zero_grad()
                     ##################################
                     # Added on version 0.3.3B
+                    '''
+                    # Performance improved version - 0.3.9
+                    loss.backward()
+                    optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
+                    optimizer.zero_grad()
+
 
             lr = optimizer.param_groups[0]['lr']
 
@@ -648,6 +676,7 @@ def run():
         if auto_eval is True:
             # #############
             # Training fitness evaluation
+            # Calculate weighted loss -> smaller losses better training fitness
             # #############
             print("\n- 🔄 - Auto evaluating model on training metrics ----")
             training_evaluation_metrics = [
@@ -656,10 +685,10 @@ def run():
                 float(loss_components[2]),  # Class Loss
                 float(loss_components[3]),  # Loss
             ]
-            w_train = [0.10, 0.35, 0.35, 0.20]  # weights for [IOU, Class, Object, Loss]
+            w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
-            if fi_train > best_training_fitness:
+            if fi_train < best_training_fitness:
                 print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
