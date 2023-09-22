@@ -5,7 +5,7 @@ from __future__ import division
 import os
 import argparse
 import datetime
-
+import time
 import tqdm
 import subprocess as sp
 import torch
@@ -112,15 +112,16 @@ def check_folders():
 
 
 def run():
-    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.3.8A"
+    date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    ver = "0.3.8D"
     # Check folders
     check_folders()
     # Create new log file
-    f = open("logs/" + date + "log" + ".txt", "w")
+    f = open("logs/" + date + "_log" + ".txt", "w")
     f.close()
-    log_file_writer("Software version: " + ver, "logs/" + date + "log" + ".txt")
-    print_environment_info(ver, "logs/" + date + "log" + ".txt")
+    log_file_writer("Software version: " + ver, "logs/" + date + "_log" + ".txt")
+    print_environment_info(ver, "logs/" + date + "_log" + ".txt")
+
     parser = argparse.ArgumentParser(description="Trains the YOLO model.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                         help="Path to model definition file (.cfg)")
@@ -147,7 +148,7 @@ def run():
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
-    log_file_writer(f"Command line arguments: {args}", "logs/" + date + "log" + ".txt")
+    log_file_writer(f"Command line arguments: {args}", "logs/" + date + "_log" + ".txt")
 
     if args.seed != -1:
         provide_determinism(args.seed)
@@ -171,8 +172,10 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
-    date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-
+    #date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    epoch_start = ""
+    epoch_end = ""
+    exec_time = 0
     # Create output directories if missing
     #os.makedirs("output", exist_ok=True)
     #os.makedirs("checkpoints", exist_ok=True)
@@ -257,7 +260,7 @@ def run():
         else:
             device = torch.device("cpu")
     print(f'Using cuda device - {device}')
-    log_file_writer(f'Using cuda device - {device}', "logs/" + date + "log" + ".txt")
+    log_file_writer(f'Using cuda device - {device}', "logs/" + date + "_log" + ".txt")
 
     # ############
     # Create model
@@ -280,7 +283,7 @@ def run():
     # ############
     if clearml_run:
         task.connect_configuration(model.hyperparams)
-    log_file_writer(f"Model hyperparameters: {model.hyperparams}", "logs/" + date + "log" + ".txt")
+    log_file_writer(f"Model hyperparameters: {model.hyperparams}", "logs/" + date + "_log" + ".txt")
 
     # Print model
     if args.verbose:
@@ -422,7 +425,7 @@ def run():
     # instead of: 0, 10, 20
     print(
         f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
-    print("\n- 🔛 - Starting Model Training regime ----")
+    print(f"\n- 🔛 - Starting Model {model_name} training... ----")
     '''
     This code snippet is training a model for a certain number of epochs. 
     Inside the training loop, the model is set to training mode using  `model.train()` . 
@@ -447,7 +450,9 @@ def run():
     '''
 
     for epoch in range(1, args.epochs + 1):
-
+        epoch_start = time.time()
+        if epoch > 1:
+            print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
         model.train()  # Set model to training mode
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
@@ -851,6 +856,9 @@ def run():
                     iteration=epoch,
                     url=csv_url
                 )
+
+            epoch_end = time.time()
+            exec_time = epoch_end-epoch_start
 
 if __name__ == "__main__":
     run()
