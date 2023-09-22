@@ -568,50 +568,50 @@ def run():
             The code snippet demonstrates good logging practices by providing informative and 
             organized logs for monitoring and analysis.
             '''
+            if loss_components.dim() > 0:
+                # ############
+                # Log progress
+                # ############
+                if args.verbose:
+                    print(AsciiTable(
+                        [
+                            ["Type", "Value"],
+                            ["IoU loss", float(loss_components[0])],
+                            ["Object loss", float(loss_components[1])],
+                            ["Class loss", float(loss_components[2])],
+                            ["Loss", float(loss_components[3])],
+                            ["Batch loss", to_cpu(loss).item()],
+                        ]).table)
 
-            # ############
-            # Log progress
-            # ############
-            if args.verbose:
-                print(AsciiTable(
-                    [
-                        ["Type", "Value"],
-                        ["IoU loss", float(loss_components[0])],
-                        ["Object loss", float(loss_components[1])],
-                        ["Class loss", float(loss_components[2])],
-                        ["Loss", float(loss_components[3])],
-                        ["Batch loss", to_cpu(loss).item()],
-                    ]).table)
+                # Tensorboard logging
+                tensorboard_log = [
+                    ("train/iou_loss", float(loss_components[0])),
+                    ("train/obj_loss", float(loss_components[1])),
+                    ("train/class_loss", float(loss_components[2])),
+                    ("train/loss", float(loss_components[3])),
 
-            # Tensorboard logging
-            tensorboard_log = [
-                ("train/iou_loss", float(loss_components[0])),
-                ("train/obj_loss", float(loss_components[1])),
-                ("train/class_loss", float(loss_components[2])),
-                ("train/loss", float(loss_components[3])),
+                ]
+                logger.list_of_scalars_summary(tensorboard_log, batches_done)
+                #Tensorflow logger - learning rate V0.3.4I
+                logger.scalar_summary("train/learning rate", lr, batches_done)
 
-            ]
-            logger.list_of_scalars_summary(tensorboard_log, batches_done)
-            #Tensorflow logger - learning rate V0.3.4I
-            logger.scalar_summary("train/learning rate", lr, batches_done)
+                model.seen += imgs.size(0)
 
-            model.seen += imgs.size(0)
-
-            # ############
-            # ClearML progress logger - V0.3.3
-            # ############
-            if clearml_run:
-                task.logger.report_scalar(title="Train/Losses", series="IoU loss", iteration=batches_done,
-                                          value=float(loss_components[0]))
-                task.logger.report_scalar(title="Train/Losses", series="Object loss", iteration=batches_done,
-                                          value=float(loss_components[1]))
-                task.logger.report_scalar(title="Train/Losses", series="Class loss", iteration=batches_done,
-                                          value=float(loss_components[2]))
-                task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
-                                          value=float(loss_components[3]))
-                task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
-                                          value=to_cpu(loss).item())
-                task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
+                # ############
+                # ClearML progress logger - V0.3.3
+                # ############
+                if clearml_run:
+                    task.logger.report_scalar(title="Train/Losses", series="IoU loss", iteration=batches_done,
+                                              value=float(loss_components[0]))
+                    task.logger.report_scalar(title="Train/Losses", series="Object loss", iteration=batches_done,
+                                              value=float(loss_components[1]))
+                    task.logger.report_scalar(title="Train/Losses", series="Class loss", iteration=batches_done,
+                                              value=float(loss_components[2]))
+                    task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
+                                              value=float(loss_components[3]))
+                    task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
+                                              value=to_cpu(loss).item())
+                    task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
             '''
             The code snippet shows the training loop for a YOLOv3 object detection model. 
             It includes the training process, logging of progress, saving of checkpoints, 
@@ -628,37 +628,38 @@ def run():
             # ############
             #
             # training csv writer
-            data = [batches_done,
-                    float(loss_components[0]),  # Iou Loss
-                    float(loss_components[1]),  # Object Loss
-                    float(loss_components[2]),  # Class Loss
-                    float(loss_components[3]),  # Loss
-                    ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
-                    ]
-            csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv")
+            if loss_components.dim > 0:
+                data = [batches_done,
+                        float(loss_components[0]),  # Iou Loss
+                        float(loss_components[1]),  # Object Loss
+                        float(loss_components[2]),  # Class Loss
+                        float(loss_components[3]),  # Loss
+                        ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
+                        ]
+                csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv")
 
-            # ############
-            # ClearML csv reporter logger - V0.3.6
-            # ############
-            if clearml_run:
-                # Report table - CSV from path
-                csv_url = args.logdir + "/" + model_name + "_training_plots.csv"
-                task.logger.report_table(
-                    "Training plots",
-                    "training_plots.csv",
-                    iteration=batches_done,
-                    url=csv_url
-                )
+                # ############
+                # ClearML csv reporter logger - V0.3.6
+                # ############
+                if clearml_run:
+                    # Report table - CSV from path
+                    csv_url = args.logdir + "/" + model_name + "_training_plots.csv"
+                    task.logger.report_table(
+                        "Training plots",
+                        "training_plots.csv",
+                        iteration=batches_done,
+                        url=csv_url
+                    )
 
-            # img writer
-            batches_array = np.concatenate((batches_array, np.array([batches_done])))
-            iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
-            obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
-            cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
-            loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
-            lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-            img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, batches_array,
-                                args.logdir + "/" + date)
+                # img writer
+                batches_array = np.concatenate((batches_array, np.array([batches_done])))
+                iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
+                obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
+                cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
+                loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
+                lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+                img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, batches_array,
+                                    args.logdir + "/" + date)
 
         # #############
         # Save progress
@@ -673,7 +674,7 @@ def run():
         checkpoints_saved += 1
 
 
-        if auto_eval is True:
+        if auto_eval is True and loss_components.dim > 0:
             # #############
             # Training fitness evaluation
             # Calculate weighted loss -> smaller losses better training fitness
