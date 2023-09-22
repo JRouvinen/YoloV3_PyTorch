@@ -168,7 +168,7 @@ def run():
 
     gpu = args.gpu
     auto_eval = True
-    best_training_fitness = 0.0
+    best_training_fitness = 9999
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
