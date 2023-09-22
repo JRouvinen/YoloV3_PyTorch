@@ -18,6 +18,7 @@ A minimal PyTorch implementation of YOLOv3.
 - More details: http://pjreddie.com/darknet/yolo/
 - Training YOLOV3: Deep Learning Based Custom Object Detection: https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
 - Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way: https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
+- A PyTorch Extension for Learning Rate Warmup: https://github.com/Tony-Y/pytorch_warmup
 - Original code for this fork: 
 
 
@@ -57,7 +58,7 @@ A minimal PyTorch implementation of YOLOv3.
 ## 4.Data file
 
 ## 5.YOLOv3 configuration parameters
-
+filters = (classes + 5) x 3
 ### 5.1 Batch hyper-parameter in training YOLOv3
 
 ### 5.2 Subdivisions configuration parameter in training YOLOv3

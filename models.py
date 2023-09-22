@@ -350,3 +350,4 @@ def load_model(model_path, gpu, weights_path=None):
             # Load darknet weights
             model.load_darknet_weights(weights_path)
     return model
+
