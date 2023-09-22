@@ -690,7 +690,7 @@ def run():
         # Evaluate
         # ########
         if epoch % args.evaluation_interval == 0 or do_auto_eval:
-            auto_eval = False
+            do_auto_eval = False
             # Do evaluation on every epoch for better logging
             print("\n- 🔄 - Evaluating Model ----")
             # Evaluate the model on the validation set
