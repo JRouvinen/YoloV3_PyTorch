@@ -177,7 +177,7 @@ def run():
     epoch_end = ""
     exec_time = 0
     do_auto_eval = False
-    smart_optimizer = True
+    use_smart_optimizer = True
     # Create output directories if missing
     #os.makedirs("output", exist_ok=True)
     #os.makedirs("checkpoints", exist_ok=True)
@@ -344,7 +344,7 @@ def run():
         round(3 * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
 
-    if not smart_optimizer:
+    if not use_smart_optimizer:
         # ################
         # Create optimizer
         # ################
