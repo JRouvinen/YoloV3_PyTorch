@@ -381,7 +381,7 @@ def run():
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
 
-    #TODO: Smart optimizer doesn't seem to work correctly
+    #DONE: Smart optimizer doesn't seem to work correctly -> Fixed
     else:
         # ################
         # Create smart optimizer - V 0.3.5
@@ -484,7 +484,7 @@ def run():
             #############################################################################
             if integ_batch_num <= warmup_num:
                 loss.backward()
-                if model.hyperparams['optimizer'] == "adam":
+                if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
                     optimizer.step()
                     with warmup_scheduler.dampening():
                         lr_scheduler.step()
