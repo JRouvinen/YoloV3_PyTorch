@@ -392,7 +392,7 @@ def run():
         model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
         optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
 
-        if model.hyperparams['optimizer'] == "adam":
+        if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
             # ################
             # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
             # ################
