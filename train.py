@@ -662,17 +662,18 @@ def run():
                                     args.logdir + "/" + date)
 
         # #############
-        # Save progress
+        # Save progress -> changed on version 0.3.11F to save every eval epoch
         # #############
+        # Reason to eval epoch change: uploads get stucked
+        #
+        if epoch % args.evaluation_interval == 0:
+            # Save last model to checkpoint file
 
-        # Save last model to checkpoint file
-
-        # Updated on version 0.3.0 to save only last
-        checkpoint_path = f"checkpoints/{model_name}_ckpt_last.pth"
-        print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
-        torch.save(model.state_dict(), checkpoint_path)
-        checkpoints_saved += 1
-
+            # Updated on version 0.3.0 to save only last
+            checkpoint_path = f"checkpoints/{model_name}_ckpt_last.pth"
+            print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
+            torch.save(model.state_dict(), checkpoint_path)
+            checkpoints_saved += 1
 
         if auto_eval is True and loss_components.dim() > 0:
             # #############
