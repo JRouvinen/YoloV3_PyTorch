@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.11"
+    ver = "0.3.11G"
     # Check folders
     check_folders()
     # Create new log file
@@ -675,6 +675,12 @@ def run():
             torch.save(model.state_dict(), checkpoint_path)
             checkpoints_saved += 1
 
+            ############################
+            # ClearML last model update - V 0.3.7 -> changed on version 0.3.11F to save every eval epoch
+            ############################
+            if clearml_run:
+                task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
+
         if auto_eval is True and loss_components.dim() > 0:
             # #############
             # Training fitness evaluation
@@ -895,11 +901,7 @@ def run():
                         url=csv_url
                     )
 
-            ############################
-            # ClearML last model update - V 0.3.7
-            ############################
-            if clearml_run:
-                task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
+
                 
         epoch_end = time.time()
         exec_time = epoch_end-epoch_start
