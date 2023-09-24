@@ -105,9 +105,11 @@ def compute_loss(predictions, targets, model):
                 t[range(num_targets), tcls[layer_index]] = 1
                 # Use the tensor to calculate the BCE loss
                 lcls += BCEcls(ps[:, 5:], t) * 0.5  # BCE
-        # Classification of the objectness the sequel
-        # Calculate the BCE loss between the on the fly generated target and the network prediction
-        lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
+            # Fix for error: ValueError: Target size (torch.Size([32, 3, 40, 40])) must be the same as input size (torch.Size([32, 3, 80, 80]))
+            # ---- This is caused possibly when theres a layer with no targets ----
+            # Classification of the objectness the sequel
+            # Calculate the BCE loss between the on the fly generated target and the network prediction
+            lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
 
 
     # Merge losses
