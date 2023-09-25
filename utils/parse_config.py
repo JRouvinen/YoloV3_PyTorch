@@ -35,3 +35,29 @@ def parse_data_config(path):
         key, value = line.split('=')
         options[key.strip()] = value.strip()
     return options
+
+def parse_model_weight_config(path):
+    eval_wtrain = ''
+    eval_w = ''
+    with open(path, 'r') as fp:
+        lines = fp.readlines()
+    for line in lines:
+        line = line.strip()
+        if line == '' or line.startswith('#') or line.startswith('['):
+            continue
+        key, value = line.split('=')
+        if key == "w_train":
+            eval_wtrain = value
+            eval_wtrain = eval_wtrain.replace('[','')
+            eval_wtrain = eval_wtrain.replace(']','')
+            eval_wtrain = eval_wtrain.split(',')
+            wtrain_float_list = list(map(float, eval_wtrain))
+        elif key == "w":
+            eval_w = value
+            eval_w = eval_w.replace('[','')
+            eval_w = eval_w.replace(']','')
+            eval_w = eval_w.split(',')
+            eval_w_float_list = list(map(float, eval_w))
+
+    return wtrain_float_list,eval_w_float_list
+

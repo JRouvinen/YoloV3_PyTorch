@@ -29,7 +29,7 @@ from utils.utils import to_cpu, load_classes, print_environment_info, provide_de
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
-from utils.parse_config import parse_data_config
+from utils.parse_config import parse_data_config, parse_model_weight_config
 from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
 from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer
@@ -113,7 +113,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.11G"
+    ver = "0.3.12"
     # Check folders
     check_folders()
     # Create new log file
@@ -172,15 +172,18 @@ def run():
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
-    #date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     epoch_start = ""
     epoch_end = ""
     exec_time = 0
     do_auto_eval = False
     use_smart_optimizer = True
-    # Create output directories if missing
-    #os.makedirs("output", exist_ok=True)
-    #os.makedirs("checkpoints", exist_ok=True)
+
+    #Get model weight eval parameters
+    # Create a ConfigParser object
+    weight_eval_params = parse_model_weight_config(args.model)
+    # Access the parameters from the config file
+    w_train = weight_eval_params[0]
+    w = weight_eval_params[1]
 
     ################
     # Create CSV files - version 0.3.8
@@ -217,6 +220,10 @@ def run():
     proj_name = config.get('clearml', 'proj_name')
     #task_name = config.get('clearml', 'task_name')
     offline = config.get('clearml', 'offline')
+    if config.get('clearml', 'clearml_save_last') == "True":
+        clearml_save_last = True
+    else:
+        clearml_save_last = False
     if config.get('clearml', 'clearml_run') == "True":
         clearml_run = True
     else:
@@ -678,7 +685,7 @@ def run():
             ############################
             # ClearML last model update - V 0.3.7 -> changed on version 0.3.11F to save every eval epoch
             ############################
-            if clearml_run:
+            if clearml_run and clearml_save_last:
                 task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
 
         if auto_eval is True and loss_components.dim() > 0:
@@ -693,7 +700,8 @@ def run():
                 float(loss_components[2]),  # Class Loss
                 float(loss_components[3]),  # Loss
             ]
-            w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
+            # Updated on version 0.3.12
+            #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
 
             if fi_train < best_training_fitness:
@@ -781,7 +789,8 @@ def run():
                 # ############
                 # Current fitness calculation - V0.3.6B
                 # ############
-                w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                # Updated on version 0.3.12
+                #w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
                              w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
