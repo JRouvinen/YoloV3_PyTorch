@@ -31,8 +31,12 @@ for filename in os.listdir(labels_dir):
 #print(classes)
 #print(annotations)
 
+f = open(path+"/datasetInfo" + ".txt", "w")
+
 print("Number of annotations in dataset by class:\n")
 
 for i in range(len(classes)):
     print(classes[i] + "-"+str(annotations[i]))
+    f.write(classes[i] + "-" + str(annotations[i]) + "\n")
+f.close()
 print(f"\nTotal number of annotations: {sum(annotations)}")
