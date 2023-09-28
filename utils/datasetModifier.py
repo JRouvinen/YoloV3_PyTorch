@@ -5,27 +5,27 @@ classes_file = path + "/classes.txt"
 new_classes_file = path + "/classes_new.txt"
 labels_dir = path + "/labels"
 mapping = {"0":"0",
-            "1":"0",
-            "2":"0",
+            "1":"2",
+            "2":"3",
             "3":"1",
-            "4":"1",
-            "5":"1",
-            "6":"2",
-            "7":"3",
-            "8":"4",
-            "9":"4",
-            "10":"4",
-            "11":"5",
-            "12":"5",
-            "13":"5",
-            "14":"6",
-            "15":"7",
-            "16":"8",
-            "17":"10",
-            "18":"11",
-            "19":"9",
-            "20":"12",
-            "21":"12",
+            "4":"4",
+            "5":"6",
+            "6":"7",
+            "7":"5",
+            "8":"8",
+            "9":"10",
+            "10":"11",
+            "11":"9",
+            "12":"12",
+            "13":"14",
+            "14":"15",
+            "15":"13",
+            "16":"20",
+            "17":"16",
+            "18":"18",
+            "19":"19",
+            "20":"17",
+            "21":"18",
             "22":"12",
             "23":"13",
             "24":"13",
@@ -77,7 +77,7 @@ for filename in os.listdir(labels_dir):
                 file_data_to_write += " ".join(line_data)
             file.close()
             file_to_overwrite = open(f, "w")
-            print(f"Rewriting file: {f}")
+            print(f"Rewriting file annotation: {f}")
             file_to_overwrite.write(file_data_to_write)
             file_to_overwrite.close()
             files_modified += 1

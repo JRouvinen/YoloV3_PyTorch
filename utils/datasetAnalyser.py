@@ -40,3 +40,4 @@ for i in range(len(classes)):
     f.write(classes[i] + "-" + str(annotations[i]) + "\n")
 f.close()
 print(f"\nTotal number of annotations: {sum(annotations)}")
+print(f'Results written into {path+"/datasetInfo" + ".txt"}\n')

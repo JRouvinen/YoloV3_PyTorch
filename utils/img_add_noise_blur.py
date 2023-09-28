@@ -12,7 +12,7 @@ import numpy as np
 import random
 import cv2
 
-from utils import progress_bar
+import progress_bar
 
 
 def sp_noise(image,prob):
@@ -47,7 +47,7 @@ def black_white(image):
     return grayImage
 
 #How many file will be edited from original file count (in %)
-percent_of_files = 20
+percent_of_files = 100
 number_of_files = 0
 #Noise settings
 img_noise = True
@@ -129,7 +129,9 @@ for filename in os.listdir(path):
                 new_file_path = f = os.path.join(path, new_file_name)
                 cv2.imwrite(new_file_path, img)
                 # Get original image labels and create new for noise image
-                label_path = path.replace("images", "labels\\") + filename.replace("jpg", "txt")
+                label_path = path.replace("images", "labels\\") + filename.replace("JPG", "txt")
+                if label_path.endswith('jpg'):
+                    label_path = label_path.replace("jpg", "txt")
                 new_label_path = label_path.replace(".txt", new_name_add+".txt")
                 shutil.copyfile(label_path, new_label_path)
             step_count = 0
