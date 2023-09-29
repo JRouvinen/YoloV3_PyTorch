@@ -39,6 +39,8 @@ def parse_data_config(path):
 def parse_model_weight_config(path):
     eval_wtrain = ''
     eval_w = ''
+    wtrain_float_list = []
+    eval_w_float_list = []
     with open(path, 'r') as fp:
         lines = fp.readlines()
     for line in lines:
