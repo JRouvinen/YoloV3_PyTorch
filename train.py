@@ -790,7 +790,7 @@ def run():
                 # Current fitness calculation - V0.3.6B
                 # ############
                 # Updated on version 0.3.12
-                #w = [0.1, 0.1, 0.7, 0.1, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                w = [0.1, 0.1, 0.6, 0.2, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
                 fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
                              w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
