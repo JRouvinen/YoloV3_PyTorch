@@ -1,5 +1,5 @@
-/config/ITDM_simple.data
-/config/ITDM_simple.names
+/config/Nova.data
+/config/Nova.names
 /config/yolov3_ITDM-tiny.cfg
 /data/ITDM_8556img_1234_interf/
 /weights/yolov3-tiny.weights
