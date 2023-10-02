@@ -918,4 +918,4 @@ def run():
 if __name__ == "__main__":
     run()
 
-# python train.py -m config/yolov3_ITDM_simple.cfg -d config/ITDM_simple.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1
+# python train.py -m config/yolov3_ITDM_simple.cfg -d config/Nova.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1

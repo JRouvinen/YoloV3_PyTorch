@@ -30,7 +30,7 @@ from utils.writer import log_file_writer
 
 
 def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,
-                     batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
+                     batch_size=8,img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5,draw=0):
     """Detects objects on all images in specified directory and saves output images with drawn detections.
 
     :param model_path: Path to model definition file (.cfg)
@@ -54,6 +54,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path, g
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
     """
+    #draw=0
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
     model = load_model(model_path, gpu, weights_path)
     img_detections, imgs = detect(
@@ -63,7 +64,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path, g
         conf_thres,
         nms_thres)
     _draw_and_save_output_images(
-        img_detections, imgs, img_size, output_path, classes, date)
+        img_detections, imgs, img_size, output_path, classes, date, draw)
 
     print(f"---- Detections were saved to: '{output_path}' ----")
 
@@ -146,7 +147,7 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres):
     return img_detections, imgs
 
 
-def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, classes, date):
+def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, classes, date, draw):
     """Draws detections in output images and stores them.
 
     :param img_detections: List of detections
@@ -166,11 +167,11 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
         print(f"Image {image_path}:")
         log_file_writer(f"Image {image_path}:", "output/" + date + "_detect" + ".txt")
         _draw_and_save_output_image(
-            image_path, detections, img_size, output_path, classes, date)
+            image_path, detections, img_size, output_path, classes, date, draw)
 
 
 
-def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes, date):
+def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes, date, draw):
     """Draws detections in output image and stores this.
 
     :param image_path: Path to input image
@@ -184,49 +185,61 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     :param classes: List of class names
     :type classes: [str]
     """
-    # Create plot
-    img = np.array(Image.open(image_path))
-    plt.figure()
-    fig, ax = plt.subplots(1)
-    ax.imshow(img)
-    # Rescale boxes to original image
-    detections = rescale_boxes(detections, img_size, img.shape[:2])
-    unique_labels = detections[:, -1].cpu().unique()
-    n_cls_preds = len(unique_labels)
-    # Bounding-box colors
-    cmap = plt.get_cmap("tab20b")
-    colors = [cmap(i) for i in np.linspace(0, 1, n_cls_preds)]
-    bbox_colors = random.sample(colors, n_cls_preds)
-    for x1, y1, x2, y2, conf, cls_pred in detections:
+    #create just log file
+    if draw == 0:
+        img = np.array(Image.open(image_path))
+        # Rescale boxes to original image
+        detections = rescale_boxes(detections, img_size, img.shape[:2])
+        unique_labels = detections[:, -1].cpu().unique()
+        n_cls_preds = len(unique_labels)
+        for x1, y1, x2, y2, conf, cls_pred in detections:
 
-        print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
-        log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/" + date + "_detect" + ".txt")
+            print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+            log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/" + date + "_detect" + ".txt")
+    else:
+        # Create plot
+        img = np.array(Image.open(image_path))
+        plt.figure()
+        fig, ax = plt.subplots(1)
+        ax.imshow(img)
+        # Rescale boxes to original image
+        detections = rescale_boxes(detections, img_size, img.shape[:2])
+        unique_labels = detections[:, -1].cpu().unique()
+        n_cls_preds = len(unique_labels)
+        # Bounding-box colors
+        cmap = plt.get_cmap("tab20b")
+        colors = [cmap(i) for i in np.linspace(0, 1, n_cls_preds)]
+        bbox_colors = random.sample(colors, n_cls_preds)
+        for x1, y1, x2, y2, conf, cls_pred in detections:
 
-        box_w = x2 - x1
-        box_h = y2 - y1
+            print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+            log_file_writer(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}", "output/" + date + "_detect" + ".txt")
 
-        color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
-        # Create a Rectangle patch
-        bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
-        # Add the bbox to the plot
-        ax.add_patch(bbox)
-        # Add label
-        plt.text(
-            x1,
-            y1,
-            s=f"{classes[int(cls_pred)]}: {conf:.2f}",
-            color="white",
-            verticalalignment="top",
-            bbox={"color": color, "pad": 0})
+            box_w = x2 - x1
+            box_h = y2 - y1
 
-    # Save generated image with detections
-    plt.axis("off")
-    plt.gca().xaxis.set_major_locator(NullLocator())
-    plt.gca().yaxis.set_major_locator(NullLocator())
-    filename = os.path.basename(image_path).split(".")[0]
-    output_path = os.path.join(output_path, f"{filename}.png")
-    plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
-    plt.close()
+            color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+            # Create a Rectangle patch
+            bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
+            # Add the bbox to the plot
+            ax.add_patch(bbox)
+            # Add label
+            plt.text(
+                x1,
+                y1,
+                s=f"{classes[int(cls_pred)]}: {conf:.2f}",
+                color="white",
+                verticalalignment="top",
+                bbox={"color": color, "pad": 0})
+
+        # Save generated image with detections
+        plt.axis("off")
+        plt.gca().xaxis.set_major_locator(NullLocator())
+        plt.gca().yaxis.set_major_locator(NullLocator())
+        filename = os.path.basename(image_path).split(".")[0]
+        output_path = os.path.join(output_path, f"{filename}.png")
+        plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
+        plt.close()
 
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu):
@@ -266,6 +279,7 @@ def run():
     parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
     parser.add_argument("-o", "--output", type=str, default="output", help="Path to output directory")
     parser.add_argument("-b", "--batch_size", type=int, default=1, help="Size of each image batch")
+    parser.add_argument("-d", "--draw", type=int, default=0, help="Draw detection boxes into images")
     parser.add_argument("--img_size", type=int, default=640, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
@@ -294,6 +308,7 @@ def run():
         n_cpu=args.n_cpu,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres,
+        draw=args.draw
         )
 
 
