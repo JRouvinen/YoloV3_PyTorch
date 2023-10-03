@@ -87,6 +87,26 @@ def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
     """
     model.eval()  # Set model to evaluation mode
 
+    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    img_detections = []  # Stores detections for each image index
+    imgs = []  # Stores image paths
+
+    input_imgs = Variable(image.type(Tensor))
+
+    # Get detections
+    with torch.no_grad():
+        detections = model(input_imgs)
+        detections = non_max_suppression(detections, conf_thres, nms_thres)
+
+    # Store image and detections
+    img_detections.extend(detections)
+    #imgs.extend(img_paths)
+    return img_detections, imgs
+
+
+    ''' OLD IMPLEMENTATION
+    model.eval()  # Set model to evaluation mode
+
     # Configure input
     input_img = transforms.Compose([
         DEFAULT_TRANSFORMS,
@@ -102,7 +122,7 @@ def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
         detections = non_max_suppression(detections, conf_thres, nms_thres)
         detections = rescale_boxes(detections[0], img_size, image.shape[:2])
     return detections.numpy()
-
+    '''
 
 def detect(model, dataloader, output_path, conf_thres, nms_thres):
     """Inferences images with model.
@@ -122,8 +142,9 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres):
         List of input image paths
     :rtype: [Tensor], [str]
     """
-    # Create output directory, if missing
-    os.makedirs(output_path, exist_ok=True)
+    if output_path != None:
+        # Create output directory, if missing
+        os.makedirs(output_path, exist_ok=True)
 
     model.eval()  # Set model to evaluation mode
 
@@ -218,7 +239,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
             box_w = x2 - x1
             box_h = y2 - y1
 
-            color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0])]
+            color = bbox_colors[int(np.where(unique_labels == int(cls_pred))[0][0])]
             # Create a Rectangle patch
             bbox = patches.Rectangle((x1, y1), box_w, box_h, linewidth=2, edgecolor=color, facecolor="none")
             # Add the bbox to the plot
@@ -281,8 +302,8 @@ def run():
     parser.add_argument("-b", "--batch_size", type=int, default=1, help="Size of each image batch")
     parser.add_argument("-d", "--draw", type=int, default=0, help="Draw detection boxes into images")
     parser.add_argument("--img_size", type=int, default=640, help="Size of each image dimension for yolo")
-    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
-    parser.add_argument("--conf_thres", type=float, default=0.5, help="Object confidence threshold")
+    parser.add_argument("--n_cpu", type=int, default=4, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--conf_thres", type=float, default=0.45, help="Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5, help="IOU threshold for non-maximum suppression")
     parser.add_argument("-g", "--gpu",type=int, default=-1, help="GPU to use")
 
