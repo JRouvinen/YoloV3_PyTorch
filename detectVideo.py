@@ -14,7 +14,7 @@ import pickle as pkl
 import argparse
 from detect import detect_image
 
-ver = "0.1"
+ver = "0.2"
 
 def get_test_input(input_dim, CUDA):
     img = cv2.imread("C:/Users/Juha/PycharmProjects/YoloV3_PyTorch/data/traffic_vid/image1.jpg")
@@ -49,7 +49,11 @@ def write(x, img):
     c1 = (int(c1[0].item()), int(c1[1].item()))
     c2 = (int(c2[0].item()), int(c2[1].item()))
     cls = int(x[-1])
-    label = "{0}".format(classes[cls])
+    print('cls', cls)
+    if cls >= 20:
+        label = "Unknown"
+    else:
+        label = "{0}".format(classes[cls])
     # Define a list of colors in BGR format
     colors = [
         (0, 0, 255),  # Red
@@ -68,7 +72,7 @@ def write(x, img):
 
 def arg_parse():
     """
-    Parse arguements to the detect module
+    Parse arguments to the detect module
 
     """
 
@@ -80,7 +84,7 @@ def arg_parse():
                         default = "video.avi", type = str)
     parser.add_argument("--dataset", dest = "dataset", help = "Dataset on which the network has been trained", default = "pascal")
     parser.add_argument("--confidence", dest = "confidence", help = "Object Confidence to filter predictions", default = 0.5)
-    parser.add_argument("--nms_thresh", dest = "nms_thresh", help = "NMS Threshhold", default = 0.4)
+    parser.add_argument("--nms_thresh", dest = "nms_thresh", help = "NMS Threshhold", default = 0.5)
     parser.add_argument("--cfg", dest = 'cfgfile', help =
     "Config file",
                         default = "cfg/yolov3.cfg", type = str)
@@ -131,66 +135,72 @@ if __name__ == '__main__':
     assert cap.isOpened(), 'Cannot capture source'
 
     frames = 0
+    frame_hop = 24
     start = time.time()
     while cap.isOpened():
+        if frames % frame_hop == 0:
 
-        ret, frame = cap.read()
-        if ret:
-
-
-            img, orig_im, dim = prep_image(frame, inp_dim)
-
-            im_dim = torch.FloatTensor(dim).repeat(1,2)
+            ret, frame = cap.read()
+            if ret:
 
 
-            if CUDA:
-                im_dim = im_dim.cuda()
-                img = img.cuda()
+                img, orig_im, dim = prep_image(frame, inp_dim)
 
-            input_imgs = Variable(img.type(Tensor))
+                im_dim = torch.FloatTensor(dim).repeat(1,2)
 
-            with torch.no_grad():
-                output = model(input_imgs)
-                #output = detect_image(model, img, 640, 0.5, 0.5) #model, image, img_size=416, conf_thres=0.5, nms_thres=0.5
-            output = write_results(output, confidence, num_classes, nms = True, nms_conf = nms_thesh)
 
-            if type(output) == int:
-                frames += 1
-                print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
+                if CUDA:
+                    im_dim = im_dim.cuda()
+                    img = img.cuda()
+
+                input_imgs = Variable(img.type(Tensor))
+
+                with torch.no_grad():
+                    output = model(input_imgs)
+                    #output = detect_image(model, img, 640, 0.5, 0.5) #model, image, img_size=416, conf_thres=0.5, nms_thres=0.5
+                output = write_results(output, confidence, num_classes, nms = True, nms_conf = nms_thesh)
+
+                if type(output) == int:
+                    frames += 1
+                    print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
+                    cv2.imshow("frame", orig_im)
+                    key = cv2.waitKey(1)
+                    if key & 0xFF == ord('q'):
+                        break
+                    continue
+
+
+
+
+                im_dim = im_dim.repeat(output.size(0), 1)
+                scaling_factor = torch.min(inp_dim/im_dim,1)[0].view(-1,1)
+
+                output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim[:,0].view(-1,1))/2
+                output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim[:,1].view(-1,1))/2
+
+                output[:,1:5] /= scaling_factor
+
+                for i in range(output.shape[0]):
+                    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim[i,0])
+                    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim[i,1])
+
+                classes = load_classes('config/VegaV2.names')
+                colors = pkl.load(open("pallete", "rb"))
+
+                list(map(lambda x: write(x, orig_im), output))
+
+
                 cv2.imshow("frame", orig_im)
                 key = cv2.waitKey(1)
                 if key & 0xFF == ord('q'):
                     break
-                continue
+                frames += 1
+                print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
 
 
-
-
-            im_dim = im_dim.repeat(output.size(0), 1)
-            scaling_factor = torch.min(inp_dim/im_dim,1)[0].view(-1,1)
-
-            output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim[:,0].view(-1,1))/2
-            output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim[:,1].view(-1,1))/2
-
-            output[:,1:5] /= scaling_factor
-
-            for i in range(output.shape[0]):
-                output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim[i,0])
-                output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim[i,1])
-
-            classes = load_classes('config/Vega.names')
-            colors = pkl.load(open("pallete", "rb"))
-
-            list(map(lambda x: write(x, orig_im), output))
-
-
-            cv2.imshow("frame", orig_im)
-            key = cv2.waitKey(1)
-            if key & 0xFF == ord('q'):
+            else:
                 break
-            frames += 1
-            print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
-
 
         else:
-            break
+            frames += 1
+

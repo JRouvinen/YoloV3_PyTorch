@@ -4,7 +4,7 @@
     <option name="enabledOnReformat" value="true" />
     <option name="executionMode" value="BINARY" />
     <option name="pathToExecutable" value="C:\Users\Kimiwaha\AppData\Local\Programs\Python\Python310\Scripts\black.exe" />
-    <option name="sdkUUID" value="de52cea6-00c2-40f6-bade-f73faa44a613" />
+    <option name="sdkName" value="Python 3.10 (YoloV3_PyTorch)" />
   </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (YoloV3_PyTorch)" project-jdk-type="Python SDK" />
   <component name="PythonCompatibilityInspectionAdvertiser">

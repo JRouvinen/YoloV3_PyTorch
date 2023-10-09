@@ -17,3 +17,5 @@ For learning, Backblaze B2 Developer Quick Starts provide developers the followi
 
 If you want to learn the ins-and-outs of Backblaze B2 cloud storage and how to implement solutions with it using Python then this Backblaze B2 Developer Quick Start is for you.  
 
+Upload instructions:
+[Upload files with the CLI][https://www.backblaze.com/docs/cloud-storage-upload-files-with-the-cli]
