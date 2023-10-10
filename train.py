@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14A"
+    ver = "0.3.14B"
     # Check folders
     check_folders()
     # Create new log file
@@ -358,6 +358,18 @@ def run():
         round(3 * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
 
+    # #################
+    # Use autoanchor -> Not implemented yet
+    # #################
+
+    '''
+    if not resume:
+            if not args.noautoanchor:
+                check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)  # run AutoAnchor
+            model.half().float()  # pre-reduce anchor precision
+
+        callbacks.run('on_pretrain_routine_end', labels, names)
+    '''
 
 
 

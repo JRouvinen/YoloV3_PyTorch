@@ -70,6 +70,43 @@ def _write_json(image_path, detections, img_size, output_path, classes):
     for x1, y1, x2, y2, conf, cls_pred in detections:
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
 
+    '''
+    import json
+    import time
+    import os
+    import random
+    
+    def get_image_paths_and_detections(folder):
+        image_files = [f for f in os.listdir(folder) if f.endswith('.jpg') or f.endswith('.png')]
+        data = []
+        for image_file in image_files:
+            num_det = random.randint(1, 5)  # for example, generate random number of detections 
+            detections = [{'detection': f'det_{i+1}', 'confidence': round(random.uniform(0, 1), 2)} for i in range(num_det)]
+            data.append({
+            'image_path': os.path.join(folder, image_file),
+            'detections': detections
+            })
+        return data
+    
+    folder_path = 'path_to_your_folder_of_images'  # replace with your actual folder path
+    
+    # Get image paths and random detections
+    image_paths_and_detections = get_image_paths_and_detections(folder_path)
+    
+    # Create data for JSON
+    data_for_json = {
+        "timestamp": time.time(),
+        "folder_path": folder_path,
+        "images": image_paths_and_detections
+    }
+    
+    # Convert the data to JSON
+    json_data = json.dumps(data_for_json, indent=4)
+    
+    # Print the JSON data
+    print(json_data)
+    '''
+
 def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_path,img_size,conf_thres,nms_thres):
     #Load model and needed config files
     print('Loading model...')
