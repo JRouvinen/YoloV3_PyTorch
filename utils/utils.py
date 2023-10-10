@@ -1,7 +1,10 @@
 from __future__ import division
 
+import math
 import time
 import platform
+from copy import deepcopy
+
 import tqdm
 import torch
 import torch.nn as nn
@@ -403,3 +406,16 @@ def print_environment_info(ver, filename):
         print("No git or repo found")
         log_file_writer(f"No git or repo found", filename)
 
+
+def one_cycle(y1=0.0, y2=1.0, steps=100):
+    # lambda function for sinusoidal ramp from y1 to y2 https://arxiv.org/pdf/1812.01187.pdf
+    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
+
+def check_amp(model):
+    # Check PyTorch Automatic Mixed Precision (AMP) functionality. Return True on correct operation
+
+    device = next(model.parameters()).device  # get model device
+    if device.type in ('cpu', 'mps'):
+        return False  # AMP only used on CUDA devices
+    else:
+        return True

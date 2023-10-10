@@ -12,6 +12,8 @@ import torch
 from torch.cuda.amp import GradScaler
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from torch.optim import lr_scheduler
+
 import numpy as np
 # Added on V0.3.0
 import clearml
@@ -20,12 +22,13 @@ import configparser
 # Added on V0.3.1
 import utils.pytorch_warmup as warmup
 
-import utils.writer
+#import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
 from utils.smart_optimizer import smart_optimizer
-from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
+from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
+    check_amp
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
@@ -113,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.13"
+    ver = "0.3.14"
     # Check folders
     check_folders()
     # Create new log file
@@ -141,6 +144,10 @@ def run():
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5,
                         help="Evaluation: IOU threshold for non-maximum suppression")
+    parser.add_argument("--sync_bn", type=int, default=0,
+                        help="Set use of SyncBatchNorm")
+    parser.add_argument("--cos_lr", type=int, default=-1,
+                        help="Set type of scheduler")
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
@@ -272,7 +279,7 @@ def run():
     log_file_writer(f'Using cuda device - {device}', "logs/" + date + "_log" + ".txt")
 
     # ############
-    # Create model
+    # Create model - Updated on V0.3.14
     # ############
 
     model = load_model(args.model, gpu, args.pretrained_weights)
@@ -283,9 +290,9 @@ def run():
     # -- Not implemented --
 
     # ############
-    # Check AMP
+    # Check AMP - V.0.3.14
     # ############
-    amp = False  # check AMP -> not implemented
+    amp = check_amp(model)  # check AMP
 
     # ############
     # Log hyperparameters to clearml
@@ -351,6 +358,10 @@ def run():
         round(3 * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
 
+
+
+
+
     if not use_smart_optimizer:
         # ################
         # Create optimizer
@@ -408,10 +419,26 @@ def run():
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
     # #################
-    # Create GradScaler - V 0.3.0
+    # Use ModelEMA - V0.x.xx -> Not implemented correctly
+    # #################
+
+    # EMA
+    #ema = ModelEMA(model) if args.ema != -1 else None
+
+    # #################
+    # Create GradScaler - V 0.3.14
     # #################
     # Creates a GradScaler once at the beginning of training.
-    scaler = GradScaler()
+    #scaler = GradScaler()
+    scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    # #################
+    # SyncBatchNorm - V 0.3.14
+    # #################
+    # Creates a GradScaler once at the beginning of training.
+    if args.sync_bn != -1 and torch.cuda.is_available() is True:
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
+        log_file_writer(f'Using SyncBatchNorm()', "logs/" + date + "_log" + ".txt")
+
 
     # #################
     # Create Logging variables
@@ -462,22 +489,23 @@ def run():
     Overall, this code snippet performs the training loop for a model, handles warmup, 
     and optionally uses AMP for mixed precision training.
     '''
-
+    #Added on V0.3.14
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
         if epoch > 1:
             print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
         model.train()  # Set model to training mode
+        optimizer.zero_grad()
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             # Updated on version V0.3.0
             # Reset gradients
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
             ###########################
 
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
-            imgs = imgs.to(device, non_blocking=True)
+            imgs = imgs.to(device, non_blocking=True).float() / 255
             targets = targets.to(device)
 
             outputs = model(imgs)
@@ -503,6 +531,7 @@ def run():
                     optimizer.step()
 
             else:
+                scaler.scale(loss).backward()
                 if model.hyperparams['optimizer'] == 'adam' or model.hyperparams['adamw']:
                     '''
                     loss.backward()
@@ -520,12 +549,20 @@ def run():
                     optimizer.zero_grad()
                     ##################################
                     # Added on version 0.3.3B
-                    '''
+                    
                     # Performance improved version - 0.3.9
+                    scaler.unscale_(optimizer)  # unscale gradients
                     optimizer.zero_grad()
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
                     optimizer.step()
+                    optimizer.zero_grad()
+                    '''
+                    # Updated Performance version - 0.3.14
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    scaler.step(optimizer)  # optimizer.step
+                    scaler.update()
                     optimizer.zero_grad()
 
                 else:
@@ -557,7 +594,7 @@ def run():
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
                     optimizer.zero_grad()
 
-
+            lr_scheduler.step()
             lr = optimizer.param_groups[0]['lr']
 
             #############################################################################
