@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14"
+    ver = "0.3.14A"
     # Check folders
     check_folders()
     # Create new log file
@@ -532,7 +532,7 @@ def run():
 
             else:
                 scaler.scale(loss).backward()
-                if model.hyperparams['optimizer'] == 'adam' or model.hyperparams['adamw']:
+                if model.hyperparams['optimizer'] == 'adam' or model.hyperparams['optimizer'] == "adamw":
                     '''
                     loss.backward()
                     optimizer.step()

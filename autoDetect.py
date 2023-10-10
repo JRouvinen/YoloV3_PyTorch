@@ -102,51 +102,6 @@ def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_pa
             print('Detections for new files done...')
 
 
-
-# Call the function with the directory and interval (in seconds)
-#monitor_local_folder(directory, 5)  # 300 seconds equals 5 minutes
-
-def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,
-                     batch_size=8,img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5,draw=0):
-    """Detects objects on all images in specified directory and saves output images with drawn detections.
-
-    :param model_path: Path to model definition file (.cfg)
-    :type model_path: str
-    :param weights_path: Path to weights or checkpoint file (.weights or .pth)
-    :type weights_path: str
-    :param img_path: Path to directory with images to inference
-    :type img_path: str
-    :param classes: List of class names
-    :type classes: [str]
-    :param output_path: Path to output directory
-    :type output_path: str
-    :param batch_size: Size of each image batch, defaults to 8
-    :type batch_size: int, optional
-    :param img_size: Size of each image dimension for yolo, defaults to 416
-    :type img_size: int, optional
-    :param n_cpu: Number of cpu threads to use during batch generation, defaults to 8
-    :type n_cpu: int, optional
-    :param conf_thres: Object confidence threshold, defaults to 0.5
-    :type conf_thres: float, optional
-    :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
-    :type nms_thres: float, optional
-    """
-    #draw=0
-    '''
-    dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
-    model = load_model(model_path, gpu, weights_path)
-    img_detections, imgs = detect(
-        model,
-        dataloader,
-        output_path,
-        conf_thres,
-        nms_thres)
-    _draw_and_save_output_images(
-        img_detections, imgs, img_size, output_path, classes, date, draw)
-
-    print(f"---- Detections were saved to: '{output_path}' ----")
-    '''
-
 def monitor_folder_ssh(host, port, username, password, directory, interval):
     pass
     '''
