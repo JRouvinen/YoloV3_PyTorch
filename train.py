@@ -514,8 +514,7 @@ def run():
         epoch_start = time.time()
         if epoch > 1:
             print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
-        if warmup_run:
-            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
+
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
         optimizer.zero_grad()
@@ -544,6 +543,7 @@ def run():
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
+                print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
                     loss.backward()
                     optimizer.step()
