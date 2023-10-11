@@ -611,7 +611,6 @@ def run():
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
-                    loss.backward()
                     optimizer.step()
                 optimizer.zero_grad()
 
