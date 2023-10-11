@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14B"
+    ver = "0.3.14C"
     # Check folders
     check_folders()
     # Create new log file
@@ -144,7 +144,7 @@ def run():
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5,
                         help="Evaluation: IOU threshold for non-maximum suppression")
-    parser.add_argument("--sync_bn", type=int, default=0,
+    parser.add_argument("--sync_bn", type=int, default=-1,
                         help="Set use of SyncBatchNorm")
     parser.add_argument("--cos_lr", type=int, default=-1,
                         help="Set type of scheduler")
@@ -292,8 +292,8 @@ def run():
     # ############
     # Check AMP - V.0.3.14
     # ############
-    amp = check_amp(model)  # check AMP
-
+    #amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
+    amp = False
     # ############
     # Log hyperparameters to clearml
     # ############
@@ -526,88 +526,42 @@ def run():
 
             #############################################################################
             # Run warmup
-            # Updated on version 0.3.1
+            # Updated on version 0.3.14C
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
-                loss.backward()
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
+                    optimizer.zero_grad()
+                    loss.backward()
                     optimizer.step()
                     with warmup_scheduler.dampening():
                         lr_scheduler.step()
                 else:
                     # Burn in
+                    if batches_done == model.hyperparams['burn_in']:
+                        optimizer.zero_grad()
                     lr *= (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = lr
+                    loss.backward()
                     optimizer.step()
+
 
             else:
                 scaler.scale(loss).backward()
-                if model.hyperparams['optimizer'] == 'adam' or model.hyperparams['optimizer'] == "adamw":
-                    '''
-                    loss.backward()
-                    optimizer.step()
-                    lr_scheduler.step()
-                    # Commented out in Version 0.3.3B
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    # scaler.step() first unscales the gradients of the optimizer's assigned params.
-                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-                    # otherwise, optimizer.step() is skipped.
-                    scaler.step(optimizer)  # optimizer.step
-                    scaler.update()
-                    optimizer.zero_grad()
-                    ##################################
-                    # Added on version 0.3.3B
-                    
-                    # Performance improved version - 0.3.9
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    optimizer.zero_grad()
-                    loss.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    '''
-                    # Updated Performance version - 0.3.14
+                if model.hyperparams['optimizer'] in ['adam', 'adamw']:
                     scaler.unscale_(optimizer)  # unscale gradients
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                     scaler.step(optimizer)  # optimizer.step
                     scaler.update()
-                    optimizer.zero_grad()
 
                 else:
-                    '''
-                    loss.backward()
-                    optimizer.step()
-                    #############################################################################
-                    # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
-                    # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
-                    # Backward passes under autocast are not recommended.
-                    # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-                    ##################################
-                    # Commented out in Version 0.3.3B
-                    scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)  # unscale gradients
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    #scaler.step() first unscales the gradients of the optimizer's assigned params.
-                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-                    # otherwise, optimizer.step() is skipped.
                     scaler.step(optimizer)  # optimizer.step
                     scaler.update()
-                    optimizer.zero_grad()
-                    ##################################
-                    # Added on version 0.3.3B
-                    '''
-                    # Performance improved version - 0.3.9
-                    loss.backward()
-                    optimizer.step()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
-                    optimizer.zero_grad()
-
-            lr_scheduler.step()
-            lr = optimizer.param_groups[0]['lr']
+                lr_scheduler.step()
+                lr = optimizer.param_groups[0]['lr']
 
             #############################################################################
             '''
@@ -720,7 +674,7 @@ def run():
         # #############
         # Save progress -> changed on version 0.3.11F to save every eval epoch
         # #############
-        # Reason to eval epoch change: uploads get stucked
+        # Reason to eval epoch change: uploads get stucked when using clearml and larger models
         #
         if epoch % args.evaluation_interval == 0:
             # Save last model to checkpoint file
