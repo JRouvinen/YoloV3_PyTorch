@@ -581,7 +581,7 @@ def run():
         if epoch > 1:
             print(f'- ⏳ - Estimated execution time: {round((exec_time * args.epochs) / 3600, 2)} hours ----')
         if warmup_run:
-            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
+            print(f'- 🔥 - Running warmup cycle ----')
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
         optimizer.zero_grad()
