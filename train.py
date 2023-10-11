@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14F"
+    ver = "0.3.14G"
     # Check folders
     check_folders()
     # Create new log file
@@ -146,7 +146,7 @@ def run():
                         help="Evaluation: IOU threshold for non-maximum suppression")
     parser.add_argument("--sync_bn", type=int, default=-1,
                         help="Set use of SyncBatchNorm")
-    parser.add_argument("--cos_lr", type=int, default=-1,
+    parser.add_argument("--cos_lr", type=int, default=0,
                         help="Set type of scheduler")
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
@@ -184,7 +184,8 @@ def run():
     exec_time = 0
     do_auto_eval = False
     use_smart_optimizer = True
-
+    warmup_run = True
+    start_epoch = 0
     #Get model weight eval parameters
     # Create a ConfigParser object
     weight_eval_params = parse_model_weight_config(args.model)
@@ -421,7 +422,7 @@ def run():
         accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
         model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
         optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-
+        '''
         if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
             # ################
             # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
@@ -429,6 +430,13 @@ def run():
             num_steps = len(dataloader) * args.epochs
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+        '''
+    # Scheduler
+    if args.cos_lr != -1:
+        lf = one_cycle(1, model.hyperparams['lrf'], args.epochs)  # cosine 1->hyp['lrf']
+    else:
+        lf = lambda x: (1 - x / args.epochs) * (1.0 - model.hyperparams['lrf']) + model.hyperparams['lrf']  # linear
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
 
     # #################
     # Use ModelEMA - V0.x.xx -> Not implemented correctly
@@ -446,7 +454,6 @@ def run():
     # #################
     # SyncBatchNorm - V 0.3.14
     # #################
-    # Creates a GradScaler once at the beginning of training.
     if args.sync_bn != -1 and torch.cuda.is_available() is True:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
         log_file_writer(f'Using SyncBatchNorm()', "logs/" + date + "_log" + ".txt")
@@ -472,6 +479,7 @@ def run():
     # ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
+    scheduler.last_epoch = start_epoch - 1  # do not move
 
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
@@ -506,32 +514,37 @@ def run():
         epoch_start = time.time()
         if epoch > 1:
             print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
+        if warmup_run:
+            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
         model.train()  # Set model to training mode
+        mloss = torch.zeros(3, device=device)  # mean losses
         optimizer.zero_grad()
-
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             # Updated on version V0.3.0
             # Reset gradients
             #optimizer.zero_grad()
             ###########################
-
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
-            imgs = imgs.to(device, non_blocking=True).float() / 255
+            #imgs = imgs.to(device, non_blocking=True).float() / 255
+            imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
-
+            # Convert image data to float and normalize
+            imgs = imgs.float() / 255
             outputs = model(imgs)
 
             loss, loss_components = compute_loss(outputs, targets, model)
 
+            # Backward
+            scaler.scale(loss).backward()
+
             #############################################################################
             # Run warmup
-            # Updated on version 0.3.14C
+            # Updated on version 0.3.14G
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-                    optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
                     with warmup_scheduler.dampening():
@@ -549,12 +562,15 @@ def run():
 
 
             else:
-                scaler.scale(loss).backward()
+
+                warmup_run = False
+                #scaler.scale(loss).backward()
                 scaler.unscale_(optimizer)  # unscale gradients
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
-                lr_scheduler.step()
+                optimizer.zero_grad()
+                #lr_scheduler.step()
                 lr = optimizer.param_groups[0]['lr']
 
             #############################################################################
