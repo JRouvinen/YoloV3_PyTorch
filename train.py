@@ -422,7 +422,7 @@ def run():
         accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
         model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
         optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-        '''
+
         if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
             # ################
             # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
@@ -430,7 +430,7 @@ def run():
             num_steps = len(dataloader) * args.epochs
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-        '''
+
     # Scheduler
     if args.cos_lr != -1:
         lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
@@ -548,7 +548,7 @@ def run():
                     #loss.backward()
                     optimizer.step()
                     with warmup_scheduler.dampening():
-                        lr_scheduler.step()
+                        scheduler.step()
                 else:
                     #RuntimeError: value cannot be converted to type float without overflow - fix on version 0.3.14D
                     if batches_done == model.hyperparams['burn_in']:
