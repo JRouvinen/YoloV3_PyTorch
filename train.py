@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14E"
+    ver = "0.3.14F"
     # Check folders
     check_folders()
     # Create new log file
@@ -540,8 +540,7 @@ def run():
                     #RuntimeError: value cannot be converted to type float without overflow - fix on version 0.3.14D
                     if batches_done == model.hyperparams['burn_in']:
                         optimizer.zero_grad()
-                    lr = torch.tensor(lr,
-                                      dtype=torch.float64).detach().clone()  # Convert lr to higher precision if necessary
+                    lr = torch.tensor(lr,dtype=torch.float64).detach().clone()  # Convert lr to higher precision if necessary
                     lr *= float(batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = lr.item()  # Convert lr tensor to a float value
@@ -551,17 +550,10 @@ def run():
 
             else:
                 scaler.scale(loss).backward()
-                if model.hyperparams['optimizer'] in ['adam', 'adamw']:
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    scaler.step(optimizer)  # optimizer.step
-                    scaler.update()
-
-                else:
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    scaler.step(optimizer)  # optimizer.step
-                    scaler.update()
+                scaler.unscale_(optimizer)  # unscale gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                scaler.step(optimizer)  # optimizer.step
+                scaler.update()
                 lr_scheduler.step()
                 lr = optimizer.param_groups[0]['lr']
 
@@ -708,7 +700,7 @@ def run():
             # Updated on version 0.3.12
             #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
-
+            logger.scalar_summary("fitness/training", float(fi_train), epoch)
             if fi_train < best_training_fitness:
                 print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
@@ -800,6 +792,8 @@ def run():
                              w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
+                logger.scalar_summary("fitness/model", round(best_fitness, 4), epoch)
+
                 print(
                     f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
