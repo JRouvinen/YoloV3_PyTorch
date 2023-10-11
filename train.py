@@ -540,11 +540,11 @@ def run():
                     #RuntimeError: value cannot be converted to type float without overflow - fix on version 0.3.14D
                     if batches_done == model.hyperparams['burn_in']:
                         optimizer.zero_grad()
-                    #x = torch.detach().clone()
-                    lr = torch.tensor(lr, dtype=torch.float64)  # Convert lr to higher precision if necessary
-                    lr *= float((batches_done / model.hyperparams['burn_in']))
+                    lr = torch.tensor(lr,
+                                      dtype=torch.float64).detach().clone()  # Convert lr to higher precision if necessary
+                    lr *= float(batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
-                        g['lr'] = lr
+                        g['lr'] = lr.item()  # Convert lr tensor to a float value
                     loss.backward()
                     optimizer.step()
 
