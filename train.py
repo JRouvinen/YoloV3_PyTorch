@@ -545,7 +545,7 @@ def run():
             if integ_batch_num <= warmup_num:
                 print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-                    loss.backward()
+                    #loss.backward()
                     optimizer.step()
                     with warmup_scheduler.dampening():
                         lr_scheduler.step()
@@ -557,7 +557,7 @@ def run():
                     lr *= float(batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = lr.item()  # Convert lr tensor to a float value
-                    loss.backward()
+                    #loss.backward()
                     optimizer.step()
 
 
