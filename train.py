@@ -612,7 +612,8 @@ def run():
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
                     scaler.unscale_(optimizer)  # unscale gradients
-                    optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    scaler.step(optimizer)  # optimizer.step
                 optimizer.zero_grad()
 
             else:
