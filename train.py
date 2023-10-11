@@ -601,6 +601,7 @@ def run():
             if integ_batch_num <= warmup_num:
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
                     scaler.unscale_(optimizer)  # unscale gradients
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                     optimizer.step()
                     with warmup_scheduler.dampening():
                         scheduler.step()
@@ -612,6 +613,8 @@ def run():
                         g['lr'] = lr.item()
                     scaler.unscale_(optimizer)  # unscale gradients
                     optimizer.step()
+                optimizer.zero_grad()
+
             else:
                 warmup_run = False
                 scaler.unscale_(optimizer)  # unscale gradients
@@ -619,8 +622,8 @@ def run():
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
                 optimizer.zero_grad()
-                lr = optimizer.param_groups[0]['lr']
-                scheduler.step()
+            lr = optimizer.param_groups[0]['lr']
+            scheduler.step()
 
             #############################################################################
             '''
