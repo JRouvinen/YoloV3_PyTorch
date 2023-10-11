@@ -608,10 +608,10 @@ def run():
                 else:
                     if batches_done == model.hyperparams['burn_in']:
                         optimizer.zero_grad()
+                    optimizer.step()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
-                        g['lr'] = float(lr)
-                    optimizer.step()
+                        g['lr'] = float(lr.item())
                 optimizer.zero_grad()
 
             else:
