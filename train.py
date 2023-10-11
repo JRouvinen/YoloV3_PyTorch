@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14G"
+    ver = "0.3.14H"
     # Check folders
     check_folders()
     # Create new log file
@@ -509,12 +509,15 @@ def run():
     Overall, this code snippet performs the training loop for a model, handles warmup, 
     and optionally uses AMP for mixed precision training.
     '''
-    #Added on V0.3.14
+
+    #Modded on V0.3.14H
+    '''
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
         if epoch > 1:
             print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
-
+        if warmup_run:
+            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
         optimizer.zero_grad()
@@ -543,7 +546,6 @@ def run():
             # https://github.com/Tony-Y/pytorch_warmup
             #############################################################################
             if integ_batch_num <= warmup_num:
-                print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
                     #loss.backward()
                     optimizer.step()
@@ -572,6 +574,53 @@ def run():
                 optimizer.zero_grad()
                 #lr_scheduler.step()
                 lr = optimizer.param_groups[0]['lr']
+                scheduler.step()
+            '''
+    for epoch in range(1, args.epochs + 1):
+        epoch_start = time.time()
+        if epoch > 1:
+            print(f'- ⏳ - Estimated execution time: {round((exec_time * args.epochs) / 3600, 2)} hours ----')
+        if warmup_run:
+            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
+        model.train()  # Set model to training mode
+        mloss = torch.zeros(3, device=device)  # mean losses
+        optimizer.zero_grad()
+
+        for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
+            batches_done = len(dataloader) * epoch + batch_i
+            integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
+
+            imgs = imgs.to(device, non_blocking=True).float() / 255
+            targets = targets.to(device)
+
+            outputs = model(imgs)
+            loss, loss_components = compute_loss(outputs, targets, model)
+
+            scaler.scale(loss).backward()
+
+            if integ_batch_num <= warmup_num:
+                if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    optimizer.step()
+                    with warmup_scheduler.dampening():
+                        scheduler.step()
+                else:
+                    if batches_done == model.hyperparams['burn_in']:
+                        optimizer.zero_grad()
+                    lr = lr * (batches_done / model.hyperparams['burn_in'])
+                    for g in optimizer.param_groups:
+                        g['lr'] = lr.item()
+                    scaler.unscale_(optimizer)  # unscale gradients
+                    optimizer.step()
+            else:
+                warmup_run = False
+                scaler.unscale_(optimizer)  # unscale gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                scaler.step(optimizer)  # optimizer.step
+                scaler.update()
+                optimizer.zero_grad()
+                lr = optimizer.param_groups[0]['lr']
+                scheduler.step()
 
             #############################################################################
             '''
@@ -588,7 +637,7 @@ def run():
             The code snippet demonstrates good logging practices by providing informative and 
             organized logs for monitoring and analysis.
             '''
-            if loss_components.dim() > 0:
+            if loss_components.dim() != 0:
                 # ############
                 # Log progress
                 # ############
