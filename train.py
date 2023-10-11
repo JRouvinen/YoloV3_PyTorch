@@ -433,9 +433,9 @@ def run():
         '''
     # Scheduler
     if args.cos_lr != -1:
-        lf = one_cycle(1, model.hyperparams['lrf'], args.epochs)  # cosine 1->hyp['lrf']
+        lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
     else:
-        lf = lambda x: (1 - x / args.epochs) * (1.0 - model.hyperparams['lrf']) + model.hyperparams['lrf']  # linear
+        lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(model.hyperparams['lrf'])  # linear
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
 
     # #################
