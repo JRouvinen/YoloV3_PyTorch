@@ -595,7 +595,9 @@ def run():
 
             outputs = model(imgs)
             loss, loss_components = compute_loss(outputs, targets, model)
-
+            if np.isnan(loss.item()) or np.isinf(loss.item()):
+                print("Warning: Loss is NaN or Inf, skipping this update...")
+                continue
             scaler.scale(loss).backward()
 
             if integ_batch_num <= warmup_num:
@@ -623,7 +625,7 @@ def run():
                 optimizer.zero_grad()
             lr = optimizer.param_groups[0]['lr']
             scheduler.step()
-
+            print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
             #############################################################################
             '''
             The code snippet logs the progress of the training process. 
