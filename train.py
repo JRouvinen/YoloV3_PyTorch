@@ -610,7 +610,7 @@ def run():
                         optimizer.zero_grad()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
-                        g['lr'] = lr.item()
+                        g['lr'] = lr
                     scaler.unscale_(optimizer)  # unscale gradients
                     optimizer.step()
                 optimizer.zero_grad()
