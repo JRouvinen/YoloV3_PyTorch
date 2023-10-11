@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14D"
+    ver = "0.3.14E"
     # Check folders
     check_folders()
     # Create new log file
@@ -540,7 +540,8 @@ def run():
                     #RuntimeError: value cannot be converted to type float without overflow - fix on version 0.3.14D
                     if batches_done == model.hyperparams['burn_in']:
                         optimizer.zero_grad()
-                    lr = torch.tensor(lr, dtype=torch.float64)  # Convert lr to higher precision if necessary
+                    tens = torch.clone().detach().requires_grad_(True)
+                    lr = tens.tensor(lr, dtype=torch.float64)  # Convert lr to higher precision if necessary
                     lr *= (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = lr
