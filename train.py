@@ -510,72 +510,8 @@ def run():
     and optionally uses AMP for mixed precision training.
     '''
 
-    #Modded on V0.3.14H
-    '''
-    for epoch in range(1, args.epochs + 1):
-        epoch_start = time.time()
-        if epoch > 1:
-            print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
-        if warmup_run:
-            print(f'- 🔥 - Running warmup cycle: {integ_batch_num}/{warmup_num} ----')
-        model.train()  # Set model to training mode
-        mloss = torch.zeros(3, device=device)  # mean losses
-        optimizer.zero_grad()
-        for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
-            # Updated on version V0.3.0
-            # Reset gradients
-            #optimizer.zero_grad()
-            ###########################
-            batches_done = len(dataloader) * epoch + batch_i
-            integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
-            #imgs = imgs.to(device, non_blocking=True).float() / 255
-            imgs = imgs.to(device, non_blocking=True)
-            targets = targets.to(device)
-            # Convert image data to float and normalize
-            imgs = imgs.float() / 255
-            outputs = model(imgs)
+    #Modded on V0.3.14J
 
-            loss, loss_components = compute_loss(outputs, targets, model)
-
-            # Backward
-            scaler.scale(loss).backward()
-
-            #############################################################################
-            # Run warmup
-            # Updated on version 0.3.14G
-            # https://github.com/Tony-Y/pytorch_warmup
-            #############################################################################
-            if integ_batch_num <= warmup_num:
-                if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-                    #loss.backward()
-                    optimizer.step()
-                    with warmup_scheduler.dampening():
-                        scheduler.step()
-                else:
-                    #RuntimeError: value cannot be converted to type float without overflow - fix on version 0.3.14D
-                    if batches_done == model.hyperparams['burn_in']:
-                        optimizer.zero_grad()
-                    lr = torch.tensor(lr,dtype=torch.float64).detach().clone()  # Convert lr to higher precision if necessary
-                    lr *= float(batches_done / model.hyperparams['burn_in'])
-                    for g in optimizer.param_groups:
-                        g['lr'] = lr.item()  # Convert lr tensor to a float value
-                    #loss.backward()
-                    optimizer.step()
-
-
-            else:
-
-                warmup_run = False
-                #scaler.scale(loss).backward()
-                scaler.unscale_(optimizer)  # unscale gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                scaler.step(optimizer)  # optimizer.step
-                scaler.update()
-                optimizer.zero_grad()
-                #lr_scheduler.step()
-                lr = optimizer.param_groups[0]['lr']
-                scheduler.step()
-            '''
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
         if epoch > 1:
@@ -584,7 +520,10 @@ def run():
             print(f'- 🔥 - Running warmup cycle ----')
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
+        # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
+        for param in model.parameters():
+            param.grad = None
         start_lr = 0.0  # Starting learning rate for warmup
         end_lr = lr  # The final learning rate
         lr = start_lr
@@ -614,7 +553,8 @@ def run():
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
-
+            if integ_batch_num > warmup_num:
+                warmup_run = False
             # Forward
             outputs = model(imgs)
             loss, loss_components = compute_loss(outputs, targets, model)
@@ -622,7 +562,9 @@ def run():
                 print("Warning: Loss is NaN or Inf, skipping this update...")
                 continue
 
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
+            for param in model.parameters():
+                param.grad = None
             # Backward
             scaler.scale(loss).backward()
 
@@ -632,7 +574,9 @@ def run():
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
-                optimizer.zero_grad()
+                #optimizer.zero_grad()
+                for param in model.parameters():
+                    param.grad = None
                 last_opt_step = integ_batch_num
             lr = optimizer.param_groups[0]['lr']
             scheduler.step()
