@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14I"
+    ver = "0.3.14J"
     # Check folders
     check_folders()
     # Create new log file
@@ -613,7 +613,7 @@ def run():
                     optimizer.step()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
-                        g['lr'] = float(lr.item())
+                        g['lr'] = float(lr)
 
             # Forward
             outputs = model(imgs)
