@@ -538,9 +538,9 @@ def run():
             if integ_batch_num <= warmup_num:
                 xi = [0, warmup_num]
                 # get the progress of warmup
-                progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
+                #progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
                 accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
-                if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
+                if model.hyperparams['optimizer'] in ["adam", "adamw"]:
                     scaler.unscale_(optimizer)  # unscale gradients
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                     optimizer.step()
@@ -548,12 +548,14 @@ def run():
                         scheduler.step()
                 else:
                     if batches_done == model.hyperparams['burn_in']:
-                        optimizer.zero_grad()
+                        #optimizer.zero_grad()
+                        for param in model.parameters():
+                            param.grad = None
                     optimizer.step()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
-            if integ_batch_num > warmup_num:
+            else:
                 warmup_run = False
             # Forward
             outputs = model(imgs)
