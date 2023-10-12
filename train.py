@@ -478,6 +478,7 @@ def run():
     f1_array = np.array([])
     # ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
+    train_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
     scheduler.last_epoch = start_epoch - 1  # do not move
     last_opt_step = -1
@@ -726,6 +727,8 @@ def run():
             # Updated on version 0.3.12
             #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
+            train_fitness = float(fi_train[0])
+            train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
             logger.scalar_summary("fitness/training", float(fi_train), epoch)
             if fi_train < best_training_fitness:
                 print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
@@ -838,7 +841,7 @@ def run():
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
-                                      curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+                                      curr_fitness_array, train_fitness_array,eval_epoch_array, args.logdir + "/" + date)
 
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
@@ -851,30 +854,7 @@ def run():
                     if clearml_run:
                         task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
 
-                    '''
-                    ############################
-                    # Save best checkpoint evaluation stats - V2.7 => Depricated in V0.3.8
-                    #############################
-                    # Open file
-                    with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
-                        # Evaluation stats
-                        precision, recall, AP, f1, ap_class = metrics_output
-                        # Gets class AP and mean AP
-                        ap_table = [["Index", "Class", "AP"]]
-                        f.write(str([["Index", "Class", "AP"]]) + "\n")
-                        for i, c in enumerate(ap_class):
-                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                            data = [c, # Class index
-                                    class_names[c],  # Class name
-                                    "%.5f" % AP[i],  # Class AP
-                                    ]
-    
-                            csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
-    
-                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
-    
-                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
-                    '''
+
                     ############################
                     # Save best checkpoint evaluation stats into csv - V0.3.8
                     #############################
