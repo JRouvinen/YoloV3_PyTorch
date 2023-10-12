@@ -728,8 +728,9 @@ def run():
             #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
             train_fitness = float(fi_train[0])
-            train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
-            logger.scalar_summary("fitness/training", float(fi_train), epoch)
+            if epoch % args.evaluation_interval == 0:
+                train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
+                logger.scalar_summary("fitness/training", float(fi_train), epoch)
             if fi_train < best_training_fitness:
                 print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
                 best_training_fitness = fi_train
