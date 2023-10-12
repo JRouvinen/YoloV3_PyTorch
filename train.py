@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14H"
+    ver = "0.3.14I"
     # Check folders
     check_folders()
     # Create new log file
@@ -480,7 +480,7 @@ def run():
     curr_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
     scheduler.last_epoch = start_epoch - 1  # do not move
-
+    last_opt_step = -1
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -585,6 +585,9 @@ def run():
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
         optimizer.zero_grad()
+        start_lr = 0.0  # Starting learning rate for warmup
+        end_lr = lr  # The final learning rate
+        lr = start_lr
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
@@ -593,14 +596,11 @@ def run():
             imgs = imgs.to(device, non_blocking=True).float() / 255
             targets = targets.to(device)
 
-            outputs = model(imgs)
-            loss, loss_components = compute_loss(outputs, targets, model)
-            if np.isnan(loss.item()) or np.isinf(loss.item()):
-                print("Warning: Loss is NaN or Inf, skipping this update...")
-                continue
-            scaler.scale(loss).backward()
-
             if integ_batch_num <= warmup_num:
+                xi = [0, warmup_num]
+                # get the progress of warmup
+                progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
+                accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
                 if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
                     scaler.unscale_(optimizer)  # unscale gradients
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
@@ -614,18 +614,29 @@ def run():
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr.item())
-                optimizer.zero_grad()
 
-            else:
-                warmup_run = False
+            # Forward
+            outputs = model(imgs)
+            loss, loss_components = compute_loss(outputs, targets, model)
+            if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
+                print("Warning: Loss is NaN or Inf, skipping this update...")
+                continue
+
+            optimizer.zero_grad()
+            # Backward
+            scaler.scale(loss).backward()
+
+            # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
+            if integ_batch_num - last_opt_step >= accumulate:
                 scaler.unscale_(optimizer)  # unscale gradients
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
                 optimizer.zero_grad()
+                last_opt_step = integ_batch_num
             lr = optimizer.param_groups[0]['lr']
             scheduler.step()
-            print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
+            #print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
             #############################################################################
             '''
             The code snippet logs the progress of the training process. 
