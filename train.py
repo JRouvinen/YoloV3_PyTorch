@@ -173,6 +173,7 @@ def run():
     else:
         model_name = model_name + '_' + str(date)
 
+    debug = True
     gpu = args.gpu
     auto_eval = True
     best_training_fitness = 9999
@@ -588,10 +589,12 @@ def run():
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
-
+                    if debug:
+                        print('LR: ',lr)
                 # Set learning rate
                 for g in optimizer.param_groups:
                     g['lr'] = lr
+
 
                 # Run optimizer
                 optimizer.step()
@@ -658,6 +661,8 @@ def run():
             The code snippet demonstrates good logging practices by providing informative and 
             organized logs for monitoring and analysis.
             '''
+            if debug:
+                print(f'Loss components dim: {loss_components.dim()}')
             if loss_components.dim() != 0:
                 # ############
                 # Log progress
