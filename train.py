@@ -523,9 +523,9 @@ def run():
                 print("Warning: Loss is NaN or Inf, skipping this update...")
                 continue
 
-
-            # Scale the loss for gradient calculation
-            scaler.scale(loss).backward()
+            if batch_i > 0:
+                # Scale the loss for gradient calculation
+                scaler.scale(loss).backward()
 
             # Unscales the gradients and performs optimizer step
             scaler.step(optimizer)
