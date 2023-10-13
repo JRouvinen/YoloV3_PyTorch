@@ -381,7 +381,7 @@ def run():
     # Create optimizer
     # ################
     params = [p for p in model.parameters() if p.requires_grad]
-    if model.hyperparams['optimizer'] == ["adamw"]:
+    if model.hyperparams['optimizer'] == "adamw":
         optimizer = optim.AdamW(
             params,
             lr=model.hyperparams['learning_rate'],
@@ -522,6 +522,7 @@ def run():
             if np.isnan(loss.item()) or np.isinf(loss.item()) and debug:
                 print("Warning: Loss is NaN or Inf, skipping this update...")
                 continue
+
 
             # Scale the loss for gradient calculation
             scaler.scale(loss).backward()
