@@ -60,9 +60,9 @@ def compute_loss(predictions, targets, model):
     # Check which device was used
     device = targets.device
     # Add placeholder variables for the different losses
-    lcls = torch.tensor(0.0, device=device)
-    lbox = torch.tensor(0.0, device=device)
-    lobj = torch.tensor(0.0, device=device)
+    lcls = torch.tensor(0.0, device=device, requires_grad=True)
+    lbox = torch.tensor(0.0, device=device, requires_grad=True)
+    lobj = torch.tensor(0.0, device=device, requires_grad=True)
     # Build yolo targets
     tcls, tbox, indices, anchors = build_targets(predictions, targets, model)  # targets
     # Define different loss functions classification
@@ -114,8 +114,6 @@ def compute_loss(predictions, targets, model):
 
     # Merge losses
     loss = lbox + lobj + lcls
-    # Set requires_grad=True for the loss tensor
-    loss.requires_grad = True
     losses = [lbox, lobj, lcls, loss]
     non_empty_losses = [l for l in losses if l > 0]
     if len(non_empty_losses) > 0:
