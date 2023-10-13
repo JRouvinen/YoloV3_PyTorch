@@ -563,7 +563,7 @@ def run():
                     # Burn in
                     if model.hyperparams['optimizer'] in ["adam", "adamw"]:
                         with warmup_scheduler.dampening():
-                            lr.scheduler.step()
+                            optimizer.step()
                         # scaler.unscale_(optimizer)  # unscale gradients
                         # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
 
