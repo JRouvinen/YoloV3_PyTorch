@@ -1,4 +1,4 @@
-
+import json
 #import paramiko
 import time
 import os
@@ -14,6 +14,7 @@ from PIL import Image
 
 from detect import detect_image, detect_images
 from models import load_model
+from utils.parse_config import parse_autodetect_config
 from utils.utils import load_classes, rescale_boxes
 
 
@@ -62,52 +63,27 @@ def prep_image(img, inp_dim):
     return img_, orig_im, dim
 
 def _write_json(image_path, detections, img_size, output_path, classes):
+
+    folder_path = output_path  # folder path
+    data = []
     img = np.array(Image.open(image_path))
     # Rescale boxes to original image
     detections = rescale_boxes(detections, img_size, img.shape[:2])
     unique_labels = detections[:, -1].cpu().unique()
     n_cls_preds = len(unique_labels)
+
     for x1, y1, x2, y2, conf, cls_pred in detections:
-        print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+        #print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+        data.append({
+            'image_path': image_path,
+            'detections': classes[int(cls_pred)],
+            'confidence': round(conf.item(),4),
 
-    '''
-    import json
-    import time
-    import os
-    import random
-    
-    def get_image_paths_and_detections(folder):
-        image_files = [f for f in os.listdir(folder) if f.endswith('.jpg') or f.endswith('.png')]
-        data = []
-        for image_file in image_files:
-            num_det = random.randint(1, 5)  # for example, generate random number of detections 
-            detections = [{'detection': f'det_{i+1}', 'confidence': round(random.uniform(0, 1), 2)} for i in range(num_det)]
-            data.append({
-            'image_path': os.path.join(folder, image_file),
-            'detections': detections
-            })
-        return data
-    
-    folder_path = 'path_to_your_folder_of_images'  # replace with your actual folder path
-    
-    # Get image paths and random detections
-    image_paths_and_detections = get_image_paths_and_detections(folder_path)
-    
-    # Create data for JSON
-    data_for_json = {
-        "timestamp": time.time(),
-        "folder_path": folder_path,
-        "images": image_paths_and_detections
-    }
-    
-    # Convert the data to JSON
-    json_data = json.dumps(data_for_json, indent=4)
-    
-    # Print the JSON data
-    print(json_data)
-    '''
+        })
+    return data
 
-def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_path,img_size,conf_thres,nms_thres):
+
+def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_path,img_size,conf_thres,nms_thres,output):
     #Load model and needed config files
     print('Loading model...')
     model = load_model(model_path, gpu, weights_path)
@@ -125,7 +101,10 @@ def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_pa
 
         added_files = files_after - files_before
         if added_files:
+
+            data = []
             img_paths = []
+
             for file in added_files:
                 print(f"New file detected: {file}")
                 img_paths.append(file)
@@ -133,11 +112,28 @@ def monitor_local_folder(directory, interval,classes, model_path,gpu, weights_pa
                 img, orig_img, dim = prep_image(img,img_size)
                 print(f"Detecting objects in new images...")
                 detections, imgs = detect_image(model, img, img_size, conf_thres, nms_thres)
-                _write_json(file,detections[0],img_size,"",classes)
-
+                det_data = _write_json(file,detections[0],img_size,output,classes)
+                data.append(det_data)
             files_before = files_after
             print('Detections for new files done...')
+            print(f'Writing JSON to {output + "/" + "detections" + ".json"}')
+            # Create data for JSON
+            data_for_json = {
+                "timestamp": time.time(),
+                "folder_path": directory,
+                "images": data
+            }
+            # Convert the data to JSON
+            json_data = json.dumps(data_for_json, indent=4)
 
+            # Print the JSON data
+            # print(json_data)
+
+            # Save JSON  data
+            f = open(output + "/" + "detections" + ".json", "w")
+            f.write(json_data)
+            f.close()
+            print('Continue monitoring...')
 
 def monitor_folder_ssh(host, port, username, password, directory, interval):
     pass
@@ -176,7 +172,8 @@ def monitor_folder_ssh(host, port, username, password, directory, interval):
     '''
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.1.0"
+    ver = "0.2.0"
+    '''
     #print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     # Parse config file
     directory = "C:/Users/Juha/Documents/AI/datasets/aug-2023.tar/aug-2023/srv/data_fetching/road_camera_data/data/datalake/digitraffic/images/"
@@ -190,15 +187,20 @@ def run():
     #directory = "/path/to/your/folder"
     #print(f"Command line arguments: {args}")
     #Create_new detect_file
-    classes = load_classes(classes_path)
     conf_thres = 0.35
     nms_thres = 0.5
     img_size = 640
     model = "config/Lyra-tiny.cfg"
     weights = "weights/Lyra-tiny_640.weights"
     gpu = -1
+    '''
+    params = parse_autodetect_config("config/autodetect.cfg")
+    classes = load_classes(params['classes'])
+    if params['json_path'] == "":
+        params['json_path'] = params['directory']
     # List of class names
-    monitor_local_folder(directory, 10,classes,model,gpu,weights,img_size,conf_thres,nms_thres)
+    monitor_local_folder(params['directory'], int(params['interval']),classes,params['model'],int(params['gpu']),
+                         params['weights'],int(params['img_size']),float(params['conf_thres']),float(params['nms_thres']),params['json_path'])
 
 
 if __name__ == '__main__':

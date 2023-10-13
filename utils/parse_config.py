@@ -63,3 +63,27 @@ def parse_model_weight_config(path):
 
     return wtrain_float_list,eval_w_float_list
 
+def parse_autodetect_config(path):
+    import configparser
+    config = configparser.ConfigParser()
+    config.read(path)
+
+    autodetect = {}
+    autodetect['directory'] = config.get('autodetect', 'directory')
+    autodetect['json_path'] = config.get('autodetect', 'json_path')
+    autodetect['interval'] = config.get('autodetect', 'interval')
+    autodetect['gpu'] = config.getint('autodetect', 'gpu')
+    autodetect['classes'] = config.get('autodetect', 'classes')
+    autodetect['conf_thres'] = config.getfloat('autodetect', 'conf_thres')
+    autodetect['nms_thres'] = config.getfloat('autodetect', 'nms_thres')
+    autodetect['img_size'] = config.getint('autodetect', 'img_size')
+    autodetect['model'] = config.get('autodetect', 'model')
+    autodetect['weights'] = config.get('autodetect', 'weights')
+    autodetect['host'] = config.get('autodetect', 'host')
+    autodetect['port'] = config.getint('autodetect', 'port')
+    autodetect['username'] = config.get('autodetect', 'username')
+    autodetect['password'] = config.get('autodetect', 'password')
+
+    return autodetect
+
+

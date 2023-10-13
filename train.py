@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14J"
+    ver = "0.3.14K"
     # Check folders
     check_folders()
     # Create new log file
@@ -139,7 +139,7 @@ def run():
     parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-    parser.add_argument("--iou_thres", type=float, default=0.5,
+    parser.add_argument("--iou_thres", type=float, default=0.1,
                         help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.5,
@@ -382,7 +382,7 @@ def run():
 
         params = [p for p in model.parameters() if p.requires_grad]
 
-        if model.hyperparams['optimizer'] in [None, "adam"]:
+        if model.hyperparams['optimizer'] == ["adamw"]:
             optimizer = optim.AdamW(
                 params,
                 lr=model.hyperparams['learning_rate'],
@@ -400,20 +400,26 @@ def run():
         elif model.hyperparams['optimizer'] == "rmsprop":
             optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
 
-        else:
-            print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
-
-        if model.hyperparams['optimizer'] == "adam":
+        elif model.hyperparams['optimizer'] == "adam":
             # ################
             # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
             # ################
+            optimizer = optim.Adam(
+                params,
+                lr=model.hyperparams['learning_rate'],
+                betas=(0.9, 0.999),
+                weight_decay=model.hyperparams['decay'],
+            )
             num_steps = len(dataloader) * args.epochs
             lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
 
+        else:
+            print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
 
     #DONE: Smart optimizer doesn't seem to work correctly -> Fixed
     else:
+        print(f"- ⚠ - Using SMART OPTIMIZER. Setting up for {model.hyperparams['optimizer']} -optimizer.")
         # ################
         # Create smart optimizer - V 0.3.5
         # ################
