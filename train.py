@@ -588,7 +588,7 @@ def run():
                 else:
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
-                    lr = lr * (batches_done / model.hyperparams['burn_in'])
+                    lr = optimizer.param_groups[0]['lr']
                     if debug:
                         print('LR: ',lr)
                 # Set learning rate
