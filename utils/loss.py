@@ -60,9 +60,9 @@ def compute_loss(predictions, targets, model):
     # Check which device was used
     device = targets.device
     # Add placeholder variables for the different losses
-    lcls = torch.tensor(0.0, device=device,requires_grad=True)
-    lbox = torch.tensor(0.0, device=device,requires_grad=True)
-    lobj = torch.tensor(0.0, device=device,requires_grad=True)
+    lcls = torch.tensor(0.0, device=device)
+    lbox = torch.tensor(0.0, device=device)
+    lobj = torch.tensor(0.0, device=device)
     # Build yolo targets
     tcls, tbox, indices, anchors = build_targets(predictions, targets, model)  # targets
     # Define different loss functions classification
