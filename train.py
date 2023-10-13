@@ -536,20 +536,24 @@ def run():
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
-            imgs = imgs.to(device, non_blocking=True).float() / 255
+            #imgs = imgs.to(device, non_blocking=True).float() / 255
+            imgs = imgs.to(device, non_blocking=True)
+
             targets = targets.to(device)
             # Forward
             outputs = model(imgs)
             loss, loss_components = compute_loss(outputs, targets, model)
-            if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
-                print("Warning: Loss is NaN or Inf, skipping this update...")
-                continue
+
+
+            #if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
+            #    print("Warning: Loss is NaN or Inf, skipping this update...")
+            #    continue
 
             # optimizer.zero_grad()
             # for param in model.parameters():
             #    param.grad = None
             # Backward
-            # scaler.scale(loss).backward()
+            #scaler.scale(loss).backward()
             loss.backward()
 
             ###############
