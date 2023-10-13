@@ -575,7 +575,7 @@ def run():
                     # Version 0.3.15-PERF-C
                     # Update learning rate based on the scheduler
                     scheduler.step()
-                    lr = scheduler.get_lr()
+                    lr = scheduler.get_last_lr()
                     if debug:
                         print('LR: ',lr)
                 # Set learning rate
