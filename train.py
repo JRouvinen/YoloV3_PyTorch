@@ -846,7 +846,7 @@ def run():
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                       curr_fitness_array, train_fitness_array,eval_epoch_array, args.logdir + "/" + date)
 
-                if curr_fitness > best_fitness and not warmup_run:
+                if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
                     checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
                     print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
