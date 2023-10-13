@@ -523,15 +523,15 @@ def run():
                 print("Warning: Loss is NaN or Inf, skipping this update...")
                 continue
 
+            if not np.isnan(loss.item()):
+                # Scale the loss for gradient calculation
+                scaler.scale(loss).backward()
 
-            # Scale the loss for gradient calculation
-            scaler.scale(loss).backward()
+                # Unscales the gradients and performs optimizer step
+                scaler.step(optimizer)
 
-            # Unscales the gradients and performs optimizer step
-            scaler.step(optimizer)
-
-            # Updates the scale for next iteration
-            scaler.update()
+                # Updates the scale for next iteration
+                scaler.update()
             '''
             In this code example, we use  torch.cuda.amp.GradScaler  and  torch.cuda.amp.autocast  to enable mixed 
             precision training. The  autocast()  context manager automatically casts operations inside it to 
@@ -604,7 +604,7 @@ def run():
                             ["Object loss", float(loss_components[1])],
                             ["Class loss", float(loss_components[2])],
                             ["Loss", float(loss_components[3])],
-                            ["Batch loss", to_cpu(loss).item()],
+                            ["Batch loss", to_cpu(mloss).item()],
                         ]).table)
 
                 # Tensorboard logging
@@ -634,7 +634,7 @@ def run():
                     task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
                                               value=float(loss_components[3]))
                     task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
-                                              value=to_cpu(loss).item())
+                                              value=mloss)
                     task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
 
             # ############

@@ -111,10 +111,9 @@ def compute_loss(predictions, targets, model):
             # Calculate the BCE loss between the on the fly generated target and the network prediction
             lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
 
-    # Scale the loss for gradient calculation
-    with torch.no_grad():
-        # Merge losses
-        loss = lbox + lobj + lcls
+
+    # Merge losses
+    loss = lbox + lobj + lcls
     losses = [lbox, lobj, lcls, loss]
     non_empty_losses = [l for l in losses if l > 0]
     if len(non_empty_losses) > 0:
