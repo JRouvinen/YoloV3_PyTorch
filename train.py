@@ -562,6 +562,7 @@ def run():
             ###############
             # Run optimizer
             ###############
+            print('update cycle:',(batches_done % integ_batch_num))
             if batches_done % integ_batch_num == 0:
                 # Adapt learning rate
                 # Get learning rate defined in cfg
