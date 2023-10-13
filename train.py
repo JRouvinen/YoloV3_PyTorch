@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.15A"
+    ver = "0.3.15-PERF-A"
     # Check folders
     check_folders()
     # Create new log file
@@ -142,7 +142,7 @@ def run():
     parser.add_argument("--iou_thres", type=float, default=0.1,
                         help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.5,
+    parser.add_argument("--nms_thres", type=float, default=0.3,
                         help="Evaluation: IOU threshold for non-maximum suppression")
     parser.add_argument("--sync_bn", type=int, default=-1,
                         help="Set use of SyncBatchNorm")
@@ -186,7 +186,7 @@ def run():
     epoch_end = ""
     exec_time = 0
     do_auto_eval = False
-    use_smart_optimizer = True
+    use_smart_optimizer = False
     warmup_run = True
     start_epoch = 0
     train_fitness = 0
@@ -377,71 +377,54 @@ def run():
         callbacks.run('on_pretrain_routine_end', labels, names)
     '''
 
+    # ################
+    # Create optimizer
+    # ################
+    params = [p for p in model.parameters() if p.requires_grad]
+    if model.hyperparams['optimizer'] == ["adamw"]:
+        optimizer = optim.AdamW(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            betas=(0.9, 0.999),
+            weight_decay=model.hyperparams['decay'],
+            amsgrad=True
+        )
+    elif model.hyperparams['optimizer'] == "sgd":
+        optimizer = optim.SGD(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum'],
+            nesterov=model.hyperparams['nesterov'],
+        )
+    elif model.hyperparams['optimizer'] == "rmsprop":
+        optimizer = optim.RMSprop(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum']
+        )
 
-
-
-    if not use_smart_optimizer:
+    elif model.hyperparams['optimizer'] == "adam":
         # ################
-        # Create optimizer
+        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
         # ################
+        optimizer = optim.Adam(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            betas=(0.9, 0.999),
+            weight_decay=model.hyperparams['decay'],
+            amsgrad=True
+        )
 
-        params = [p for p in model.parameters() if p.requires_grad]
 
-        if model.hyperparams['optimizer'] == ["adamw"]:
-            optimizer = optim.AdamW(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-            )
-        elif model.hyperparams['optimizer'] == "sgd":
-            optimizer = optim.SGD(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                weight_decay=model.hyperparams['decay'],
-                momentum=model.hyperparams['momentum'],
-                nesterov=model.hyperparams['nesterov'],
-            )
-        elif model.hyperparams['optimizer'] == "rmsprop":
-            optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
 
-        elif model.hyperparams['optimizer'] == "adam":
-            # ################
-            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-            # ################
-            optimizer = optim.Adam(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-            )
-            num_steps = len(dataloader) * args.epochs
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-
-        else:
-            print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
-
-    #DONE: Smart optimizer doesn't seem to work correctly -> Fixed
     else:
-        print(f"- ⚠ - Using SMART OPTIMIZER. Setting up for {model.hyperparams['optimizer']} -optimizer.")
-        # ################
-        # Create smart optimizer - V 0.3.5
-        # ################
-        # Optimizer
-        nbs = 64  # nominal batch size
-        accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
-        model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
-        optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-
-        if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-            # ################
-            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-            # ################
-            num_steps = len(dataloader) * args.epochs
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
-
+        print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
+        exit()
+    num_steps = len(dataloader) * args.epochs
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
     # Scheduler
     if args.cos_lr != -1:
         lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
@@ -503,28 +486,7 @@ def run():
     print(
         f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print(f"\n- 🔛 - Starting Model {model_name} training... ----")
-    '''
-    This code snippet is training a model for a certain number of epochs. 
-    Inside the training loop, the model is set to training mode using  `model.train()` . 
-    Then, for each batch in the dataloader, the gradients are reset using  `optimizer.zero_grad()` .
-    Next, the current batch and epoch numbers are calculated to keep track of the progress. 
-    The input images and targets are moved to the device and the model is used to generate outputs for the images.
-    The loss and its components are computed using the  `compute_loss`  function. 
-    There is a conditional block that handles the warmup phase of the training. 
-    If the number of integrated batches is less than or equal to the warmup number, the model's optimizer is checked. 
-    If it is "adam", the gradients are computed and the optimizer is updated with  `optimizer.step()` . 
-    Additionally, a warmup scheduler is used to adjust the learning rate.
-    If the optimizer is not "adam", the learning rate is adjusted manually based on the number of batches done so far. 
-    The gradients are computed and the optimizer is updated with the adjusted learning rate.
-    After the warmup phase, the same conditional block is executed, but this time the learning rate is 
-    adjusted using a learning rate scheduler.
-    There is an additional conditional block that was added in version 0.3.0. 
-    It uses automatic mixed precision (AMP) training to scale the loss and compute scaled gradients. 
-    This block is commented out in version 0.3.3B.
-    Finally, the learning rate is updated based on the value in the optimizer's parameter groups.
-    Overall, this code snippet performs the training loop for a model, handles warmup, 
-    and optionally uses AMP for mixed precision training.
-    '''
+
 
     #Modded on V0.3.14J
 
@@ -579,7 +541,7 @@ def run():
             compatible with mixed precision training, such as  torch.optim.Adam  or  torch.optim.SGD .
             '''
             # Backward
-            loss.backward()
+            #loss.backward()
             # Apply gradient clipping
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             ###############
@@ -592,21 +554,15 @@ def run():
                 lr = model.hyperparams['learning_rate']
                 if integ_batch_num <= warmup_num:
                     # Burn in
-                    if model.hyperparams['optimizer'] in ["adam", "adamw"]:
-                        with warmup_scheduler.dampening():
-                            optimizer.step()
-                        # scaler.unscale_(optimizer)  # unscale gradients
-                        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-
-                    else:
-                        if batches_done == model.hyperparams['burn_in']:
-                            optimizer.zero_grad()
-                        # for param in model.parameters():
-                        #    param.grad = None
+                    if batches_done == model.hyperparams['burn_in']:
+                        optimizer.zero_grad()
+                    # for param in model.parameters():
+                    #    param.grad = None
+                    with warmup_scheduler.dampening():
                         optimizer.step()
-                        lr = lr * (batches_done / model.hyperparams['burn_in'])
-                        for g in optimizer.param_groups:
-                            g['lr'] = float(lr)
+                    lr = lr * (batches_done / model.hyperparams['burn_in'])
+                    for g in optimizer.param_groups:
+                        g['lr'] = float(lr)
                 else:
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
@@ -623,66 +579,6 @@ def run():
                 # Reset gradients
                 optimizer.zero_grad()
 
-
-            '''
-            if integ_batch_num <= warmup_num:
-                #xi = [0, warmup_num]
-                # get the progress of warmup
-                #progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
-                #accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
-                if model.hyperparams['optimizer'] in ["adam", "adamw"]:
-                    with warmup_scheduler.dampening():
-                        #scheduler.step()
-                        optimizer.step()
-                    #scaler.unscale_(optimizer)  # unscale gradients
-                    #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-
-                else:
-                    #if batches_done == model.hyperparams['burn_in']:
-                    #    optimizer.zero_grad()
-                        #for param in model.parameters():
-                        #    param.grad = None
-                    optimizer.step()
-                    lr = lr * (batches_done / model.hyperparams['burn_in'])
-                    for g in optimizer.param_groups:
-                        g['lr'] = float(lr)
-
-                optimizer.step()
-                optimizer.zero_grad()
-
-            else:
-            
-            # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
-            #if integ_batch_num - last_opt_step >= accumulate:
-            #scaler.step(optimizer)  # optimizer.step
-            #scaler.update()
-            #scaler.unscale_(optimizer)  # unscale gradients
-            optimizer.step()
-            optimizer.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                #for param in model.parameters():
-                #    param.grad = None
-                #last_opt_step = integ_batch_num
-            optimizer.zero_grad()
-            lr = optimizer.param_groups[0]['lr']
-            #scheduler.step()
-            #print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
-            #############################################################################
-            '''
-            '''
-            The code snippet logs the progress of the training process. 
-            It prints the loss values and other metrics to the console if the  `verbose`  flag is set to  `True`. 
-            It also logs these metrics to TensorBoard for visualization.
-
-            The code snippet also logs the learning rate to TensorBoard and uses 
-            the ClearML library to log the loss values and learning rate.
-            
-            The logged metrics include IoU loss, object loss, class loss, total loss, and batch loss. 
-            These metrics provide insights into the performance of the model during training.
-            
-            The code snippet demonstrates good logging practices by providing informative and 
-            organized logs for monitoring and analysis.
-            '''
             if debug:
                 print(f'Loss components dim: {loss_components.dim()}')
             if loss_components.dim() != 0:
@@ -729,17 +625,7 @@ def run():
                     task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                               value=to_cpu(loss).item())
                     task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
-            '''
-            The code snippet shows the training loop for a YOLOv3 object detection model. 
-            It includes the training process, logging of progress, saving of checkpoints, 
-            and auto-evaluation of the model's fitness on training metrics. 
-            The training progress is logged in a CSV file and image files. 
-            Checkpoints are saved every specified number of epochs, and only a limited number of checkpoints are stored. 
-            The model's fitness is evaluated using a weighted sum of the IOU loss, class loss, object loss, and 
-            total loss. If the auto-evaluated fitness is better than the previous best, 
-            it is considered a new best and saved. 
-            The ClearML library is used for logging the training fitness.
-            '''
+
             # ############
             # Log training progress writers
             # ############
@@ -828,25 +714,6 @@ def run():
                 task.logger.report_scalar(title="Training", series="Fitness", iteration=epoch,
                                           value=float(fi_train[0]))
 
-
-
-        '''
-        This code snippet is evaluating the performance of a YOLOv3 model on the validation set. 
-        It starts by checking if it's time to perform an evaluation based on the specified evaluation interval or 
-        if an auto evaluation is triggered. 
-
-        During the evaluation, the model is passed to the  `_evaluate`  function along with the validation dataloader, 
-        class names, and other parameters. The function calculates various metrics such as precision, recall, 
-        average precision (AP), and F1 score. These metrics are then logged and displayed. 
-        Additionally, the best mean average precision (mAP) is updated if the current fitness (weighted combination of 
-        precision, recall, mAP, and F1 score) is better than the previous best fitness. 
-        
-        If the current fitness is better than the previous best fitness, the model's state dictionary is saved as a checkpoint. 
-        The evaluation metrics and class-wise APs are also saved in a text file. 
-        
-        Finally, the evaluation metrics and fitness values are stored in arrays for plotting purposes. 
-        These arrays are then saved as CSV and image files for visualization.
-        '''
         # ########
         # Evaluate
         # ########
