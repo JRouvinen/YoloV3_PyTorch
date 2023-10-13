@@ -575,12 +575,12 @@ def run():
                     # Version 0.3.15-PERF-C
                     # Update learning rate based on the scheduler
                     scheduler.step()
-                    scheduler.get_lr()
+                    lr = scheduler.get_lr()
                     if debug:
                         print('LR: ',lr)
                 # Set learning rate
-                #for g in optimizer.param_groups:
-                #    g['lr'] = lr
+                for g in optimizer.param_groups:
+                    g['lr'] = lr
 
 
                 # Run optimizer
