@@ -548,8 +548,8 @@ def run():
                     with warmup_scheduler.dampening():
                         #scheduler.step()
                         optimizer.step()
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                    #scaler.unscale_(optimizer)  # unscale gradients
+                    #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
 
                 else:
                     #if batches_done == model.hyperparams['burn_in']:
@@ -584,6 +584,7 @@ def run():
                 #for param in model.parameters():
                 #    param.grad = None
                 #last_opt_step = integ_batch_num
+            optimizer.step()
             optimizer.zero_grad()
             lr = optimizer.param_groups[0]['lr']
             #scheduler.step()
@@ -733,11 +734,11 @@ def run():
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
             train_fitness = float(fi_train[0])
             if fi_train < best_training_fitness:
-                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
+                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train}, old best {best_training_fitness} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
             else:
-                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
+                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train}, best {best_training_fitness} ----")
 
             # ############
             # ClearML training fitness logger - V0.3.4
