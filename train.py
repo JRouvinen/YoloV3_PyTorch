@@ -187,6 +187,7 @@ def run():
     warmup_run = True
     start_epoch = 0
     train_fitness = 0
+    fi_train = 0
     #Get model weight eval parameters
     # Create a ConfigParser object
     weight_eval_params = parse_model_weight_config(args.model)
