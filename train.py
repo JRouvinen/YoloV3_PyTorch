@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14K"
+    ver = "0.3.14L"
     # Check folders
     check_folders()
     # Create new log file
@@ -527,13 +527,10 @@ def run():
             print(f'- 🔥 - Running warmup cycle ----')
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
-        #optimizer.zero_grad()
+        optimizer.zero_grad()
         # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
-        for param in model.parameters():
-            param.grad = None
-        start_lr = 0.0  # Starting learning rate for warmup
-        end_lr = lr  # The final learning rate
-        lr = start_lr
+        #for param in model.parameters():
+        #    param.grad = None
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(dataloader) * epoch + batch_i
@@ -548,16 +545,17 @@ def run():
                 #progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
                 accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
                 if model.hyperparams['optimizer'] in ["adam", "adamw"]:
+                    with warmup_scheduler.dampening():
+                        #scheduler.step()
+                        optimizer.step()
                     scaler.unscale_(optimizer)  # unscale gradients
                     torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    optimizer.step()
-                    with warmup_scheduler.dampening():
-                        scheduler.step()
+
                 else:
-                    if batches_done == model.hyperparams['burn_in']:
-                        #optimizer.zero_grad()
-                        for param in model.parameters():
-                            param.grad = None
+                    #if batches_done == model.hyperparams['burn_in']:
+                    #    optimizer.zero_grad()
+                        #for param in model.parameters():
+                        #    param.grad = None
                     optimizer.step()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
@@ -572,23 +570,23 @@ def run():
                 continue
 
             #optimizer.zero_grad()
-            for param in model.parameters():
-                param.grad = None
+            #for param in model.parameters():
+            #    param.grad = None
             # Backward
             scaler.scale(loss).backward()
 
             # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
             if integ_batch_num - last_opt_step >= accumulate:
-                scaler.unscale_(optimizer)  # unscale gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 scaler.step(optimizer)  # optimizer.step
                 scaler.update()
-                #optimizer.zero_grad()
-                for param in model.parameters():
-                    param.grad = None
+                scaler.unscale_(optimizer)  # unscale gradients
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+                #for param in model.parameters():
+                #    param.grad = None
                 last_opt_step = integ_batch_num
+            optimizer.zero_grad()
             lr = optimizer.param_groups[0]['lr']
-            scheduler.step()
+            #scheduler.step()
             #print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
             #############################################################################
             '''
