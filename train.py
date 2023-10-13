@@ -9,7 +9,7 @@ import time
 import tqdm
 import subprocess as sp
 import torch
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.optim import lr_scheduler
@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.15"
+    ver = "0.3.15A"
     # Check folders
     check_folders()
     # Create new log file
@@ -460,7 +460,7 @@ def run():
     # Create GradScaler - V 0.3.14
     # #################
     # Creates a GradScaler once at the beginning of training.
-    #scaler = GradScaler()
+    scaler = GradScaler()
     #scaler = torch.cuda.amp.GradScaler(enabled=amp)
     # #################
     # SyncBatchNorm - V 0.3.14
@@ -494,6 +494,9 @@ def run():
     lr = model.hyperparams['learning_rate']
     scheduler.last_epoch = start_epoch - 1  # do not move
     last_opt_step = -1
+    # Define the maximum gradient norm for clipping
+    max_grad_norm = 1.0
+
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -533,12 +536,12 @@ def run():
             print(f'- 🔥 - Running warmup cycle ----')
         model.train()  # Set model to training mode
         mloss = torch.zeros(3, device=device)  # mean losses
-        optimizer.zero_grad()
         # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
         #for param in model.parameters():
         #    param.grad = None
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
+            optimizer.zero_grad()
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
@@ -546,22 +549,39 @@ def run():
             imgs = imgs.to(device, non_blocking=True)
 
             targets = targets.to(device)
-            # Forward
-            outputs = model(imgs)
-            loss, loss_components = compute_loss(outputs, targets, model)
+            # Enable autocasting for mixed precision training
+            with autocast():
+                # Forward
+                outputs = model(imgs)
+                loss, loss_components = compute_loss(outputs, targets, model)
 
 
-            #if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
-            #    print("Warning: Loss is NaN or Inf, skipping this update...")
-            #    continue
+            if np.isnan(loss.item()) or np.isinf(loss.item()) and debug:
+                print("Warning: Loss is NaN or Inf, skipping this update...")
+                continue
 
-            # optimizer.zero_grad()
-            # for param in model.parameters():
-            #    param.grad = None
+            # Scale the loss for gradient calculation
+            scaler.scale(loss).backward()
+
+            # Unscales the gradients and performs optimizer step
+            scaler.step(optimizer)
+
+            # Updates the scale for next iteration
+            scaler.update()
+            '''
+            In this code example, we use  torch.cuda.amp.GradScaler  and  torch.cuda.amp.autocast  to enable mixed 
+            precision training. The  autocast()  context manager automatically casts operations inside it to 
+            lower-precision data types, while the  GradScaler  scales the loss value before backpropagation and 
+            unscales the gradients before the optimizer step. This allows for faster and more memory-efficient training on GPUs. 
+ 
+            Please note that for mixed precision training, you may need to ensure that your model and loss function 
+            support lower-precision data types like  torch.float16 . Also, make sure to use an optimizer that is 
+            compatible with mixed precision training, such as  torch.optim.Adam  or  torch.optim.SGD .
+            '''
             # Backward
-            #scaler.scale(loss).backward()
             loss.backward()
-
+            # Apply gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
             ###############
             # Run optimizer
             ###############
