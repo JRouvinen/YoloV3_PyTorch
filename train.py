@@ -167,6 +167,8 @@ def run():
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
+    if args.verbose:
+        print(f'Class names: {class_names}')
     model_name = data_config["model_name"]
     if model_name == '':
         model_name = str(date)
