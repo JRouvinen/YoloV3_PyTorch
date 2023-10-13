@@ -562,7 +562,7 @@ def run():
             ###############
             # Run optimizer
             ###############
-            print('update cycle:',(batches_done % integ_batch_num))
+            #print('update cycle:',(batches_done % integ_batch_num))
             if batches_done % integ_batch_num == 0:
                 # Adapt learning rate
                 # Get learning rate defined in cfg
@@ -576,8 +576,8 @@ def run():
                         # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
 
                     else:
-                        # if batches_done == model.hyperparams['burn_in']:
-                        #    optimizer.zero_grad()
+                        if batches_done == model.hyperparams['burn_in']:
+                            optimizer.zero_grad()
                         # for param in model.parameters():
                         #    param.grad = None
                         optimizer.step()
