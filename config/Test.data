@@ -1,0 +1,6 @@
+classes=21
+train=data/test_set/train.txt
+valid=data/test_set/val.txt
+names=config/Lyra.names
+backup=backup/
+model_name=Test-tiny
