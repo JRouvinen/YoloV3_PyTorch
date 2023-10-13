@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.14L"
+    ver = "0.3.15"
     # Check folders
     check_folders()
     # Create new log file
@@ -456,7 +456,7 @@ def run():
     # #################
     # Creates a GradScaler once at the beginning of training.
     #scaler = GradScaler()
-    scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    #scaler = torch.cuda.amp.GradScaler(enabled=amp)
     # #################
     # SyncBatchNorm - V 0.3.14
     # #################
@@ -538,12 +538,67 @@ def run():
 
             imgs = imgs.to(device, non_blocking=True).float() / 255
             targets = targets.to(device)
+            # Forward
+            outputs = model(imgs)
+            loss, loss_components = compute_loss(outputs, targets, model)
+            if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
+                print("Warning: Loss is NaN or Inf, skipping this update...")
+                continue
 
+            # optimizer.zero_grad()
+            # for param in model.parameters():
+            #    param.grad = None
+            # Backward
+            # scaler.scale(loss).backward()
+            loss.backward()
+
+            ###############
+            # Run optimizer
+            ###############
+            if batches_done % integ_batch_num == 0:
+                # Adapt learning rate
+                # Get learning rate defined in cfg
+                lr = model.hyperparams['learning_rate']
+                if integ_batch_num <= warmup_num:
+                    # Burn in
+                    if model.hyperparams['optimizer'] in ["adam", "adamw"]:
+                        with warmup_scheduler.dampening():
+                            lr.scheduler.step()
+                        # scaler.unscale_(optimizer)  # unscale gradients
+                        # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+
+                    else:
+                        # if batches_done == model.hyperparams['burn_in']:
+                        #    optimizer.zero_grad()
+                        # for param in model.parameters():
+                        #    param.grad = None
+                        optimizer.step()
+                        lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        for g in optimizer.param_groups:
+                            g['lr'] = float(lr)
+                else:
+                    warmup_run = False
+                    # Set and parse the learning rate to the steps defined in the cfg
+                    for threshold, value in model.hyperparams['lr_steps']:
+                        if batches_done > threshold:
+                            lr *= value
+
+                # Set learning rate
+                for g in optimizer.param_groups:
+                    g['lr'] = lr
+
+                # Run optimizer
+                optimizer.step()
+                # Reset gradients
+                optimizer.zero_grad()
+
+
+            '''
             if integ_batch_num <= warmup_num:
-                xi = [0, warmup_num]
+                #xi = [0, warmup_num]
                 # get the progress of warmup
                 #progress = integ_batch_num / warmup_num if integ_batch_num <= warmup_num else 1.0
-                accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
+                #accumulate = max(1, np.interp(integ_batch_num, xi, [1, num_batches / batch_size]).round())
                 if model.hyperparams['optimizer'] in ["adam", "adamw"]:
                     with warmup_scheduler.dampening():
                         #scheduler.step()
@@ -560,36 +615,29 @@ def run():
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
+
+                optimizer.step()
+                optimizer.zero_grad()
+
             else:
-                warmup_run = False
-            # Forward
-            outputs = model(imgs)
-            loss, loss_components = compute_loss(outputs, targets, model)
-            if np.isnan(loss.item()) or np.isinf(loss.item()) and args.verbose:
-                print("Warning: Loss is NaN or Inf, skipping this update...")
-                continue
-
-            #optimizer.zero_grad()
-            #for param in model.parameters():
-            #    param.grad = None
-            # Backward
-            scaler.scale(loss).backward()
-
+            
             # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
             #if integ_batch_num - last_opt_step >= accumulate:
-            scaler.step(optimizer)  # optimizer.step
+            #scaler.step(optimizer)  # optimizer.step
             #scaler.update()
-            scaler.unscale_(optimizer)  # unscale gradients
+            #scaler.unscale_(optimizer)  # unscale gradients
+            optimizer.step()
+            optimizer.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 #for param in model.parameters():
                 #    param.grad = None
                 #last_opt_step = integ_batch_num
-            optimizer.step()
             optimizer.zero_grad()
             lr = optimizer.param_groups[0]['lr']
             #scheduler.step()
             #print(f'Batch {batch_i}/{len(dataloader)}, Loss: {loss.item()}, LR: {lr}')
             #############################################################################
+            '''
             '''
             The code snippet logs the progress of the training process. 
             It prints the loss values and other metrics to the console if the  `verbose`  flag is set to  `True`. 
