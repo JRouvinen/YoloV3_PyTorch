@@ -60,9 +60,9 @@ def compute_loss(predictions, targets, model):
     # Check which device was used
     device = targets.device
     # Add placeholder variables for the different losses
-    lcls = torch.tensor(0.0, device=device, requires_grad=True)
-    lbox = torch.tensor(0.0, device=device, requires_grad=True)
-    lobj = torch.tensor(0.0, device=device, requires_grad=True)
+    lcls = torch.tensor(0.0, device=device)
+    lbox = torch.tensor(0.0, device=device)
+    lobj = torch.tensor(0.0, device=device)
     # Build yolo targets
     tcls, tbox, indices, anchors = build_targets(predictions, targets, model)  # targets
     # Define different loss functions classification
@@ -111,9 +111,10 @@ def compute_loss(predictions, targets, model):
             # Calculate the BCE loss between the on the fly generated target and the network prediction
             lobj += BCEobj(layer_predictions[..., 4], tobj) * 1.0  # obj loss
 
-
-    # Merge losses
-    loss = lbox + lobj + lcls
+    # Scale the loss for gradient calculation
+    with torch.no_grad():
+        # Merge losses
+        loss = lbox + lobj + lcls
     losses = [lbox, lobj, lcls, loss]
     non_empty_losses = [l for l in losses if l > 0]
     if len(non_empty_losses) > 0:
