@@ -527,11 +527,11 @@ def run():
                 # Scale the loss for gradient calculation
                 scaler.scale(loss).backward()
 
-            # Unscales the gradients and performs optimizer step
-            scaler.step(optimizer)
+                # Unscales the gradients and performs optimizer step
+                scaler.step(optimizer)
 
-            # Updates the scale for next iteration
-            scaler.update()
+                # Updates the scale for next iteration
+                scaler.update()
             '''
             In this code example, we use  torch.cuda.amp.GradScaler  and  torch.cuda.amp.autocast  to enable mixed 
             precision training. The  autocast()  context manager automatically casts operations inside it to 
