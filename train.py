@@ -580,7 +580,7 @@ def run():
                         print('LR: ',lr)
                 # Set learning rate
                 for g in optimizer.param_groups:
-                    g['lr'] = lr
+                    g['lr'] = lr[0]
 
 
                 # Run optimizer
