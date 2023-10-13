@@ -564,7 +564,7 @@ def run():
             # Run optimizer
             ###############
             #print('update cycle:',(batches_done % integ_batch_num))
-            if batches_done % integ_batch_num == 0:
+            if batches_done % mini_batch_size == 0:
                 # Adapt learning rate
                 # Get learning rate defined in cfg
                 lr = model.hyperparams['learning_rate']
