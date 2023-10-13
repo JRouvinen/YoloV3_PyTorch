@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.15-PERF-A"
+    ver = "0.3.15-PERF-B"
     # Check folders
     check_folders()
     # Create new log file
@@ -175,7 +175,7 @@ def run():
     else:
         model_name = model_name + '_' + str(date)
 
-    debug = True
+    debug = False
     gpu = args.gpu
     auto_eval = True
     best_training_fitness = 9999
@@ -570,7 +570,13 @@ def run():
                 else:
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
-                    lr = optimizer.param_groups[0]['lr']
+                    #lr = optimizer.param_groups[0]['lr']
+                    # Version 0.3.15-PERF-C
+                    if args.cos_lr != -1:
+                        lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+                    else:
+                        lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(
+                            model.hyperparams['lrf'])  # linear
                     if debug:
                         print('LR: ',lr)
                 # Set learning rate
