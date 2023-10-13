@@ -424,7 +424,8 @@ def run():
         exit()
     num_steps = len(dataloader) * args.epochs
     # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-    warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+    if model.hyperparams['optimizer'] == "adam":
+        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
     # Scheduler
     if args.cos_lr != -1:
         lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
@@ -558,7 +559,10 @@ def run():
                         optimizer.zero_grad()
                     # for param in model.parameters():
                     #    param.grad = None
-                    with warmup_scheduler.dampening():
+                    if model.hyperparams['optimizer'] == "adam":
+                        with warmup_scheduler.dampening():
+                            optimizer.step()
+                    else:
                         optimizer.step()
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
