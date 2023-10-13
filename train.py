@@ -186,6 +186,7 @@ def run():
     use_smart_optimizer = True
     warmup_run = True
     start_epoch = 0
+    train_fitness = 0
     #Get model weight eval parameters
     # Create a ConfigParser object
     weight_eval_params = parse_model_weight_config(args.model)
@@ -482,6 +483,7 @@ def run():
     recall_array = np.array([])
     mAP_array = np.array([])
     f1_array = np.array([])
+
     # ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
     train_fitness_array = np.array([])
