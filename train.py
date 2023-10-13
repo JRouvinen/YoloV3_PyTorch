@@ -576,15 +576,14 @@ def run():
             scaler.scale(loss).backward()
 
             # Optimize - https://pytorch.org/docs/master/notes/amp_examples.html
-            if integ_batch_num - last_opt_step >= accumulate:
-                scaler.step(optimizer)  # optimizer.step
-                #scaler.update()
-                scaler.unscale_(optimizer)  # unscale gradients
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
+            #if integ_batch_num - last_opt_step >= accumulate:
+            scaler.step(optimizer)  # optimizer.step
+            #scaler.update()
+            scaler.unscale_(optimizer)  # unscale gradients
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
                 #for param in model.parameters():
                 #    param.grad = None
-                scaler.update()
-                last_opt_step = integ_batch_num
+                #last_opt_step = integ_batch_num
             optimizer.zero_grad()
             lr = optimizer.param_groups[0]['lr']
             #scheduler.step()
