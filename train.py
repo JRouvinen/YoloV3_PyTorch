@@ -587,9 +587,7 @@ def run():
                 else:
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
-                    for threshold, value in model.hyperparams['steps']:
-                        if batches_done > threshold:
-                            lr *= value
+                    lr = lr * (batches_done / model.hyperparams['burn_in'])
 
                 # Set learning rate
                 for g in optimizer.param_groups:
