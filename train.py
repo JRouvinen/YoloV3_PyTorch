@@ -572,12 +572,9 @@ def run():
                     warmup_run = False
                     # Set and parse the learning rate to the steps defined in the cfg
                     #lr = optimizer.param_groups[0]['lr']
+                    lr = optimizer.get_lr()[0]
                     # Version 0.3.15-PERF-C
-                    if args.cos_lr != -1:
-                        lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
-                    else:
-                        lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(
-                            model.hyperparams['lrf'])  # linear
+
                     if debug:
                         print('LR: ',lr)
                 # Set learning rate
