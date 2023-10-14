@@ -116,7 +116,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.15-PERF-D"
+    ver = "0.3.15-PERF-E"
     # Check folders
     check_folders()
     # Create new log file
@@ -178,7 +178,7 @@ def run():
     debug = False
     gpu = args.gpu
     auto_eval = True
-    best_training_fitness = None
+    best_training_fitness = 999999
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
