@@ -158,7 +158,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.16-PERF-E"
+    ver = "0.3.16"
     # Check folders
     check_folders()
     # Create new log file
