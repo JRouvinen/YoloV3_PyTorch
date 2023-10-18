@@ -1,7 +1,7 @@
 Bus_away
-Bus_towards
-Bus_left
 Bus_right
+Bus_left
+Bus_towards
 Car_away
 Car_left
 Car_right
@@ -15,7 +15,7 @@ Motorcycle_towards
 Motorcycle_left
 Motorcycle_right
 Truck_away
-Truck_towards
+Person
 Truck_left
 Truck_right
-Person
+Truck_towards

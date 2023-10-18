@@ -1,3 +1,15 @@
+# YOLO v3 Video Detection Module
+
+# This code implements an object detection module using YOLO v3. It takes a video as input and detects objects in each frame of the video. The detected objects are then annotated with bounding boxes and class labels. The annotated frames are displayed in real-time.
+
+# The code first imports the required libraries and defines some utility functions. It then parses the command-line arguments to get the input video file, confidence threshold, NMS threshold, YOLO configuration file, YOLO weights file, and input resolution. It also loads the class labels and assigns colors to each class.
+
+# The YOLO model is loaded and the video capture is initialized. The code then processes each frame of the video. For every 'frame_hop' frames, the frame is preprocessed and input to the YOLO model for object detection. The detected objects are filtered based on the confidence threshold and NMS threshold. The filtered objects are then annotated with bounding boxes and class labels. The annotated frame is displayed in real-time.
+
+# The code calculates the frames per second (FPS) and displays it in the console. The video processing continues until the end of the video or the 'q' key is pressed.
+
+# The code is written in Python and requires the following libraries: torch, numpy, opencv-python, pandas, argparse.
+
 from __future__ import division
 import time
 import torch
@@ -12,15 +24,70 @@ import pandas as pd
 import random
 import pickle as pkl
 import argparse
-from detect import detect_image
+from detect import detect_image, draw_and_save_return_image
+
+# YOLO configuration
 
 ver = "0.2"
+colors = [
+        (0, 0, 255),  # Red
+        (0, 255, 0),  # Green
+        (255, 0, 0),  # Blue
+        (255, 255, 0),  # Yellow
+        (255, 0, 255),  # Magenta
+        (0, 255, 255),  # Cyan
+        (255, 128, 0),  # Orange
+        (128, 0, 255),  # Purple
+        (0, 128, 255),  # Light Blue
+        (128, 255, 0),  # Lime Green
+        (255, 128, 128),  # Light Red
+        (128, 128, 255),  # Light Blue
+        (0, 128, 128),  # Teal
+        (128, 0, 0),  # Maroon
+        (0, 0, 128),  # Navy
+        (128, 0, 128),  # Purple
+        (0, 128, 0),  # Dark Green
+        (128, 128, 0),  # Olive
+        (128, 255, 128),  # Pale Green
+        (255, 128, 255),  # Pink
+        (128, 128, 128),  # Gray
+        (255, 255, 255),  # White
+        (0, 0, 0),  # Black
+        (255, 0, 128),  # Hot Pink
+        (128, 0, 64),  # Burgundy
+        (192, 192, 192),  # Silver
+        (255, 165, 0),  # Orange
+        (255, 215, 0),  # Gold
+        (0, 255, 128),  # Spring Green
+        (0, 128, 64),  # Forest Green
+        (0, 128, 128),  # Dark Cyan
+        (0, 64, 128),  # Steel Blue
+        (0, 0, 160),  # Navy Blue
+        (0, 255, 255),  # Light Cyan
+        (0, 128, 192),  # Cerulean
+        (0, 128, 255),  # Sky Blue
+        (0, 0, 255),  # Bright Blue
+        (255, 192, 203),  # Pink
+        (255, 0, 0),  # Bright Red
+        (255, 165, 0),  # Orange
+        (255, 255, 0),  # Bright Yellow
+        (0, 255, 0),  # Bright Green
+        (0, 255, 255),  # Bright Cyan
+        (0, 0, 128),  # Dark Blue
+        (128, 0, 128),  # Dark Purple
+        (128, 128, 0),  # Olive
+        (128, 128, 128),  # Dark Gray
+        (255, 255, 255),  # White
+        (0, 0, 0)  # Black
+    ]
+
+# Function to get test input
 
 def get_test_input(input_dim, CUDA):
-    img = cv2.imread("C:/Users/Juha/PycharmProjects/YoloV3_PyTorch/data/traffic_vid/image1.jpg")
+    img = cv2.imread("./config/test_image.jpg")
     img = cv2.resize(img, (input_dim, input_dim))
-    img_ =  img[:,:,::-1].transpose((2,0,1))
-    img_ = img_[np.newaxis,:,:,:]/255.0
+    img_ = img[:, :, ::-1].transpose((2, 0, 1))
+    img_ = img_[np.newaxis, :, :, :] / 255.0
     img_ = torch.from_numpy(img_).float()
     img_ = Variable(img_)
 
@@ -29,6 +96,7 @@ def get_test_input(input_dim, CUDA):
 
     return img_
 
+# Function to prepare image for inputting to the neural network
 def prep_image(img, inp_dim):
     """
     Prepare image for inputting to the neural network.
@@ -39,78 +107,67 @@ def prep_image(img, inp_dim):
     orig_im = img
     dim = orig_im.shape[1], orig_im.shape[0]
     img = (letterbox_image(orig_im, (inp_dim, inp_dim)))
-    img_ = img[:,:,::-1].transpose((2,0,1)).copy()
+    img_ = img[:, :, ::-1].transpose((2, 0, 1)).copy()
     img_ = torch.from_numpy(img_).float().div(255.0).unsqueeze(0)
     return img_, orig_im, dim
 
-def write(x, img):
-    c1 = tuple(x[1:3].int())
-    c2 = tuple(x[3:5].int())
-    c1 = (int(c1[0].item()), int(c1[1].item()))
-    c2 = (int(c2[0].item()), int(c2[1].item()))
-    cls = int(x[-1])
-    print('cls', cls)
-    if cls >= 20:
-        label = "Unknown"
-    else:
-        label = "{0}".format(classes[cls])
-    # Define a list of colors in BGR format
-    colors = [
-        (0, 0, 255),  # Red
-        (0, 255, 0),  # Green
-        (255, 0, 0),  # Blue
-        ...
-    ]
-    #color = random.choice(colors)
-    color = (0, 0, 255)
-    cv2.rectangle(img, c1, c2, color, 1)
-    t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
-    c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
-    cv2.rectangle(img, c1, c2,color, -1)
-    cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
-    return img
+# Function to assign colors to classes
+def assign_colors_to_classes(num_classes, color_list):
+    class_colors = {}
+    for i in range(num_classes):
+        class_index = i % len(color_list)
+        class_colors[i] = color_list[class_index]
+    return class_colors
 
+# Function to parse command-line arguments
 def arg_parse():
     """
     Parse arguments to the detect module
 
     """
 
-
     parser = argparse.ArgumentParser(description='YOLO v3 Video Detection Module')
 
-    parser.add_argument("--video", dest = 'video', help =
+    parser.add_argument("-v", "--video", dest='video', help=
     "Video to run detection upon",
-                        default = "video.avi", type = str)
-    parser.add_argument("--dataset", dest = "dataset", help = "Dataset on which the network has been trained", default = "pascal")
-    parser.add_argument("--confidence", dest = "confidence", help = "Object Confidence to filter predictions", default = 0.5)
-    parser.add_argument("--nms_thresh", dest = "nms_thresh", help = "NMS Threshhold", default = 0.5)
-    parser.add_argument("--cfg", dest = 'cfgfile', help =
+                        default="video.avi", type=str)
+    parser.add_argument("-cl", "--classes", dest="classes", help="Classes file", default="data/coco.names")
+    parser.add_argument("-conf", "--confidence", dest="confidence", help="Object Confidence to filter predictions",
+                        default=0.45)
+    parser.add_argument("-nms", "--nms_thresh", dest="nms_thresh", help="NMS Threshhold", default=0.4)
+    parser.add_argument("-c", "--cfg", dest='cfgfile', help=
     "Config file",
-                        default = "cfg/yolov3.cfg", type = str)
-    parser.add_argument("--weights", dest = 'weightsfile', help =
+                        default="cfg/yolov3.cfg", type=str)
+    parser.add_argument("-w", "--weights", dest='weightsfile', help=
     "weightsfile",
-                        default = "yolov3.weights", type = str)
-    parser.add_argument("--reso", dest = 'reso', help =
+                        default="yolov3.weights", type=str)
+    parser.add_argument("-r", "--reso", dest='reso', help=
     "Input resolution of the network. Increase to increase accuracy. Decrease to increase speed",
-                        default = "640", type = str)
+                        default="640", type=str)
+    parser.add_argument("-fh", "--frame_hop", dest='frame_hop', help=
+    "Determine how many frames should be discarded. Increase to increase speed.",
+                        default=24, type=int)
     return parser.parse_args()
 
 
 if __name__ == '__main__':
+    # Parse command-line arguments
     args = arg_parse()
+    # Set confidence and NMS thresholds
     confidence = float(args.confidence)
     nms_thesh = float(args.nms_thresh)
-    start = 0
+    # Load class labels
+    classes = load_classes(args.classes)
 
     CUDA = torch.cuda.is_available()
 
-    num_classes = 21
-
-    #CUDA = torch.cuda.is_available()
+    num_classes = len(classes)
+    # Create color mapping
+    class_colors = assign_colors_to_classes(num_classes, colors)
+    # CUDA = torch.cuda.is_available()
 
     bbox_attrs = 5 + num_classes
-
+    # Initialize YOLO model
     print("Loading network.....")
     model = Darknet(args.cfgfile)
     model.load_darknet_weights(args.weightsfile)
@@ -121,81 +178,55 @@ if __name__ == '__main__':
     assert inp_dim % 32 == 0
     assert inp_dim > 32
 
+    # Check if CUDA is available
     if CUDA:
         model.cuda()
 
     model(get_test_input(inp_dim, CUDA))
 
-    model.eval()
-    Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
+    # Initialize video capture
     videofile = args.video
 
     cap = cv2.VideoCapture(videofile)
 
     assert cap.isOpened(), 'Cannot capture source'
 
+    # Initialize variables
     frames = 0
-    frame_hop = 24
+    frame_hop = int(args.frame_hop)
     start = time.time()
+    # Process each frame of the video
     while cap.isOpened():
         if frames % frame_hop == 0:
 
             ret, frame = cap.read()
             if ret:
-
-
+                # Preprocess frame
                 img, orig_im, dim = prep_image(frame, inp_dim)
 
-                im_dim = torch.FloatTensor(dim).repeat(1,2)
+                im_dim = torch.FloatTensor(dim).repeat(1, 2)
 
-
-                if CUDA:
-                    im_dim = im_dim.cuda()
-                    img = img.cuda()
-
-                input_imgs = Variable(img.type(Tensor))
-
-                with torch.no_grad():
-                    output = model(input_imgs)
-                    #output = detect_image(model, img, 640, 0.5, 0.5) #model, image, img_size=416, conf_thres=0.5, nms_thres=0.5
-                output = write_results(output, confidence, num_classes, nms = True, nms_conf = nms_thesh)
-
-                if type(output) == int:
+                # Detect objects in the frame
+                img_detections, imgs = detect_image(model, img, int(args.reso), confidence,
+                                                    nms_thesh)  # model, image, img_size=416, conf_thres=0.5, nms_thres=0.5
+                # Annotate frame with detections
+                img_with_detection = draw_and_save_return_image(orig_im, img_detections[0], int(args.reso), classes, class_colors)
+                # Display annotated frame
+                if type(img_with_detection) == int:
                     frames += 1
-                    print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
-                    cv2.imshow("frame", orig_im)
+                    print("FPS of the video is {:5.2f}".format(frames / (time.time() - start)))
+                    cv2.imshow("frame", img_with_detection)
                     key = cv2.waitKey(1)
                     if key & 0xFF == ord('q'):
                         break
                     continue
 
-
-
-
-                im_dim = im_dim.repeat(output.size(0), 1)
-                scaling_factor = torch.min(inp_dim/im_dim,1)[0].view(-1,1)
-
-                output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim[:,0].view(-1,1))/2
-                output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim[:,1].view(-1,1))/2
-
-                output[:,1:5] /= scaling_factor
-
-                for i in range(output.shape[0]):
-                    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim[i,0])
-                    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim[i,1])
-
-                classes = load_classes('config/VegaV2.names')
-                colors = pkl.load(open("pallete", "rb"))
-
-                list(map(lambda x: write(x, orig_im), output))
-
-
-                cv2.imshow("frame", orig_im)
+                cv2.imshow("frame", img_with_detection)
                 key = cv2.waitKey(1)
                 if key & 0xFF == ord('q'):
                     break
                 frames += 1
-                print("FPS of the video is {:5.2f}".format( frames / (time.time() - start)))
+                print("FPS of the video is {:5.2f}".format(frames / (time.time() - start)))
 
 
             else:
@@ -203,4 +234,3 @@ if __name__ == '__main__':
 
         else:
             frames += 1
-

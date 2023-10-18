@@ -1,4 +1,46 @@
 #! /usr/bin/env python3
+#################################
+# train.py
+# Author: Juha-Matti Rouvinen
+# Date: 2023-07-01
+##################################
+'''
+The  train.py  script is used to train the YOLO (You Only Look Once) object detection model.
+It takes command line arguments to specify the model definition file, data configuration file, number of epochs,
+verbosity level, GPU usage, and other parameters.
+
+The script starts by creating necessary folders for logs, checkpoints, and output.
+It then parses the command line arguments and loads the model, data configuration, and class names.
+The model is loaded with the specified pretrained weights if provided.
+
+Next, the script creates a DataLoader for training and validation data.
+It also creates an optimizer for the model based on the specified optimizer in the model's hyperparameters.
+The learning rate is adjusted based on the number of warmup iterations or the scheduler.
+
+The script then trains the model for the specified number of epochs.
+In each epoch, it iterates over the training data, performs forward and backward passes, and updates the model's parameters.
+It logs the training progress and saves checkpoints at specified intervals.
+
+After each epoch, the script evaluates the model on the validation set.
+It calculates precision, recall, average precision (AP), and F1 score.
+It also calculates a fitness score based on these metrics. The best model based on the fitness score is saved as
+the best checkpoint.
+
+The script logs the training and evaluation progress to TensorBoard and ClearML, if enabled.
+It also saves training and evaluation metrics to CSV files for further analysis.
+
+Finally, the script prints the execution time and provides a command to monitor training progress with TensorBoard.
+
+To run the script, you need to provide the necessary command line arguments, such as the model definition file,
+data configuration file, and pretrained weights. For example:
+
+python train.py -m config/yolov3.cfg -d config/coco.data -e 300 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 5 --evaluation_interval 5
+
+This will train the YOLO model for 300 epochs using the COCO dataset, with verbosity and save checkpoints and
+perform evaluations every 5 epochs. The pretrained weights from  weights/yolov3.weights  will be used to initialize the model.
+
+'''
+
 
 from __future__ import division
 
@@ -116,7 +158,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.15-PERF-E"
+    ver = "0.3.16-PERF-E"
     # Check folders
     check_folders()
     # Create new log file
@@ -218,11 +260,18 @@ def run():
     # Create ClearML task - version 0.3.0
     ################
     '''
-    This code block checks if the variable clearml_run is true, and if so, reads parameters from a configuration 
-    file named clearml.cfg. It then initializes a ClearML task with the specified project and task names, and sets 
-    the offline mode if specified in the configuration file. The code also disables auto-connecting to certain 
-    frameworks and connects the task to the provided arguments. Finally, it instantiates an OutputModel object 
-    for the PyTorch framework with the newly created task.
+    #269-301 
+    1. The code first creates a ConfigParser object to parse the configuration file. 
+    2. It reads the configuration file specified in the path 'config/clearml.cfg'. 
+    3. It retrieves the values of the parameters 'proj_name', 'offline', 'clearml_save_last', and 'clearml_run' from the 'clearml' section of the config file. 
+    4. If the value of 'clearml_save_last' is "True", it sets the variable 'clearml_save_last' to True, otherwise False. 
+    5. If the value of 'clearml_run' is "True", it sets the variable 'clearml_run' to True, otherwise False. 
+    6. If 'clearml_run' is True, it proceeds with the following steps: 
+       a. It sets the variable 'task_name' to the value of 'model_name'. 
+       b. If 'offline' is "True", it sets the ClearML task to offline mode using the 'set_offline' class method. 
+       c. It initializes a new ClearML task with the specified 'proj_name' and 'task_name', and disables certain auto-connect frameworks. 
+       d. It connects the task to the arguments passed to the script. 
+       e. It instantiates an OutputModel object with the task object and sets the framework to "PyTorch". 
     '''
     #get clearml parameters
     # Create a ConfigParser object
@@ -258,17 +307,24 @@ def run():
         # Instantiate an OutputModel with a task object argument
         clearml.OutputModel(task=task, framework="PyTorch")
     '''
-    The code first checks if a GPU is available and assigns the device accordingly. 
-    If a GPU is available, it assigns the device as "cuda", otherwise it assigns it as "cpu". 
-    The device is then printed and logged.
-    The code then loads the model using the specified model file and GPU. 
-    It also checks if Automatic Mixed Precision (AMP) is enabled, but this feature is not implemented.
-    If the code is running with ClearML integration, it logs the model hyperparameters.
-    If the verbose flag is set, it prints a summary of the model.
-    The code then calculates the batch size based on the model's hyperparameters, height, and AMP. 
-    If the calculation fails, it falls back to using the batch size specified in the hyperparameters.
-    Finally, the code sets the mini-batch size by dividing the batch size by the number of subdivisions 
-    specified in the hyperparameters.
+    #322-374 
+    This code checks the availability of a GPU and sets the device to either "cuda" if a GPU is available or "cpu" if not. 
+    It then creates a model, freezes its layers, and checks the AMP (Automatic Mixed Precision) setting. 
+    The code also logs the model's hyperparameters and prints the model summary if the verbose flag is set. 
+    Finally, it calculates the batch size based on the model's hyperparameters and AMP setting. 
+ 
+    Step-wise explanation: 
+    1. The code checks if the GPU parameter is greater than or equal to 0. 
+    2. If the GPU is available (determined by  torch.cuda.is_available() ), the device is set to "cuda". Otherwise, it is set to "cpu". 
+    3. The chosen device is printed and logged. 
+    4. The model is loaded using the specified model, GPU, and pretrained weights. 
+    5. The AMP setting is checked and set to False. 
+    6. If the clearml_run flag is True, the model's hyperparameters are connected to the clearml task. 
+    7. The model's hyperparameters are logged. 
+    8. If the verbose flag is True, the model summary is printed. 
+    9. The batch size is initially set to the model's batch hyperparameter. 
+    10. The code attempts to calculate the batch size using the  check_train_batch_size  function, passing in the model, height hyperparameter, and AMP setting. If an exception occurs, the batch size remains the same and the subdivisions hyperparameter is used instead. 
+    11. The mini_batch_size is calculated by dividing the batch size by the subdivisions hyperparameter.
     '''
     # ############
     # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
@@ -324,21 +380,18 @@ def run():
 
     mini_batch_size = batch_size // sub_div
     '''
-    The code snippet is creating a dataloader for training and validation data. It first calls the  
-    `_create_data_loader`  function to create the training dataloader, passing the path to the training data, 
-    mini-batch size, model height, number of CPUs, and a flag indicating whether to use multiscale training. 
-    Then, it calls the  `_create_validation_data_loader`  function to create the validation dataloader, 
-    passing the path to the validation data, mini-batch size, model height, and number of CPUs.
-    After creating the dataloaders, the code snippet creates an optimizer for the model. 
-    It checks the optimizer specified in the model's hyperparameters and creates the corresponding optimizer object. 
-    The supported optimizers are Adam, SGD, and RMSprop. If an unknown optimizer is specified, a warning message is printed.
-    If the optimizer is Adam, the code snippet also creates a learning rate scheduler for warmup. 
-    It calculates the total number of steps (number of batches * number of epochs) and passes it to the  
-    `CosineAnnealingLR`  scheduler. It also creates a warmup scheduler using the  `UntunedLinearWarmup`  
-    class from the  `warmup`  module.
-    Finally, the code snippet calculates the number of batches and the number of warmup iterations. 
-    The number of batches is the length of the training dataloader, 
-    and the number of warmup iterations is set to the maximum of 3 epochs or 100 iterations.
+    #399-592 
+    The code is for training a model using a specified optimizer.  
+ 
+    1. It creates a dataloader for training data and a separate dataloader for validation data. 
+    2. It determines the number of warmup epochs based on the model's hyperparameters. 
+    3. It calculates the number of warmup iterations based on the number of warmup epochs and the number of batches in the training dataloader. 
+    4. It creates an optimizer based on the specified optimizer in the model's hyperparameters. 
+    5. It creates a learning rate scheduler based on the specified optimizer. 
+    6. It creates a GradScaler for gradient scaling during training. 
+    7. It checks if sync batch normalization is enabled and converts the model to use sync batch normalization if so. 
+    8. It creates logging variables for tracking loss, learning rate, and evaluation metrics. 
+    9. It sets the initial learning rate. 
     '''
     # #################
     # Create Dataloader
@@ -358,12 +411,14 @@ def run():
         mini_batch_size,
         model.hyperparams['height'],
         args.n_cpu)
-
+    warmup_epochs = int(model.hyperparams['warmup'])
+    if warmup_epochs > 3:
+        warmup_epochs = 3
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(
-        round(3 * num_batches), 100
+        round(warmup_epochs * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
-
+    max_batches = len(class_names)*2000
     # #################
     # Use autoanchor -> Not implemented yet
     # #################
@@ -447,7 +502,7 @@ def run():
     scaler = GradScaler()
     #scaler = torch.cuda.amp.GradScaler(enabled=amp)
     # #################
-    # SyncBatchNorm - V 0.3.14
+    # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
     # #################
     if args.sync_bn != -1 and torch.cuda.is_available() is True:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
@@ -487,7 +542,33 @@ def run():
     print(
         f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print(f"\n- 🔛 - Starting Model {model_name} training... ----")
-
+    '''
+    1. The code starts a loop for the number of epochs specified in the  args.epochs  variable. 
+    2. It initializes a variable  epoch_start  to record the start time of each epoch. 
+    3. If the current epoch is greater than 1, it prints an estimated execution time based on the previous epoch's execution time. 
+    4. If it is a warmup run, it prints a message indicating that a warmup cycle is being run. 
+    5. It sets the model to training mode using  model.train() . 
+    6. It initializes a tensor  mloss  to store the mean losses. 
+    7. The code then enters a loop to iterate over the batches in the dataloader. 
+    8. It initializes the optimizer gradients to zero using  optimizer.zero_grad() . 
+    9. It calculates the number of batches done so far using the  len(dataloader) * epoch + batch_i  formula. 
+    10. It calculates the integrated batch number using  batch_i + num_batches * epoch . 
+    11. It moves the input images and targets to the device specified and enables autocasting for mixed precision training. 
+    12. It performs the forward pass through the model and calculates the loss and loss components using the  compute_loss()  function. 
+    13. If the loss is not NaN, it scales the loss for gradient calculation using  scaler.scale(loss) . 
+    14. It performs the backward pass and optimizer step using  scaler.step(optimizer)  and  scaler.update() . 
+    15. It applies gradient clipping using  torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm) . 
+    16. If the current batch number is divisible by the mini_batch_size, it adapts the learning rate based on the conditions specified. 
+    17. It updates the learning rate and performs the optimizer step. 
+    18. It resets the gradients using  optimizer.zero_grad() . 
+    19. It logs the loss components, batch loss, and learning rate using various loggers and writers. 
+    20. If the current epoch is a multiple of the evaluation_interval or do_auto_eval is True, it evaluates the model on the validation set. 
+    21. It logs the evaluation metrics using various loggers and writers. 
+    22. It calculates the current fitness based on the evaluation metrics. 
+    23. If the current fitness is better than the best fitness, it saves the model checkpoint and updates the best fitness. 
+    24. It logs the evaluation metrics and fitness values in CSV files. 
+    25. It calculates the execution time for the current epoch and prints a message indicating the maximum number of batches reached if the condition is met. 
+    '''
 
     #Modded on V0.3.14J
 
@@ -532,16 +613,7 @@ def run():
 
                 # Updates the scale for next iteration
                 scaler.update()
-            '''
-            In this code example, we use  torch.cuda.amp.GradScaler  and  torch.cuda.amp.autocast  to enable mixed 
-            precision training. The  autocast()  context manager automatically casts operations inside it to 
-            lower-precision data types, while the  GradScaler  scales the loss value before backpropagation and 
-            unscales the gradients before the optimizer step. This allows for faster and more memory-efficient training on GPUs. 
- 
-            Please note that for mixed precision training, you may need to ensure that your model and loss function 
-            support lower-precision data types like  torch.float16 . Also, make sure to use an optimizer that is 
-            compatible with mixed precision training, such as  torch.optim.Adam  or  torch.optim.SGD .
-            '''
+
             # Backward
             #loss.backward()
             # Apply gradient clipping
@@ -881,7 +953,9 @@ def run():
                 
         epoch_end = time.time()
         exec_time = epoch_end-epoch_start
-
+        if batches_done >= max_batches:
+            print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
+            exit()
 if __name__ == "__main__":
     run()
 

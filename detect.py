@@ -1,11 +1,17 @@
 #! /usr/bin/env python3
-
+#################################
+# detect.py
+# Author: Juha-Matti Rouvinen
+# Date: 2023-07-02
+# Version V1
+##################################
 from __future__ import division
 
 import os
 import argparse
 import datetime
 
+import cv2
 import tqdm
 import random
 import numpy as np
@@ -305,6 +311,49 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
         plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
         plt.close()
 
+def draw_and_save_return_image(image, detections, img_size, classes, class_colors):
+    """Draws detections in output image and stores this.
+
+        :param image_path: Path to input image
+        :type image_path: str
+        :param detections: List of detections on image
+        :type detections: [Tensor]
+        :param img_size: Size of each image dimension for yolo
+        :type img_size: int
+        :param output_path: Path of output directory
+        :type output_path: str
+        :param classes: List of class names
+        :type classes: [str]
+        """
+
+    # Create plot
+    img = np.array(image)
+
+    # Rescale boxes to original image
+    detections = rescale_boxes(detections, img_size, img.shape[:2])
+    unique_labels = detections[:, -1].cpu().unique()
+    n_cls_preds = len(unique_labels)
+
+    for x1, y1, x2, y2, conf, cls_pred in detections:
+
+        box_w = x2 - x1
+        box_h = y2 - y1
+
+        color = class_colors[int(cls_pred)]
+
+        x1_loc = int(x1.item())
+        y1_loc = int(y1.item())
+        x2_loc = int(x2.item())
+        y2_loc = int(y2.item())
+        #cv2.parts
+        cv2.rectangle(image, (x1_loc, y1_loc),(x2_loc,y2_loc), color, 1)
+        t_size = cv2.getTextSize(classes[int(cls_pred)], cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
+        c2 = x1_loc + t_size[0] + 3, y1_loc + t_size[1] + 4
+        cv2.rectangle(image, (x1_loc, y1_loc), c2,color, -1)
+        cv2.putText(image, classes[int(cls_pred)], (x1_loc, y1_loc + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
+
+    return image
+
 def _create_data_loader_list(list_path, batch_size, img_size, n_cpu):
     dataset = ListDataset(
         list_path,
@@ -349,7 +398,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.1.3"
+    ver = "0.2.0"
     print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")

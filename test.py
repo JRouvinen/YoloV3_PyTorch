@@ -3,6 +3,8 @@
 from __future__ import division
 
 import argparse
+import datetime
+
 import tqdm
 import numpy as np
 
@@ -19,8 +21,8 @@ from utils.transforms import DEFAULT_TRANSFORMS
 from utils.parse_config import parse_data_config
 
 
-def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_size=8, img_size=416,
-                        n_cpu=8, iou_thres=0.5, conf_thres=0.5, nms_thres=0.5, verbose=True):
+def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_size, img_size,
+                        n_cpu, iou_thres, conf_thres, nms_thres, verbose, device):
     """Evaluate model on validation dataset.
 
     :param model_path: Path to model definition file (.cfg)
@@ -47,9 +49,14 @@ def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_s
     :type verbose: bool, optional
     :return: Returns precision, recall, AP, f1, ap_class
     """
+    if device.type == "cuda":
+        gpu = 0
+    else:
+        gpu = -1
     dataloader = _create_validation_data_loader(
         img_path, batch_size, img_size, n_cpu)
-    model = load_model(model_path, weights_path)
+    model = load_model(model_path, gpu,weights_path)
+
     metrics_output = _evaluate(
         model,
         dataloader,
@@ -58,7 +65,8 @@ def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_s
         iou_thres,
         conf_thres,
         nms_thres,
-        verbose)
+        verbose,
+        device)
     return metrics_output
 
 
@@ -214,7 +222,10 @@ def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):
 
 
 def run():
-    print_environment_info()
+    date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    ver = "0.3.15"
+    #print_environment_info()
+    print_environment_info(ver, "logs/" + date + "_log" + ".txt")
     parser = argparse.ArgumentParser(description="Evaluate validation data.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
@@ -222,7 +233,7 @@ def run():
     parser.add_argument("-b", "--batch_size", type=int, default=8, help="Size of each image batch")
     parser.add_argument("-v", "--verbose", action='store_true', help="Makes the validation more verbose")
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
-    parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("--n_cpu", type=int, default=4, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--iou_thres", type=float, default=0.5, help="IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.01, help="Object confidence threshold")
     parser.add_argument("--nms_thres", type=float, default=0.4, help="IOU threshold for non-maximum suppression")
@@ -234,7 +245,13 @@ def run():
     # Path to file containing all images for validation
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])  # List of class names
-
+    verbose = True
+    # GPU determination
+    if torch.cuda.is_available() is True:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+    print(f'Using cuda device - {device}')
     precision, recall, AP, f1, ap_class = evaluate_model_file(
         args.model,
         args.weights,
@@ -246,7 +263,9 @@ def run():
         iou_thres=args.iou_thres,
         conf_thres=args.conf_thres,
         nms_thres=args.nms_thres,
-        verbose=True)
+        verbose=verbose,
+        device=device
+    )
 
 
 if __name__ == "__main__":

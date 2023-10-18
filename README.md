@@ -6,319 +6,261 @@
 ![](https://img.shields.io/static/v1?label=pytorch&message=2.0&color=<COLOR>)
 [![](https://img.shields.io/static/v1?label=license&message=Apache2&color=green)](./License.txt)
 
-A minimal PyTorch implementation of YOLOv3.
-- This code is based on following source codes:
-- PyTorch-YOLOv3: https://github.com/eriklindernoren/PyTorch-YOLOv3
-- YOLOv3 tutorial from scratch: https://github.com/ayooshkathuria/YOLO_v3_tutorial_from_scratch
-- Pytorch - custom yolo training: https://github.com/cfotache/pytorch_custom_yolo_training
-- Train your own yolo: https://github.com/AntonMu/TrainYourOwnYOLO
-- Yolov3: https://github.com/ultralytics/yolov3
-- Paper Yolo v4: https://arxiv.org/abs/2004.10934
-- Original darknet source code:https://github.com/AlexeyAB/darknet
-- More details: http://pjreddie.com/darknet/yolo/
-- Training YOLOV3: Deep Learning Based Custom Object Detection: https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
-- Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way: https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
-- A PyTorch Extension for Learning Rate Warmup: https://github.com/Tony-Y/pytorch_warmup
-- Original code for this fork: 
-
-
 ```
 ├── README.md
-├── dataset.py            dataset
-├── demo.py               demo to run pytorch --> tool/darknet2pytorch
-├── demo_darknet2onnx.py  tool to convert into onnx --> tool/darknet2pytorch
-├── demo_pytorch2onnx.py  tool to convert into onnx
-├── models.py             model for pytorch
-├── train.py              train models.py
-├── cfg.py                cfg.py for train
-├── cfg                   cfg --> darknet2pytorch
-├── data            
-├── weight                --> darknet2pytorch
-├── tool
-│   ├── camera.py           a demo camera
-│   ├── coco_annotation.py       coco dataset generator
-│   ├── config.py
-│   ├── darknet2pytorch.py
-│   ├── region_loss.py
-│   ├── utils.py
-│   └── yolo_layer.py
+├── autoDetect.py            detect objects in new image files in given folder
+├── convert_weights.py       tool to convert *.pth checkpoint weight files --> darknet *.weights
+├── detect.py                detect objects in images on given folder
+├── detectVideo.py           detect objects in video file
+├── models.py                model for pytorch
+├── train.py                 train models
+├── test.py                  test models
+├── requirements.txt         requirements list
+├── checkpoints              folder for last and best training checkpoints
+│   ├── best                 folder for best training checkpoint
+├── config
+│   ├── autodetect.cfg       configuration file for autodetect.py
+│   ├── clearml.cfg          configuration file for clearml
+│   ├── create_custom_model.sh  bash script for creating a custom yolov3 config file
+│   ├── custom.data          basefile for custom *.data file
+│   ├── Test.data            datafile for testing
+│   ├── Test.names           classfile for testing
+│   ├── test_image.jpg       cuda test image for detectVideo.py
+│   ├── Test-tiny.cfg        configuration file for testing
+│   ├── yolov3.cgf           yolov3 configuration file
+│   ├── yolov3-tiny.cfg      yolov3-tiny configuration file
+├── data
+│   ├── custom               folder structure for custom datasets
+│   ├── samples              folder with sample files
+│   ├── coco.names           coco class names
+│   ├── get_coco_dataset     bash script for getting full coco dataset
+│   ├── test_set.zip         ZIP file for testing
+├── logs                     folder for training logging
+├── output                   folder for detection output writing
+├── utils                    folder with different tools
+├── weights                  folder for weight files   
+│   ├── download_weights.sh  bash script for downloading yolov3 darknet weights  
+
 ```
 
-# Updates on original code
-- Updated requirements.txt
-- 
 
 # Guide
 ## 1.Dataset
+### Collect your dataset, example sources:
 
+* OIDv4 ToolKit - https://github.com/EscVM/OIDv4_ToolKit
+* Imagenet - https://image-net.org/update-mar-11-2021.php
+* Labelme - http://labelme.csail.mit.edu/Release3.0/browserTools/php/dataset.php
+* Open images - https://blog.research.google/2016/09/introducing-open-images-dataset.html
+* The Comprehensive Cars - http://mmlab.ie.cuhk.edu.hk/datasets/comp_cars/index.html
+* VQA - https://visualqa.org
+
+
+### Guides and other citations:
+* What Data Quality Means to the Success of Your ML Models - https://imerit.net/blog/quality-labeled-data-all-pbm/
+* Selecting Data Labeling Tools Doesn’t Have To Be Hard - https://imerit.net/blog/data-labeling-tools-avi-pbm/
+* Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way - https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
+* Training YOLOV3: Deep Learning Based Custom Object Detection - https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
 ## 2.Data annotation
-
+Annotate your data, guides and software:
+* Guide for tool selection - https://www.labellerr.com/blog/top-10-image-labeling-tool-of-2023/
+* Label-studio - https://github.com/HumanSignal/label-studio or https://labelstud.io
+* CVAT - https://www.cvat.ai/?ref=blog.roboflow.com
+* MakeSense - https://www.makesense.ai/?ref=blog.roboflow.com
+* LabelBox - https://labelbox.com/?ref=blog.roboflow.com
+* Scale - https://scale.com/?ref=blog.roboflow.com
+* VGG - https://github.com/nearkyh/via-1.0.5
+* COCO Annotator - https://github.com/jsbroks/coco-annotator#readme
+* VoTT - https://github.com/microsoft/VoTT/releases/tag/v2.2.0
+* SuperAnnotate - https://www.superannotate.com
+* 
 ## 3.Download the Pre-trained model
+Go to https://pjreddie.com/darknet/yolo/ and download pre-trained YOLO model
 
-## 4.Data file
-
+## 4.Data and class files
+If you're creating custom dataset create your own *.names file with each class as its own line
+Then create your own datafile or make a copy of custom.data in config folder and modify that:
+```python
+classes = 1
+train  = /path/to/snowman/snowman_train.txt
+valid  = /path/to/snowman/snowman_test.txt
+names = /path/to/snowman/classes.names
+backup = /path/to/snowman/weights/
+```
+    
 ## 5.YOLOv3 configuration parameters
-filters = (classes + 5) x 3
-### 5.1 Batch hyper-parameter in training YOLOv3
+If you're creating your own dataset, then use 'create_custom_model.sh' on /config/ folder or make a copy existing 
+yolov3.cfg or yolov3-tiny.cfg file and modify following lines:
 
+* find first [yolo] section in config file, modify it's classes line (set number of classes you're going to train) and modify previous [convolutional] sections filters: filters = (classes + 5) x 3 
+* then do the same for other yolo sections and convolutional sections before them
+
+### 5.1 Batch hyper-parameter in training YOLOv3
+```python
+# Testing
+# batch=1
+# subdivisions=1
+# Training
+batch=64
+subdivisions=16
+```
+The batch parameter indicates the batch size used during training.
+
+Our training set can contain a few hundred images, but it is not uncommon to train on millions of images. The training process involves iteratively updating the weights of the neural network based on how many mistakes it is making on the training dataset.
+
+It is impractical (and unnecessary) to use all images in training the set at once to update the weights. So, a small subset of images is used in one iteration, and this subset is called the batch size.
+
+When the batch size is set to 64, it means 64 images are used in one iteration to update the parameters of the neural network.
+
+NOTE! This is just for information only -> the software uses an autobatcher for calculating optimal batch size based on GPU memory available.
 ### 5.2 Subdivisions configuration parameter in training YOLOv3
+Darknet allows you to specify a variable called subdivisions that lets you process a fraction of the batch size at one time on your GPU.
+
+You can start the training with subdivisions=1, and if you get an Out of memory error, increase the subdivision parameter by multiples of 2(e.g. 2, 4, 8, 16) till the training proceeds successfully. The GPU will process $batch/subdivision$ number of images at any time, but the full batch or iteration would be complete only after all the images in batch (set above) are processed.
 
 ### 5.3 Width, Height, Channels
-
+These configuration parameters specify the input image size and the number of channels.
+```python
+width=416
+height=416
+channels=3
+```
+The input training images are first resized to width x height before training. Here we use the default values of 416×416. The results might improve if we increase it to 608×608, but it would take longer to train. channels=3 indicates that we would be processing 3-channel RGB input images.
 ### 5.4 Momentum and Decay
+The configuration file contains a few parameters that control how the weight is updated.
+```python
+momentum=0.9
+decay=0.0005
+```
 
+In the previous section, we mentioned how the weights of a neural network are updated based on a small batch of images and not the entire dataset. 
+Because of this reason, the weight updates fluctuate quite a bit. That is why a parameter momentum is used to penalize large weight changes between iterations.
+
+A typical neural network has millions of weights, and therefore it can easily overfit any training data. 
+Overfitting simply means it will do very well on training data and poorly on test data. 
+It is almost like the neural network has memorized the answer to all images in the training set but really not learned the underlying concept. 
+One of the ways to mitigate this problem is to penalize large values for weights. The parameter decay controls this penalty term. 
+The default value works just fine, but you may want to tweak this if you notice overfitting.
 ### 5.5 Learning Rate, Steps, Scales, Burn In (warm-up)
+```python
+# Number of warmup epochs, usually should not be more than 3
+warmup=1
+...
+# initial learning rate
+lr0=0.01
+lrf=0.1
+learning_rate=0.001
+burn_in=2000
+max_batches = 500200
+policy=steps
+steps=5000,50000,400000,450000
+scales=.2,.2,.1,.1
+```
 
+The parameter learning rate controls how aggressively we should learn based on the current batch of data. 
+Typically this is a number between 0.01 and 0.0001.
+
+At the beginning of the training process, we start with zero information and so the learning rate needs to be high. 
+But as the neural network sees a lot of data, the weights need to change less aggressively. 
+In other words, the learning rate needs to be decreased over time. 
+In the configuration file, this decrease in learning rate is accomplished by first specifying that our learning rate decreasing policy is steps. 
+In the above example, the learning rate will start from 0.001 and remain constant for 5000 iterations, and then it will multiply by scales to get the new learning rate. 
+We have also specified multiple steps and scales.
+
+In the previous paragraph, we mentioned that the learning rate needs to be high initially and low later on. 
+While that statement is largely true, it has been empirically found that the training speed tends to increase if we have a lower learning rate for a short period of time at the very beginning. This is controlled by the burn_in parameter. Sometimes this burn-in period is also called warm-up period.
+
+NOTE! The warmup phase is automatically calculated and only parameter in config file that affects its length is 'warmup'
+```python
+warmup_epochs = int(model.hyperparams['warmup'])
+num_batches = len(dataloader)  # number of batches
+warmup_num = max(
+        round(warmup_epochs * num_batches), 100
+    )  # number of warmup iterations, max(3 epochs, 100 iterations)
+```
 ### 5.6 Data augmentation
+Data collection and annotation might take a long time.
+
+So it would be good idea to maximize data by cooking up new data. 
+This process is called data augmentation. 
+For example, an image of a car is rotated by 5 degrees is still an image of a car. 
+The angle parameter in the configuration file allows you to randomly rotate the given image by ± angle.
+
+Similarly, if we transform the colors of the entire picture using saturation, exposure, and hue, 
+it is still a picture of a car.
+```python
+angle=0
+saturation = 1.5
+exposure = 1.5
+hue=.1
+```
+These values can be set in the config file
 
 ### 5.7 Number of iterations
+Finally, we need to specify how many iterations should the training process be run for.
+```python
+max_batches=5200
+```
+
+For multi-class object detectors, the max_batches number is higher, i.e. we need to run for more number of batches(e.g. in yolov3-voc.cfg). 
+For an n-classes object detector, it is advisable to run the training for at least 2000*n batches.
+
+NOTE! This value is automatically calculated based in input classes.
 
 ## 6.Training YOLOv3
-
+You can start training with following command:
+```python
+python train.py -m config/yolov3-tiny.cfg -d config/coco.data -e 100 --pretrained_weights weight/yolov3-tiny.weights -g 0
+```
 ### 6.1 When do we stop the training?
-
+train.py stops automatically when maximum number of batches is reached, but it is always advisable to monitor mAP, f1, 
+recall and precision values and stop when desired values are reached.
 ## 7.Testing the model
-
-# 0. Weights Download
-
-## 0.1 darknet
-<new link here>
-
-
-## 0.2 pytorch
-you can use darknet2pytorch to convert it yourself, or download my converted model.
-
-- google
-  (https://drive.google.com/drive/folders/1tMp3Z93TlbcWyAE_24L2tzEh1QmsGIgy?usp=sharing)
- 
-# 1. Train
-
-[use yolov4 to train your own data](Use_yolov4_to_train_your_own_data.md)
-
-1. Download weight
-2. Transform data
-
-    For coco dataset,you can use tool/coco_annotation.py.
-    ```
-    # train.txt
-    image_path1 x1,y1,x2,y2,id x1,y1,x2,y2,id x1,y1,x2,y2,id ...
-    image_path2 x1,y1,x2,y2,id x1,y1,x2,y2,id x1,y1,x2,y2,id ...
-    ...
-    ...
-    ```
-3. Train
-
-    you can set parameters in cfg.py.
-    ```
-     python train.py -g [GPU_ID] -dir [Dataset folder] -train_label_path [train.txt location] -classes [number of classes]...
-    ```
-
-# 2. Inference
-
-## 2.1 Performance on MS COCO dataset (using pretrained DarknetWeights from <https://github.com/AlexeyAB/darknet>)
-
-**ONNX and TensorRT models are converted from Pytorch (TianXiaomo): Pytorch->ONNX->TensorRT.**
-See following sections for more details of conversions.
-
-- val2017 dataset (input size: 416x416)
-
-| Model type          | AP          | AP50        | AP75        |  APS        | APM         | APL         |
-| ------------------- | ----------: | ----------: | ----------: | ----------: | ----------: | ----------: |
-| DarkNet (YOLOv4 paper)|     0.471 |       0.710 |       0.510 |       0.278 |       0.525 |       0.636 |
-| Pytorch (TianXiaomo)|       0.466 |       0.704 |       0.505 |       0.267 |       0.524 |       0.629 |
-| TensorRT FP32 + BatchedNMSPlugin | 0.472| 0.708 |       0.511 |       0.273 |       0.530 |       0.637 |
-| TensorRT FP16 + BatchedNMSPlugin | 0.472| 0.708 |       0.511 |       0.273 |       0.530 |       0.636 |
-
-- testdev2017 dataset (input size: 416x416)
-
-| Model type          | AP          | AP50        | AP75        |  APS        | APM         | APL         |
-| ------------------- | ----------: | ----------: | ----------: | ----------: | ----------: | ----------: |
-| DarkNet (YOLOv4 paper)|     0.412 |       0.628 |       0.443 |       0.204 |       0.444 |       0.560 |
-| Pytorch (TianXiaomo)|       0.404 |       0.615 |       0.436 |       0.196 |       0.438 |       0.552 |
-| TensorRT FP32 + BatchedNMSPlugin | 0.412| 0.625 |       0.445 |       0.200 |       0.446 |       0.564 |
-| TensorRT FP16 + BatchedNMSPlugin | 0.412| 0.625 |       0.445 |       0.200 |       0.446 |       0.563 |
-
-
-## 2.2 Image input size for inference
-
-Image input size is NOT restricted in `320 * 320`, `416 * 416`, `512 * 512` and `608 * 608`.
-You can adjust your input sizes for a different input ratio, for example: `320 * 608`.
-Larger input size could help detect smaller targets, but may be slower and GPU memory exhausting.
-
-```py
-height = 320 + 96 * n, n in {0, 1, 2, 3, ...}
-width  = 320 + 96 * m, m in {0, 1, 2, 3, ...}
+You can test your model by typing:
+```python
+python test.py -m config/yolov3-tiny.cfg -d config/coco.data -w weight/yolov3-tiny.weights
+```
+## 8.Using autoDetect
+You can use autoDetect to automatically detect new images on a folder
+Define all needed parameters in a autodetect.cfg in config folder
+```python
+[autodetect]
+#Directory
+directory=C:/Users/UserX/Documents/images/camera_data/
+# JSON path
+json_path=
+# Poll interval (seconds)
+interval=60
+#Use GPU
+gpu = -1
+# Model params
+classes = config/custom.names
+conf_thres = 0.35
+nms_thres = 0.5
+img_size = 640
+model = config/yolov3-tiny.cfg
+weights = weights/yolov3-tiny.weights
+#SSH Params
+# Connection parameters
+host = hostname
+# default SSH port
+port = 22
+username = username
+password = password
+```
+Then start autodetect by typing:
+```python
+python autodetect.py
 ```
 
-## 2.3 **Different inference options**
-
-- Load the pretrained darknet model and darknet weights to do the inference (image size is configured in cfg file already)
-
-    ```sh
-    python demo.py -cfgfile <cfgFile> -weightfile <weightFile> -imgfile <imgFile>
-    ```
-
-- Load pytorch weights (pth file) to do the inference
-
-    ```sh
-    python models.py <num_classes> <weightfile> <imgfile> <IN_IMAGE_H> <IN_IMAGE_W> <namefile(optional)>
-    ```
-    
-- Load converted ONNX file to do inference (See section 3 and 4)
-
-- Load converted TensorRT engine file to do inference (See section 5)
-
-## 2.4 Inference output
-
-There are 2 inference outputs.
-- One is locations of bounding boxes, its shape is  `[batch, num_boxes, 1, 4]` which represents x1, y1, x2, y2 of each bounding box.
-- The other one is scores of bounding boxes which is of shape `[batch, num_boxes, num_classes]` indicating scores of all classes for each bounding box.
-
-Until now, still a small piece of post-processing including NMS is required. We are trying to minimize time and complexity of post-processing.
-
-
-# 3. Darknet2ONNX
-
-- **This script is to convert the official pretrained darknet model into ONNX**
-
-- **Pytorch version Recommended:**
-
-    - Pytorch 1.4.0 for TensorRT 7.0 and higher
-    - Pytorch 1.5.0 and 1.6.0 for TensorRT 7.1.2 and higher
-
-- **Install onnxruntime**
-
-    ```sh
-    pip install onnxruntime
-    ```
-
-- **Run python script to generate ONNX model and run the demo**
-
-    ```sh
-    python demo_darknet2onnx.py <cfgFile> <namesFile> <weightFile> <imageFile> <batchSize>
-    ```
-
-## 3.1 Dynamic or static batch size
-
-- **Positive batch size will generate ONNX model of static batch size, otherwise, batch size will be dynamic**
-    - Dynamic batch size will generate only one ONNX model
-    - Static batch size will generate 2 ONNX models, one is for running the demo (batch_size=1)
-
-# 4. Pytorch2ONNX
-
-- **You can convert your trained pytorch model into ONNX using this script**
-
-- **Pytorch version Recommended:**
-
-    - Pytorch 1.4.0 for TensorRT 7.0 and higher
-    - Pytorch 1.5.0 and 1.6.0 for TensorRT 7.1.2 and higher
-
-- **Install onnxruntime**
-
-    ```sh
-    pip install onnxruntime
-    ```
-
-- **Run python script to generate ONNX model and run the demo**
-
-    ```sh
-    python demo_pytorch2onnx.py <weight_file> <image_path> <batch_size> <n_classes> <IN_IMAGE_H> <IN_IMAGE_W>
-    ```
-
-    For example:
-
-    ```sh
-    python demo_pytorch2onnx.py yolov4.pth dog.jpg 8 80 416 416
-    ```
-
-## 4.1 Dynamic or static batch size
-
-- **Positive batch size will generate ONNX model of static batch size, otherwise, batch size will be dynamic**
-    - Dynamic batch size will generate only one ONNX model
-    - Static batch size will generate 2 ONNX models, one is for running the demo (batch_size=1)
-
-
-# 5. ONNX2TensorRT
-
-- **TensorRT version Recommended: 7.0, 7.1**
-
-## 5.1 Convert from ONNX of static Batch size
-
-- **Run the following command to convert YOLOv4 ONNX model into TensorRT engine**
-
-    ```sh
-    trtexec --onnx=<onnx_file> --explicitBatch --saveEngine=<tensorRT_engine_file> --workspace=<size_in_megabytes> --fp16
-    ```
-    - Note: If you want to use int8 mode in conversion, extra int8 calibration is needed.
-
-## 5.2 Convert from ONNX of dynamic Batch size
-
-- **Run the following command to convert YOLOv4 ONNX model into TensorRT engine**
-
-    ```sh
-    trtexec --onnx=<onnx_file> \
-    --minShapes=input:<shape_of_min_batch> --optShapes=input:<shape_of_opt_batch> --maxShapes=input:<shape_of_max_batch> \
-    --workspace=<size_in_megabytes> --saveEngine=<engine_file> --fp16
-    ```
-- For example:
-
-    ```sh
-    trtexec --onnx=yolov4_-1_3_320_512_dynamic.onnx \
-    --minShapes=input:1x3x320x512 --optShapes=input:4x3x320x512 --maxShapes=input:8x3x320x512 \
-    --workspace=2048 --saveEngine=yolov4_-1_3_320_512_dynamic.engine --fp16
-    ```
-
-## 5.3 Run the demo
-
-```sh
-python demo_trt.py <tensorRT_engine_file> <input_image> <input_H> <input_W>
+NOTE! SSH parts are not yet implemented! 
+## 9. Using video detection
+Start detecting objects from video by typing:
+```python
+python detectVideo.py -v <video_file_path> -cl <path_to_class_names> -c <path_to_config_file> -w <path_to_weights_file> -r <input resolution> -h <frame_hops>
 ```
 
-- This demo here only works when batchSize is dynamic (1 should be within dynamic range) or batchSize=1, but you can update this demo a little for other dynamic or static batch sizes.
-    
-- Note1: input_H and input_W should agree with the input size in the original ONNX file.
-    
-- Note2: extra NMS operations are needed for the tensorRT output. This demo uses python NMS code from `tool/utils.py`.
-
-
-# 6. ONNX2Tensorflow
-
-- **First:Conversion to ONNX**
-
-    tensorflow >=2.0
-    
-    1: Thanks:github:https://github.com/onnx/onnx-tensorflow
-    
-    2: Run git clone https://github.com/onnx/onnx-tensorflow.git && cd onnx-tensorflow
-    Run pip install -e .
-    
-    Note:Errors will occur when using "pip install onnx-tf", at least for me,it is recommended to use source code installation
-
-# 7. ONNX2TensorRT and DeepStream Inference
-  
-  1. Compile the DeepStream Nvinfer Plugin 
-  
-  ```
-      cd DeepStream
-      make 
-  ```
-  2. Build a TRT Engine.
-  
-   For single batch, 
-   ```
-   trtexec --onnx=<onnx_file> --explicitBatch --saveEngine=<tensorRT_engine_file> --workspace=<size_in_megabytes> --fp16
-   ```
-   
-   For multi-batch, 
-  ```
-  trtexec --onnx=<onnx_file> --explicitBatch --shapes=input:Xx3xHxW --optShapes=input:Xx3xHxW --maxShapes=input:Xx3xHxW --minShape=input:1x3xHxW --saveEngine=<tensorRT_engine_file> --fp16
-  ```
-  
-  Note :The maxShapes could not be larger than model original shape.
-  
-  3. Write the deepstream config file for the TRT Engine.
-  
-## Credit
+## 10. Credits
 
 ### YOLOv3: An Incremental Improvement
 _Joseph Redmon, Ali Farhadi_ <br>
@@ -347,26 +289,23 @@ https://pjreddie.com/yolo/.
 }
 ```
 
-## Other
-
-### YOEO — You Only Encode Once
-
-[YOEO](https://github.com/bit-bots/YOEO) extends this repo with the ability to train an additional semantic segmentation decoder. The lightweight example model is mainly targeted towards embedded real-time applications.
-
-Reference:
-- https://github.com/eriklindernoren/PyTorch-YOLOv3
-- https://github.com/marvis/pytorch-caffe-darknet-convert
-- https://github.com/marvis/pytorch-yolo3
-
-```
-@article{yolov4,
-  title={YOLOv4: YOLOv4: Optimal Speed and Accuracy of Object Detection},
-  author={Alexey Bochkovskiy, Chien-Yao Wang, Hong-Yuan Mark Liao},
-  journal = {arXiv},
-  year={2020}
-}
-```
-# 8. What if's
+## 11. Other
+### Sources
+A minimal PyTorch implementation of YOLOv3.
+- This code is based on following source codes:
+- PyTorch-YOLOv3: https://github.com/eriklindernoren/PyTorch-YOLOv3
+- YOLOv3 tutorial from scratch: https://github.com/ayooshkathuria/YOLO_v3_tutorial_from_scratch
+- Pytorch - custom yolo training: https://github.com/cfotache/pytorch_custom_yolo_training
+- Train your own yolo: https://github.com/AntonMu/TrainYourOwnYOLO
+- Yolov3: https://github.com/ultralytics/yolov3
+- Paper Yolo v4: https://arxiv.org/abs/2004.10934
+- Original darknet source code:https://github.com/AlexeyAB/darknet
+- More details: http://pjreddie.com/darknet/yolo/
+- Training YOLOV3: Deep Learning Based Custom Object Detection: https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
+- Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way: https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
+- A PyTorch Extension for Learning Rate Warmup: https://github.com/Tony-Y/pytorch_warmup
+- Original code for this fork: 
+# 12. What if's
 ### In case of Protobuf TypeError:
 ```
 TypeError: Descriptors cannot not be created directly.
