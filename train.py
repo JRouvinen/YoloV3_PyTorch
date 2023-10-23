@@ -1,4 +1,46 @@
 #! /usr/bin/env python3
+#################################
+# train.py
+# Author: Juha-Matti Rouvinen
+# Date: 2023-07-01
+##################################
+'''
+The  train.py  script is used to train the YOLO (You Only Look Once) object detection model.
+It takes command line arguments to specify the model definition file, data configuration file, number of epochs,
+verbosity level, GPU usage, and other parameters.
+
+The script starts by creating necessary folders for logs, checkpoints, and output.
+It then parses the command line arguments and loads the model, data configuration, and class names.
+The model is loaded with the specified pretrained weights if provided.
+
+Next, the script creates a DataLoader for training and validation data.
+It also creates an optimizer for the model based on the specified optimizer in the model's hyperparameters.
+The learning rate is adjusted based on the number of warmup iterations or the scheduler.
+
+The script then trains the model for the specified number of epochs.
+In each epoch, it iterates over the training data, performs forward and backward passes, and updates the model's parameters.
+It logs the training progress and saves checkpoints at specified intervals.
+
+After each epoch, the script evaluates the model on the validation set.
+It calculates precision, recall, average precision (AP), and F1 score.
+It also calculates a fitness score based on these metrics. The best model based on the fitness score is saved as
+the best checkpoint.
+
+The script logs the training and evaluation progress to TensorBoard and ClearML, if enabled.
+It also saves training and evaluation metrics to CSV files for further analysis.
+
+Finally, the script prints the execution time and provides a command to monitor training progress with TensorBoard.
+
+To run the script, you need to provide the necessary command line arguments, such as the model definition file,
+data configuration file, and pretrained weights. For example:
+
+python train.py -m config/yolov3.cfg -d config/coco.data -e 300 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 5 --evaluation_interval 5
+
+This will train the YOLO model for 300 epochs using the COCO dataset, with verbosity and save checkpoints and
+perform evaluations every 5 epochs. The pretrained weights from  weights/yolov3.weights  will be used to initialize the model.
+
+'''
+
 
 from __future__ import division
 
@@ -9,9 +51,11 @@ import time
 import tqdm
 import subprocess as sp
 import torch
-from torch.cuda.amp import GradScaler
+from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from torch.optim import lr_scheduler
+
 import numpy as np
 # Added on V0.3.0
 import clearml
@@ -20,12 +64,13 @@ import configparser
 # Added on V0.3.1
 import utils.pytorch_warmup as warmup
 
-import utils.writer
+#import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
 from utils.smart_optimizer import smart_optimizer
-from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set
+from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
+    check_amp
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 # from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
@@ -113,7 +158,7 @@ def check_folders():
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.12"
+    ver = "0.3.16"
     # Check folders
     check_folders()
     # Create new log file
@@ -136,11 +181,15 @@ def run():
     parser.add_argument("--evaluation_interval", type=int, default=5,
                         help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-    parser.add_argument("--iou_thres", type=float, default=0.5,
+    parser.add_argument("--iou_thres", type=float, default=0.1,
                         help="Evaluation: IOU threshold required to qualify as detected")
     parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.5,
+    parser.add_argument("--nms_thres", type=float, default=0.3,
                         help="Evaluation: IOU threshold for non-maximum suppression")
+    parser.add_argument("--sync_bn", type=int, default=-1,
+                        help="Set use of SyncBatchNorm")
+    parser.add_argument("--cos_lr", type=int, default=0,
+                        help="Set type of scheduler")
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
@@ -160,15 +209,18 @@ def run():
     train_path = data_config["train"]
     valid_path = data_config["valid"]
     class_names = load_classes(data_config["names"])
+    if args.verbose:
+        print(f'Class names: {class_names}')
     model_name = data_config["model_name"]
     if model_name == '':
         model_name = str(date)
     else:
         model_name = model_name + '_' + str(date)
 
+    debug = False
     gpu = args.gpu
     auto_eval = True
-    best_training_fitness = 9999
+    best_training_fitness = 999999
     best_fitness = 0.0
     checkpoints_saved = 0
     device = torch.device("cpu")
@@ -176,8 +228,11 @@ def run():
     epoch_end = ""
     exec_time = 0
     do_auto_eval = False
-    use_smart_optimizer = True
-
+    use_smart_optimizer = False
+    warmup_run = True
+    start_epoch = 0
+    train_fitness = 0
+    fi_train = 0
     #Get model weight eval parameters
     # Create a ConfigParser object
     weight_eval_params = parse_model_weight_config(args.model)
@@ -205,11 +260,18 @@ def run():
     # Create ClearML task - version 0.3.0
     ################
     '''
-    This code block checks if the variable clearml_run is true, and if so, reads parameters from a configuration 
-    file named clearml.cfg. It then initializes a ClearML task with the specified project and task names, and sets 
-    the offline mode if specified in the configuration file. The code also disables auto-connecting to certain 
-    frameworks and connects the task to the provided arguments. Finally, it instantiates an OutputModel object 
-    for the PyTorch framework with the newly created task.
+    #269-301 
+    1. The code first creates a ConfigParser object to parse the configuration file. 
+    2. It reads the configuration file specified in the path 'config/clearml.cfg'. 
+    3. It retrieves the values of the parameters 'proj_name', 'offline', 'clearml_save_last', and 'clearml_run' from the 'clearml' section of the config file. 
+    4. If the value of 'clearml_save_last' is "True", it sets the variable 'clearml_save_last' to True, otherwise False. 
+    5. If the value of 'clearml_run' is "True", it sets the variable 'clearml_run' to True, otherwise False. 
+    6. If 'clearml_run' is True, it proceeds with the following steps: 
+       a. It sets the variable 'task_name' to the value of 'model_name'. 
+       b. If 'offline' is "True", it sets the ClearML task to offline mode using the 'set_offline' class method. 
+       c. It initializes a new ClearML task with the specified 'proj_name' and 'task_name', and disables certain auto-connect frameworks. 
+       d. It connects the task to the arguments passed to the script. 
+       e. It instantiates an OutputModel object with the task object and sets the framework to "PyTorch". 
     '''
     #get clearml parameters
     # Create a ConfigParser object
@@ -245,17 +307,24 @@ def run():
         # Instantiate an OutputModel with a task object argument
         clearml.OutputModel(task=task, framework="PyTorch")
     '''
-    The code first checks if a GPU is available and assigns the device accordingly. 
-    If a GPU is available, it assigns the device as "cuda", otherwise it assigns it as "cpu". 
-    The device is then printed and logged.
-    The code then loads the model using the specified model file and GPU. 
-    It also checks if Automatic Mixed Precision (AMP) is enabled, but this feature is not implemented.
-    If the code is running with ClearML integration, it logs the model hyperparameters.
-    If the verbose flag is set, it prints a summary of the model.
-    The code then calculates the batch size based on the model's hyperparameters, height, and AMP. 
-    If the calculation fails, it falls back to using the batch size specified in the hyperparameters.
-    Finally, the code sets the mini-batch size by dividing the batch size by the number of subdivisions 
-    specified in the hyperparameters.
+    #322-374 
+    This code checks the availability of a GPU and sets the device to either "cuda" if a GPU is available or "cpu" if not. 
+    It then creates a model, freezes its layers, and checks the AMP (Automatic Mixed Precision) setting. 
+    The code also logs the model's hyperparameters and prints the model summary if the verbose flag is set. 
+    Finally, it calculates the batch size based on the model's hyperparameters and AMP setting. 
+ 
+    Step-wise explanation: 
+    1. The code checks if the GPU parameter is greater than or equal to 0. 
+    2. If the GPU is available (determined by  torch.cuda.is_available() ), the device is set to "cuda". Otherwise, it is set to "cpu". 
+    3. The chosen device is printed and logged. 
+    4. The model is loaded using the specified model, GPU, and pretrained weights. 
+    5. The AMP setting is checked and set to False. 
+    6. If the clearml_run flag is True, the model's hyperparameters are connected to the clearml task. 
+    7. The model's hyperparameters are logged. 
+    8. If the verbose flag is True, the model summary is printed. 
+    9. The batch size is initially set to the model's batch hyperparameter. 
+    10. The code attempts to calculate the batch size using the  check_train_batch_size  function, passing in the model, height hyperparameter, and AMP setting. If an exception occurs, the batch size remains the same and the subdivisions hyperparameter is used instead. 
+    11. The mini_batch_size is calculated by dividing the batch size by the subdivisions hyperparameter.
     '''
     # ############
     # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
@@ -272,7 +341,7 @@ def run():
     log_file_writer(f'Using cuda device - {device}', "logs/" + date + "_log" + ".txt")
 
     # ############
-    # Create model
+    # Create model - Updated on V0.3.14
     # ############
 
     model = load_model(args.model, gpu, args.pretrained_weights)
@@ -283,10 +352,10 @@ def run():
     # -- Not implemented --
 
     # ############
-    # Check AMP
+    # Check AMP - V.0.3.14
     # ############
-    amp = False  # check AMP -> not implemented
-
+    #amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
+    amp = False
     # ############
     # Log hyperparameters to clearml
     # ############
@@ -311,21 +380,18 @@ def run():
 
     mini_batch_size = batch_size // sub_div
     '''
-    The code snippet is creating a dataloader for training and validation data. It first calls the  
-    `_create_data_loader`  function to create the training dataloader, passing the path to the training data, 
-    mini-batch size, model height, number of CPUs, and a flag indicating whether to use multiscale training. 
-    Then, it calls the  `_create_validation_data_loader`  function to create the validation dataloader, 
-    passing the path to the validation data, mini-batch size, model height, and number of CPUs.
-    After creating the dataloaders, the code snippet creates an optimizer for the model. 
-    It checks the optimizer specified in the model's hyperparameters and creates the corresponding optimizer object. 
-    The supported optimizers are Adam, SGD, and RMSprop. If an unknown optimizer is specified, a warning message is printed.
-    If the optimizer is Adam, the code snippet also creates a learning rate scheduler for warmup. 
-    It calculates the total number of steps (number of batches * number of epochs) and passes it to the  
-    `CosineAnnealingLR`  scheduler. It also creates a warmup scheduler using the  `UntunedLinearWarmup`  
-    class from the  `warmup`  module.
-    Finally, the code snippet calculates the number of batches and the number of warmup iterations. 
-    The number of batches is the length of the training dataloader, 
-    and the number of warmup iterations is set to the maximum of 3 epochs or 100 iterations.
+    #399-592 
+    The code is for training a model using a specified optimizer.  
+ 
+    1. It creates a dataloader for training data and a separate dataloader for validation data. 
+    2. It determines the number of warmup epochs based on the model's hyperparameters. 
+    3. It calculates the number of warmup iterations based on the number of warmup epochs and the number of batches in the training dataloader. 
+    4. It creates an optimizer based on the specified optimizer in the model's hyperparameters. 
+    5. It creates a learning rate scheduler based on the specified optimizer. 
+    6. It creates a GradScaler for gradient scaling during training. 
+    7. It checks if sync batch normalization is enabled and converts the model to use sync batch normalization if so. 
+    8. It creates logging variables for tracking loss, learning rate, and evaluation metrics. 
+    9. It sets the initial learning rate. 
     '''
     # #################
     # Create Dataloader
@@ -345,73 +411,103 @@ def run():
         mini_batch_size,
         model.hyperparams['height'],
         args.n_cpu)
-
+    warmup_epochs = int(model.hyperparams['warmup'])
+    if warmup_epochs > 3:
+        warmup_epochs = 3
     num_batches = len(dataloader)  # number of batches
     warmup_num = max(
-        round(3 * num_batches), 100
+        round(warmup_epochs * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
+    max_batches = len(class_names)*2000
+    # #################
+    # Use autoanchor -> Not implemented yet
+    # #################
 
-    if not use_smart_optimizer:
+    '''
+    if not resume:
+            if not args.noautoanchor:
+                check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)  # run AutoAnchor
+            model.half().float()  # pre-reduce anchor precision
+
+        callbacks.run('on_pretrain_routine_end', labels, names)
+    '''
+
+    # ################
+    # Create optimizer
+    # ################
+    params = [p for p in model.parameters() if p.requires_grad]
+    if model.hyperparams['optimizer'] == "adamw":
+        optimizer = optim.AdamW(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            betas=(0.9, 0.999),
+            weight_decay=model.hyperparams['decay'],
+            amsgrad=True
+        )
+    elif model.hyperparams['optimizer'] == "sgd":
+        optimizer = optim.SGD(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum'],
+            nesterov=model.hyperparams['nesterov'],
+        )
+    elif model.hyperparams['optimizer'] == "rmsprop":
+        optimizer = optim.RMSprop(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            weight_decay=model.hyperparams['decay'],
+            momentum=model.hyperparams['momentum']
+        )
+
+    elif model.hyperparams['optimizer'] == "adam":
         # ################
-        # Create optimizer
+        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
         # ################
-
-        params = [p for p in model.parameters() if p.requires_grad]
-
-        if model.hyperparams['optimizer'] in [None, "adam"]:
-            optimizer = optim.AdamW(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-            )
-        elif model.hyperparams['optimizer'] == "sgd":
-            optimizer = optim.SGD(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                weight_decay=model.hyperparams['decay'],
-                momentum=model.hyperparams['momentum'],
-                nesterov=model.hyperparams['nesterov'],
-            )
-        elif model.hyperparams['optimizer'] == "rmsprop":
-            optimizer = optim.RMSprop(params, lr=model.hyperparams['learning_rate'])
-
-        else:
-            print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
-
-        if model.hyperparams['optimizer'] == "adam":
-            # ################
-            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-            # ################
-            num_steps = len(dataloader) * args.epochs
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+        optimizer = optim.Adam(
+            params,
+            lr=model.hyperparams['learning_rate'],
+            betas=(0.9, 0.999),
+            weight_decay=model.hyperparams['decay'],
+            amsgrad=True
+        )
 
 
-    #DONE: Smart optimizer doesn't seem to work correctly -> Fixed
+
     else:
-        # ################
-        # Create smart optimizer - V 0.3.5
-        # ################
-        # Optimizer
-        nbs = 64  # nominal batch size
-        accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
-        model.hyperparams['decay'] *= batch_size * accumulate / nbs  # scale weight_decay
-        optimizer = smart_optimizer(model, model.hyperparams['optimizer'], float(model.hyperparams['lr0']), float(model.hyperparams['momentum']), float(model.hyperparams['decay']))
-
-        if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-            # ################
-            # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-            # ################
-            num_steps = len(dataloader) * args.epochs
-            lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+        print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
+        exit()
+    num_steps = len(dataloader) * args.epochs
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_steps)
+    if model.hyperparams['optimizer'] == "adam":
+        warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+    # Scheduler
+    if args.cos_lr != -1:
+        lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+    else:
+        lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(model.hyperparams['lrf'])  # linear
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
 
     # #################
-    # Create GradScaler - V 0.3.0
+    # Use ModelEMA - V0.x.xx -> Not implemented correctly
+    # #################
+
+    # EMA
+    #ema = ModelEMA(model) if args.ema != -1 else None
+
+    # #################
+    # Create GradScaler - V 0.3.14
     # #################
     # Creates a GradScaler once at the beginning of training.
     scaler = GradScaler()
+    #scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    # #################
+    # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
+    # #################
+    if args.sync_bn != -1 and torch.cuda.is_available() is True:
+        model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
+        log_file_writer(f'Using SyncBatchNorm()', "logs/" + date + "_log" + ".txt")
+
 
     # #################
     # Create Logging variables
@@ -430,9 +526,15 @@ def run():
     recall_array = np.array([])
     mAP_array = np.array([])
     f1_array = np.array([])
+
     # ap_cls_array = np.array([])
     curr_fitness_array = np.array([])
+    train_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
+    scheduler.last_epoch = start_epoch - 1  # do not move
+    last_opt_step = -1
+    # Define the maximum gradient norm for clipping
+    max_grad_norm = 1.0
 
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
@@ -441,141 +543,127 @@ def run():
         f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
     print(f"\n- 🔛 - Starting Model {model_name} training... ----")
     '''
-    This code snippet is training a model for a certain number of epochs. 
-    Inside the training loop, the model is set to training mode using  `model.train()` . 
-    Then, for each batch in the dataloader, the gradients are reset using  `optimizer.zero_grad()` .
-    Next, the current batch and epoch numbers are calculated to keep track of the progress. 
-    The input images and targets are moved to the device and the model is used to generate outputs for the images.
-    The loss and its components are computed using the  `compute_loss`  function. 
-    There is a conditional block that handles the warmup phase of the training. 
-    If the number of integrated batches is less than or equal to the warmup number, the model's optimizer is checked. 
-    If it is "adam", the gradients are computed and the optimizer is updated with  `optimizer.step()` . 
-    Additionally, a warmup scheduler is used to adjust the learning rate.
-    If the optimizer is not "adam", the learning rate is adjusted manually based on the number of batches done so far. 
-    The gradients are computed and the optimizer is updated with the adjusted learning rate.
-    After the warmup phase, the same conditional block is executed, but this time the learning rate is 
-    adjusted using a learning rate scheduler.
-    There is an additional conditional block that was added in version 0.3.0. 
-    It uses automatic mixed precision (AMP) training to scale the loss and compute scaled gradients. 
-    This block is commented out in version 0.3.3B.
-    Finally, the learning rate is updated based on the value in the optimizer's parameter groups.
-    Overall, this code snippet performs the training loop for a model, handles warmup, 
-    and optionally uses AMP for mixed precision training.
+    1. The code starts a loop for the number of epochs specified in the  args.epochs  variable. 
+    2. It initializes a variable  epoch_start  to record the start time of each epoch. 
+    3. If the current epoch is greater than 1, it prints an estimated execution time based on the previous epoch's execution time. 
+    4. If it is a warmup run, it prints a message indicating that a warmup cycle is being run. 
+    5. It sets the model to training mode using  model.train() . 
+    6. It initializes a tensor  mloss  to store the mean losses. 
+    7. The code then enters a loop to iterate over the batches in the dataloader. 
+    8. It initializes the optimizer gradients to zero using  optimizer.zero_grad() . 
+    9. It calculates the number of batches done so far using the  len(dataloader) * epoch + batch_i  formula. 
+    10. It calculates the integrated batch number using  batch_i + num_batches * epoch . 
+    11. It moves the input images and targets to the device specified and enables autocasting for mixed precision training. 
+    12. It performs the forward pass through the model and calculates the loss and loss components using the  compute_loss()  function. 
+    13. If the loss is not NaN, it scales the loss for gradient calculation using  scaler.scale(loss) . 
+    14. It performs the backward pass and optimizer step using  scaler.step(optimizer)  and  scaler.update() . 
+    15. It applies gradient clipping using  torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm) . 
+    16. If the current batch number is divisible by the mini_batch_size, it adapts the learning rate based on the conditions specified. 
+    17. It updates the learning rate and performs the optimizer step. 
+    18. It resets the gradients using  optimizer.zero_grad() . 
+    19. It logs the loss components, batch loss, and learning rate using various loggers and writers. 
+    20. If the current epoch is a multiple of the evaluation_interval or do_auto_eval is True, it evaluates the model on the validation set. 
+    21. It logs the evaluation metrics using various loggers and writers. 
+    22. It calculates the current fitness based on the evaluation metrics. 
+    23. If the current fitness is better than the best fitness, it saves the model checkpoint and updates the best fitness. 
+    24. It logs the evaluation metrics and fitness values in CSV files. 
+    25. It calculates the execution time for the current epoch and prints a message indicating the maximum number of batches reached if the condition is met. 
     '''
+
+    #Modded on V0.3.14J
 
     for epoch in range(1, args.epochs + 1):
         epoch_start = time.time()
         if epoch > 1:
-            print(f'- ⏳ - Estimated execution time: {round((exec_time*args.epochs)/3600,2)} hours ----')
+            print(f'- ⏳ - Estimated execution time: {round((exec_time * args.epochs) / 3600, 2)} hours ----')
+        if warmup_run:
+            print(f'- 🔥 - Running warmup cycle ----')
         model.train()  # Set model to training mode
+        mloss = torch.zeros(3, device=device)  # mean losses
+        # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
+        #for param in model.parameters():
+        #    param.grad = None
 
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
-            # Updated on version V0.3.0
-            # Reset gradients
             optimizer.zero_grad()
-            ###########################
-
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
+
+            #imgs = imgs.to(device, non_blocking=True).float() / 255
             imgs = imgs.to(device, non_blocking=True)
+
             targets = targets.to(device)
+            # Enable autocasting for mixed precision training
+            with autocast():
+                # Forward
+                outputs = model(imgs)
+                loss, loss_components = compute_loss(outputs, targets, model)
 
-            outputs = model(imgs)
 
-            loss, loss_components = compute_loss(outputs, targets, model)
+            if np.isnan(loss.item()) or np.isinf(loss.item()) and debug:
+                print("Warning: Loss is NaN or Inf, skipping this update...")
+                continue
 
-            #############################################################################
-            # Run warmup
-            # Updated on version 0.3.1
-            # https://github.com/Tony-Y/pytorch_warmup
-            #############################################################################
-            if integ_batch_num <= warmup_num:
-                loss.backward()
-                if model.hyperparams['optimizer'] == "adam" or model.hyperparams['optimizer'] == "adamw":
-                    optimizer.step()
-                    with warmup_scheduler.dampening():
-                        lr_scheduler.step()
-                else:
+            if not np.isnan(loss.item()):
+                # Scale the loss for gradient calculation
+                scaler.scale(loss).backward()
+
+                # Unscales the gradients and performs optimizer step
+                scaler.step(optimizer)
+
+                # Updates the scale for next iteration
+                scaler.update()
+
+            # Backward
+            #loss.backward()
+            # Apply gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+            ###############
+            # Run optimizer
+            ###############
+            #print('update cycle:',(batches_done % integ_batch_num))
+            if batches_done % mini_batch_size == 0:
+                # Adapt learning rate
+                # Get learning rate defined in cfg
+                lr = model.hyperparams['learning_rate']
+                if integ_batch_num <= warmup_num:
                     # Burn in
-                    lr *= (batches_done / model.hyperparams['burn_in'])
+                    if batches_done == model.hyperparams['burn_in']:
+                        optimizer.zero_grad()
+                    # for param in model.parameters():
+                    #    param.grad = None
+                    if model.hyperparams['optimizer'] == "adam":
+                        with warmup_scheduler.dampening():
+                            optimizer.step()
+                    else:
+                        optimizer.step()
+                    lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
-                        g['lr'] = lr
-                    optimizer.step()
-
-            else:
-                if model.hyperparams['optimizer'] == 'adam':
-                    '''
-                    loss.backward()
-                    optimizer.step()
-                    lr_scheduler.step()
-                    # Commented out in Version 0.3.3B
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    # scaler.step() first unscales the gradients of the optimizer's assigned params.
-                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-                    # otherwise, optimizer.step() is skipped.
-                    scaler.step(optimizer)  # optimizer.step
-                    scaler.update()
-                    optimizer.zero_grad()
-                    ##################################
-                    # Added on version 0.3.3B
-                    '''
-                    # Performance improved version - 0.3.9
-                    optimizer.zero_grad()
-                    loss.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
-                    optimizer.step()
-                    optimizer.zero_grad()
-
+                        g['lr'] = float(lr)
                 else:
-                    '''
-                    loss.backward()
-                    optimizer.step()
-                    #############################################################################
-                    # Updated on version 0.3.0 - https://pytorch.org/docs/master/notes/amp_examples.html
-                    # Scales loss.  Calls backward() on scaled loss to create scaled gradients.
-                    # Backward passes under autocast are not recommended.
-                    # Backward ops run in the same dtype autocast chose for corresponding forward ops.
-                    ##################################
-                    # Commented out in Version 0.3.3B
-                    scaler.scale(loss).backward()
-                    scaler.unscale_(optimizer)  # unscale gradients
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)  # clip gradients
-                    #scaler.step() first unscales the gradients of the optimizer's assigned params.
-                    # If these gradients do not contain infs or NaNs, optimizer.step() is then called,
-                    # otherwise, optimizer.step() is skipped.
-                    scaler.step(optimizer)  # optimizer.step
-                    scaler.update()
-                    optimizer.zero_grad()
-                    ##################################
-                    # Added on version 0.3.3B
-                    '''
-                    # Performance improved version - 0.3.9
-                    loss.backward()
-                    optimizer.step()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
-                    optimizer.zero_grad()
+                    warmup_run = False
+                    # Set and parse the learning rate to the steps defined in the cfg
+                    # lr = optimizer.param_groups[0]['lr']
+                    # Version 0.3.15-PERF-C
+                    # Update learning rate based on the scheduler
+                    scheduler.step()
+                    lr = scheduler.get_last_lr()
+                    lr = lr[0]
+                    if debug:
+                        print('LR: ',lr)
+                # Set learning rate
+                for g in optimizer.param_groups:
+                    g['lr'] = lr
 
 
-            lr = optimizer.param_groups[0]['lr']
+                # Run optimizer
+                optimizer.step()
+                # Reset gradients
+                optimizer.zero_grad()
 
-            #############################################################################
-            '''
-            The code snippet logs the progress of the training process. 
-            It prints the loss values and other metrics to the console if the  `verbose`  flag is set to  `True`. 
-            It also logs these metrics to TensorBoard for visualization.
-
-            The code snippet also logs the learning rate to TensorBoard and uses 
-            the ClearML library to log the loss values and learning rate.
-            
-            The logged metrics include IoU loss, object loss, class loss, total loss, and batch loss. 
-            These metrics provide insights into the performance of the model during training.
-            
-            The code snippet demonstrates good logging practices by providing informative and 
-            organized logs for monitoring and analysis.
-            '''
-            if loss_components.dim() > 0:
+            if debug:
+                print(f'Loss components dim: {loss_components.dim()}')
+            if loss_components.dim() != 0:
                 # ############
                 # Log progress
                 # ############
@@ -587,7 +675,7 @@ def run():
                             ["Object loss", float(loss_components[1])],
                             ["Class loss", float(loss_components[2])],
                             ["Loss", float(loss_components[3])],
-                            ["Batch loss", to_cpu(loss).item()],
+                            ["Batch loss", to_cpu(mloss).item()],
                         ]).table)
 
                 # Tensorboard logging
@@ -617,19 +705,9 @@ def run():
                     task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
                                               value=float(loss_components[3]))
                     task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
-                                              value=to_cpu(loss).item())
+                                              value=mloss)
                     task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
-            '''
-            The code snippet shows the training loop for a YOLOv3 object detection model. 
-            It includes the training process, logging of progress, saving of checkpoints, 
-            and auto-evaluation of the model's fitness on training metrics. 
-            The training progress is logged in a CSV file and image files. 
-            Checkpoints are saved every specified number of epochs, and only a limited number of checkpoints are stored. 
-            The model's fitness is evaluated using a weighted sum of the IOU loss, class loss, object loss, and 
-            total loss. If the auto-evaluated fitness is better than the previous best, 
-            it is considered a new best and saved. 
-            The ClearML library is used for logging the training fitness.
-            '''
+
             # ############
             # Log training progress writers
             # ############
@@ -671,7 +749,7 @@ def run():
         # #############
         # Save progress -> changed on version 0.3.11F to save every eval epoch
         # #############
-        # Reason to eval epoch change: uploads get stucked
+        # Reason to eval epoch change: uploads get stucked when using clearml and larger models
         #
         if epoch % args.evaluation_interval == 0:
             # Save last model to checkpoint file
@@ -703,13 +781,13 @@ def run():
             # Updated on version 0.3.12
             #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
             fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
-
+            train_fitness = float(fi_train[0])
             if fi_train < best_training_fitness:
-                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train} ----")
+                print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train}, old best {best_training_fitness} ----")
                 best_training_fitness = fi_train
                 do_auto_eval = True
             else:
-                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train} ----")
+                print(f"- ❎ - Auto evaluation result: Training fitness {fi_train}, best {best_training_fitness} ----")
 
             # ############
             # ClearML training fitness logger - V0.3.4
@@ -718,25 +796,6 @@ def run():
                 task.logger.report_scalar(title="Training", series="Fitness", iteration=epoch,
                                           value=float(fi_train[0]))
 
-
-
-        '''
-        This code snippet is evaluating the performance of a YOLOv3 model on the validation set. 
-        It starts by checking if it's time to perform an evaluation based on the specified evaluation interval or 
-        if an auto evaluation is triggered. 
-
-        During the evaluation, the model is passed to the  `_evaluate`  function along with the validation dataloader, 
-        class names, and other parameters. The function calculates various metrics such as precision, recall, 
-        average precision (AP), and F1 score. These metrics are then logged and displayed. 
-        Additionally, the best mean average precision (mAP) is updated if the current fitness (weighted combination of 
-        precision, recall, mAP, and F1 score) is better than the previous best fitness. 
-        
-        If the current fitness is better than the previous best fitness, the model's state dictionary is saved as a checkpoint. 
-        The evaluation metrics and class-wise APs are also saved in a text file. 
-        
-        Finally, the evaluation metrics and fitness values are stored in arrays for plotting purposes. 
-        These arrays are then saved as CSV and image files for visualization.
-        '''
         # ########
         # Evaluate
         # ########
@@ -795,6 +854,9 @@ def run():
                              w)  # weighted combination of [P, R, mAP@0.5, f1]
                 curr_fitness = float(fi[0])
                 curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
+                logger.scalar_summary("fitness/model", round(best_fitness, 4), epoch)
+                train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
+                logger.scalar_summary("fitness/training", float(fi_train), epoch)
                 print(
                     f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
@@ -813,7 +875,7 @@ def run():
                 mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                 f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                 img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
-                                      curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+                                      curr_fitness_array, train_fitness_array,eval_epoch_array, args.logdir + "/" + date)
 
                 if curr_fitness > best_fitness:
                     best_fitness = curr_fitness
@@ -826,30 +888,7 @@ def run():
                     if clearml_run:
                         task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
 
-                    '''
-                    ############################
-                    # Save best checkpoint evaluation stats - V2.7 => Depricated in V0.3.8
-                    #############################
-                    # Open file
-                    with open(f'checkpoints/best/{model_name}_eval_stats.txt', 'w', encoding='UTF8') as f:
-                        # Evaluation stats
-                        precision, recall, AP, f1, ap_class = metrics_output
-                        # Gets class AP and mean AP
-                        ap_table = [["Index", "Class", "AP"]]
-                        f.write(str([["Index", "Class", "AP"]]) + "\n")
-                        for i, c in enumerate(ap_class):
-                            ap_table += [[c, class_names[c], "%.5f" % AP[i]]]
-                            data = [c, # Class index
-                                    class_names[c],  # Class name
-                                    "%.5f" % AP[i],  # Class AP
-                                    ]
-    
-                            csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv")
-    
-                            f.write(str([[c, class_names[c], "%.5f" % AP[i]]]) + "\n")
-    
-                        f.write(f"\n" + "---- mAP " + str(round(AP.mean(), 5)) + " ----")
-                    '''
+
                     ############################
                     # Save best checkpoint evaluation stats into csv - V0.3.8
                     #############################
@@ -914,7 +953,9 @@ def run():
                 
         epoch_end = time.time()
         exec_time = epoch_end-epoch_start
-
+        if batches_done >= max_batches:
+            print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
+            exit()
 if __name__ == "__main__":
     run()
 
