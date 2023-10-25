@@ -348,9 +348,9 @@ def draw_and_save_return_image(image, detections, img_size, classes, class_color
         #cv2.parts
         cv2.rectangle(image, (x1_loc, y1_loc),(x2_loc,y2_loc), color, 1)
         t_size = cv2.getTextSize(classes[int(cls_pred)], cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
-        c2 = x1_loc + t_size[0] + 3, y1_loc + t_size[1] + 4
+        c2 = x1_loc + t_size[0] + 40, y1_loc + t_size[1] + 4
         cv2.rectangle(image, (x1_loc, y1_loc), c2,color, -1)
-        cv2.putText(image, classes[int(cls_pred)], (x1_loc, y1_loc + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
+        cv2.putText(image, classes[int(cls_pred)]+f',{round(float(conf),2)}', (x1_loc, y1_loc + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
 
     return image
 

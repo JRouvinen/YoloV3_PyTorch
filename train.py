@@ -240,6 +240,32 @@ def run():
     w_train = weight_eval_params[0]
     w = weight_eval_params[1]
 
+    # #################
+    # Create Logging variables
+    # #################
+
+    # Matplotlib arrays
+    iou_loss_array = np.array([])
+    obj_loss_array = np.array([])
+    cls_loss_array = np.array([])
+    batches_array = np.array([])
+    loss_array = np.array([])
+    lr_array = np.array([])
+    epoch_array = np.array([])
+    eval_epoch_array = np.array([])
+    precision_array = np.array([])
+    recall_array = np.array([])
+    mAP_array = np.array([])
+    f1_array = np.array([])
+
+    # ap_cls_array = np.array([])
+    curr_fitness_array = np.array([])
+    train_fitness_array = np.array([])
+
+    last_opt_step = -1
+    # Define the maximum gradient norm for clipping
+    max_grad_norm = 1.0
+
     ################
     # Create CSV files - version 0.3.8
     ################
@@ -461,19 +487,13 @@ def run():
         )
 
     elif model.hyperparams['optimizer'] == "adam":
-        # ################
-        # Create lr scheduler for warmup - V 0.3.1 -> works only with adam
-        # ################
-        optimizer = optim.Adam(
+                optimizer = optim.Adam(
             params,
             lr=model.hyperparams['learning_rate'],
             betas=(0.9, 0.999),
             weight_decay=model.hyperparams['decay'],
             amsgrad=True
         )
-
-
-
     else:
         print("- ⚠ - Unknown optimizer. Please choose between (adam, sgd, rmsprop).")
         exit()
@@ -507,35 +527,8 @@ def run():
     if args.sync_bn != -1 and torch.cuda.is_available() is True:
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
         log_file_writer(f'Using SyncBatchNorm()', "logs/" + date + "_log" + ".txt")
-
-
-    # #################
-    # Create Logging variables
-    # #################
-
-    # Matplotlib arrays
-    iou_loss_array = np.array([])
-    obj_loss_array = np.array([])
-    cls_loss_array = np.array([])
-    batches_array = np.array([])
-    loss_array = np.array([])
-    lr_array = np.array([])
-    epoch_array = np.array([])
-    eval_epoch_array = np.array([])
-    precision_array = np.array([])
-    recall_array = np.array([])
-    mAP_array = np.array([])
-    f1_array = np.array([])
-
-    # ap_cls_array = np.array([])
-    curr_fitness_array = np.array([])
-    train_fitness_array = np.array([])
     lr = model.hyperparams['learning_rate']
     scheduler.last_epoch = start_epoch - 1  # do not move
-    last_opt_step = -1
-    # Define the maximum gradient norm for clipping
-    max_grad_norm = 1.0
-
     # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
     # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
     # instead of: 0, 10, 20
@@ -589,7 +582,7 @@ def run():
             batches_done = len(dataloader) * epoch + batch_i
             integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
-            #imgs = imgs.to(device, non_blocking=True).float() / 255
+            #imgs = imgs.to(device, non_blocking=True).float() / 255 -> causes overflow sometimes
             imgs = imgs.to(device, non_blocking=True)
 
             targets = targets.to(device)
@@ -601,10 +594,11 @@ def run():
 
 
             if np.isnan(loss.item()) or np.isinf(loss.item()) and debug:
+                #IMPROVEMENT: This part needs a bit better handling of these cases
                 print("Warning: Loss is NaN or Inf, skipping this update...")
                 continue
 
-            if not np.isnan(loss.item()):
+            if not np.isnan(loss.item()) or not np.isinf(loss.item()):
                 # Scale the loss for gradient calculation
                 scaler.scale(loss).backward()
 
@@ -625,18 +619,21 @@ def run():
             if batches_done % mini_batch_size == 0:
                 # Adapt learning rate
                 # Get learning rate defined in cfg
-                lr = model.hyperparams['learning_rate']
+                #lr = model.hyperparams['learning_rate']
                 if integ_batch_num <= warmup_num:
                     # Burn in
-                    if batches_done == model.hyperparams['burn_in']:
-                        optimizer.zero_grad()
+                    #if batches_done == model.hyperparams['burn_in']:
+                    #    optimizer.zero_grad()
                     # for param in model.parameters():
                     #    param.grad = None
                     if model.hyperparams['optimizer'] == "adam":
                         with warmup_scheduler.dampening():
-                            optimizer.step()
+                            #optimizer.step()
+                            scaler.step(optimizer)
                     else:
-                        optimizer.step()
+                        #optimizer.step()
+                        scaler.step(optimizer)
+
                     lr = lr * (batches_done / model.hyperparams['burn_in'])
                     for g in optimizer.param_groups:
                         g['lr'] = float(lr)
@@ -657,7 +654,9 @@ def run():
 
 
                 # Run optimizer
-                optimizer.step()
+                #optimizer.step()
+                scaler.step(optimizer)
+                scaler.update()
                 # Reset gradients
                 optimizer.zero_grad()
 
@@ -864,8 +863,7 @@ def run():
                     # ############
                     # ClearML fitness logger - V0.3.3
                     # ############
-                    if clearml_run:
-                        task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
+                    task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
                                                   value=curr_fitness)
                 # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                 # img writer - evaluation

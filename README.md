@@ -45,6 +45,24 @@
 
 
 # Guide
+## Installation
+
+1. Unzip or pull package from repository into folder
+2. Go to program folder
+3. (Optional) If you want to use NVIDIA GPU acceleration, get suitable package from PyTorch [https://pytorch.org/get-started/locally/] (CUDA 11.8 or never) and install it
+4. Type following command: 
+```python
+pip install -r requirements.txt
+```
+5. (Optional) If you want to use ClearML server, configure it by typing command:
+```python
+clearml-init
+```
+6. (Optional) If you want to use Backblaze storage, go to [/utils/b2-python-s3/] and type command:
+```python
+pip install -r requirements.txt
+```
+
 ## 1.Dataset
 ### Collect your dataset, example sources:
 
