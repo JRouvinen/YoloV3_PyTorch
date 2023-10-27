@@ -25,10 +25,11 @@ import random
 import pickle as pkl
 import argparse
 from detect import detect_image, draw_and_save_return_image
+from profilehooks import profile
 
 # YOLO configuration
 
-ver = "0.2"
+ver = "0.3"
 colors = [
         (0, 0, 255),  # Red
         (0, 255, 0),  # Green
@@ -148,9 +149,8 @@ def arg_parse():
     "Determine how many frames should be discarded. Increase to increase speed.",
                         default=24, type=int)
     return parser.parse_args()
-
-
-if __name__ == '__main__':
+@profile(filename='./logs/detectVideo.prof', stdout=False)
+def detect_video():
     # Parse command-line arguments
     args = arg_parse()
     # Set confidence and NMS thresholds
@@ -210,7 +210,8 @@ if __name__ == '__main__':
                 img_detections, imgs = detect_image(model, img, int(args.reso), confidence,
                                                     nms_thesh)  # model, image, img_size=416, conf_thres=0.5, nms_thres=0.5
                 # Annotate frame with detections
-                img_with_detection = draw_and_save_return_image(orig_im, img_detections[0], int(args.reso), classes, class_colors)
+                img_with_detection = draw_and_save_return_image(orig_im, img_detections[0], int(args.reso), classes,
+                                                                class_colors)
                 # Display annotated frame
                 if type(img_with_detection) == int:
                     frames += 1
@@ -234,3 +235,7 @@ if __name__ == '__main__':
 
         else:
             frames += 1
+
+
+if __name__ == '__main__':
+    detect_video()

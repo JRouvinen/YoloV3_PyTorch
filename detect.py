@@ -33,6 +33,7 @@ import matplotlib.patches as patches
 from matplotlib.ticker import NullLocator
 
 from utils.writer import log_file_writer
+from profilehooks import profile
 
 
 def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,
@@ -395,10 +396,11 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
         pin_memory=True)
     return dataloader
 
+@profile(filename='./logs/detect.prof', stdout=False)
 
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.0"
+    ver = "0.2.1"
     print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")

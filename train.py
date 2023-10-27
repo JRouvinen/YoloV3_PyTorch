@@ -54,7 +54,7 @@ import torch
 from torch.cuda.amp import GradScaler, autocast
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from torch.optim import lr_scheduler
+from profilehooks import profile
 
 import numpy as np
 # Added on V0.3.0
@@ -156,9 +156,10 @@ def check_folders():
         os.mkdir(local_path + "/output/")
 
 
+@profile(filename='./logs/train.prof', stdout=False)
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    ver = "0.3.16"
+    ver = "0.3.17-Profiler"
     # Check folders
     check_folders()
     # Create new log file
