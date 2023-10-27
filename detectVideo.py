@@ -115,7 +115,7 @@ def prep_image(img, inp_dim):
 def assign_colors_to_classes(num_classes, color_list):
     class_colors = {}
     for i in range(num_classes):
-        class_index = i % len(color_list)
+        class_index = i #% len(color_list)
         class_colors[i] = color_list[class_index]
     return class_colors
 
@@ -133,7 +133,7 @@ def arg_parse():
                         default="video.avi", type=str)
     parser.add_argument("-cl", "--classes", dest="classes", help="Classes file", default="data/coco.names")
     parser.add_argument("-conf", "--confidence", dest="confidence", help="Object Confidence to filter predictions",
-                        default=0.45)
+                        default=0.4)
     parser.add_argument("-nms", "--nms_thresh", dest="nms_thresh", help="NMS Threshhold", default=0.4)
     parser.add_argument("-c", "--cfg", dest='cfgfile', help=
     "Config file",
