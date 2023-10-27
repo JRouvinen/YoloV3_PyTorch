@@ -1,11 +1,11 @@
 Bus_away
-Bus_towards
-Bus_left
 Bus_right
+Bus_left
+Bus_towards
 Car_away
-Car_towards
 Car_left
 Car_right
+Car_towards
 Farm_vehicle_away
 Farm_vehicle_towards
 Farm_vehicle_left
@@ -14,8 +14,8 @@ Motorcycle_away
 Motorcycle_towards
 Motorcycle_left
 Motorcycle_right
+Person
 Truck_away
-Truck_towards
 Truck_left
 Truck_right
-Person
+Truck_towards
