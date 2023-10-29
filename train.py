@@ -719,14 +719,18 @@ def run():
                             optimizer.step()
                             if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                                 scheduler.step(loss)
+
                             else:
                                 scheduler.step()
                             #scaler.step(optimizer)
                             #scaler.update()
 
                         #lr = lr * (batches_done / model.hyperparams['burn_in'])
-                        lr = scheduler.get_last_lr()
-                        lr = lr[0]
+                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+                            lr = optimizer.param_groups[0]['lr']
+                        else:
+                            lr = scheduler.get_last_lr()
+                            lr = lr[0]
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
 
