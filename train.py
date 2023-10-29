@@ -159,7 +159,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18"
+    ver = "0.3.18B"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -384,6 +384,8 @@ def run():
           File "/content/YoloV3_PyTorch/models.py", line 25, in create_modules
             'batch': int(hyperparams['batch']),
         KeyError: 'batch'
+        --> fix on 0.3.18A
+        
         '''
 
         model = load_model(args.model, gpu, args.pretrained_weights)
@@ -529,6 +531,7 @@ def run():
             print("- ⚠ - Unknown optimizer. Please choose between (adam, adamw, adamax,"
                   "adadelta, sgd, rmsprop).")
             exit()
+        print(f"- ⚠ - Using optimizer - {model.hyperparams['optimizer']}")
         num_steps = len(dataloader) * args.epochs
         # #################
         # Scheduler selector - V0.3.18
@@ -566,7 +569,7 @@ def run():
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
             scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
-
+        print(f"- ⚠ - Using scheduler - {model.hyperparams['lr_sheduler']}")
         # Old Scheduler -> depricated on version 0.3.18
         #if args.cos_lr != -1:
         #    lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
@@ -698,6 +701,7 @@ def run():
                             with warmup_scheduler.dampening():
                                 scheduler.step()
                                 scaler.step(optimizer)
+
                         else:
                             #optimizer.step()
                             scaler.step(optimizer)
@@ -723,11 +727,11 @@ def run():
                     for g in optimizer.param_groups:
                         g['lr'] = lr
 
-
-                    # Run optimizer
-                    #optimizer.step()
-                    scaler.step(optimizer)
-                    scaler.update()
+                    if not warmup_run:
+                        # Run optimizer
+                        #optimizer.step()
+                        scaler.step(optimizer)
+                        scaler.update()
                     # Reset gradients
                     optimizer.zero_grad()
 
