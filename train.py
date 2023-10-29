@@ -49,6 +49,8 @@ import argparse
 import datetime
 import sys
 import time
+import traceback
+
 import tqdm
 import subprocess as sp
 import torch
@@ -159,7 +161,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18B"
+    ver = "0.3.18C"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -462,6 +464,7 @@ def run():
         warmup_num = max(
             round(warmup_epochs * num_batches), 100
         )  # number of warmup iterations, max(3 epochs, 100 iterations)
+        print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names)*int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum batch size - {max_batches}")
         log_file_writer(f"Maximum batch size: {max_batches}", "logs/" + date + "_log" + ".txt")
@@ -536,23 +539,39 @@ def run():
         # #################
         # Scheduler selector - V0.3.18
         # #################
-        # Set adam warmup scheduler
-        if model.hyperparams['optimizer'] == "adam":
+        valid_optimizers = ["adam", "adamw", "adamax"]
+        if model.hyperparams['optimizer'] in valid_optimizers:
             warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
         # CosineAnnealingLR
         if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                 optimizer,
                 T_max=num_steps,
-                eta_min=0.0000001,
+                eta_min=0.000001,
                 verbose=False)
         #ChainedScheduler
         elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
-            scheduler1 = ConstantLR(optimizer, factor=0.1, total_iters=int(model.hyperparams['warmup']))
-            scheduler2 = ExponentialLR(optimizer, gamma=0.9)
+            scheduler1 = ConstantLR(optimizer, factor=0.1, total_iters=int(model.hyperparams['warmup']), verbose=False)
+            scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
             scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1,scheduler2])
+
+        # LRScheduler
         elif model.hyperparams['lr_sheduler'] == 'LRScheduler':
             scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
+        #---- ERROR! -> Traceback (most recent call last):
+        #  File "\train.py", line 557, in run
+        #    scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
+        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 79, in __init__
+        #    self._initial_step()
+        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 85, in _initial_step
+        #    self.step()
+        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 150, in step
+        #    values = self.get_lr()
+        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 111, in get_lr
+        #    raise NotImplementedError
+        #NotImplementedError
+
+        # ExponentialLR
         elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
             scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
@@ -562,9 +581,11 @@ def run():
                 patience=int(args.evaluation_interval),
                 verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'ConstantLR':
-            scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5)
+            scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
+            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, last_epoch=-1,verbose=True)
+        elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
+            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']), max_lr=0.1,verbose=True)
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
@@ -591,7 +612,7 @@ def run():
         # Create GradScaler - V 0.3.14
         # #################
         # Creates a GradScaler once at the beginning of training.
-        scaler = GradScaler()
+        #scaler = GradScaler()
         #scaler = torch.cuda.amp.GradScaler(enabled=amp)
         # #################
         # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
@@ -653,34 +674,25 @@ def run():
                 batches_done = len(dataloader) * epoch + batch_i
                 integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
+
                 #imgs = imgs.to(device, non_blocking=True).float() / 255 -> causes overflow sometimes
                 imgs = imgs.to(device, non_blocking=True)
 
                 targets = targets.to(device)
                 # Enable autocasting for mixed precision training
-                with autocast():
-                    # Forward
-                    outputs = model(imgs)
-                    loss, loss_components = compute_loss(outputs, targets, model)
+                #with autocast():
+                # Forward
+                outputs = model(imgs)
+                loss, loss_components = compute_loss(outputs, targets, model)
 
-
-                if np.isnan(loss.item()) or np.isinf(loss.item()) and debug:
+                if (np.isnan(loss.item()) or np.isinf(loss.item())) and debug:
                     #IMPROVEMENT: This part needs a bit better handling of these cases
                     print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
                     continue
 
-                if not np.isnan(loss.item()) or not np.isinf(loss.item()):
-                    # Scale the loss for gradient calculation
-                    scaler.scale(loss).backward()
-
-                    # Unscales the gradients and performs optimizer step
-                    scaler.step(optimizer)
-
-                    # Updates the scale for next iteration
-                    scaler.update()
-
                 # Backward
-                #loss.backward()
+                loss.backward()
+                #scaler.scale(loss).backward()
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
@@ -697,43 +709,60 @@ def run():
                         #    optimizer.zero_grad()
                         # for param in model.parameters():
                         #    param.grad = None
-                        if model.hyperparams['optimizer'] == "adam":
+                        if model.hyperparams['optimizer'] in valid_optimizers:
                             with warmup_scheduler.dampening():
+                                optimizer.step()
                                 scheduler.step()
-                                scaler.step(optimizer)
+                                #scaler.step(optimizer)
+                                #scaler.update()
 
                         else:
-                            #optimizer.step()
-                            scaler.step(optimizer)
+                            optimizer.step()
+                            scheduler.step()
+                            #scaler.step(optimizer)
+                            #scaler.update()
 
-                        lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        #lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        lr = scheduler.get_last_lr()
+                        lr = lr[0]
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
+
                     else:
                         warmup_run = False
                         # Set and parse the learning rate to the steps defined in the cfg
                         # lr = optimizer.param_groups[0]['lr']
                         # Version 0.3.15-PERF-C
                         # Update learning rate based on the scheduler
+                        '''
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                            scheduler.step(loss)
+                            #scheduler.step(loss)
+                            scaler.step(optimizer)
                         else:
                             scheduler.step()
-                        lr = scheduler.get_last_lr()
-                        lr = lr[0]
-                        if debug:
-                            print(f'---- DEBUG: LR - {lr}')
-                    # Set learning rate
-                    for g in optimizer.param_groups:
-                        g['lr'] = lr
+                        if model.hyperparams['lr_sheduler'] != 'ReduceLROnPlateau':
+                            lr = scheduler.get_last_lr()
+                            lr = lr[0]
+                            # Set learning rate
+                            for g in optimizer.param_groups:
+                                g['lr'] = lr
+                        '''
 
                     if not warmup_run:
                         # Run optimizer
-                        #optimizer.step()
-                        scaler.step(optimizer)
-                        scaler.update()
+                        #scaler.step(optimizer)
+                        #scaler.update()
+                        optimizer.step()
+                        scheduler.step()
+                        lr = scheduler.get_last_lr()
+                        lr = lr[0]
+                        # Set learning rate
+                        for g in optimizer.param_groups:
+                            g['lr'] = lr
+                    if debug:
+                        print(f'---- DEBUG: LR - {lr}')
                     # Reset gradients
-                    optimizer.zero_grad()
+                    #optimizer.zero_grad()
 
                 if debug:
                     print(f'Loss components dim: {loss_components.dim()}')
@@ -856,7 +885,7 @@ def run():
                 #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
                 fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
                 train_fitness = float(fi_train[0])
-                logger.scalar_summary("fitness/training", float(fi_train), epoch)
+                logger.scalar_summary("fitness/training", train_fitness, epoch)
                 if fi_train < best_training_fitness:
                     print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train}, old best {best_training_fitness} ----")
                     best_training_fitness = fi_train
@@ -970,12 +999,13 @@ def run():
                         precision, recall, AP, f1, ap_class = metrics_output
                         # Gets class AP and mean AP
                         for i, c in enumerate(ap_class):
+                            csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv",'w')
                             data = [c,  # Class index
                                     class_names[c],  # Class name
                                     "%.5f" % AP[i],  # Class AP
                                     ]
                             logger.scalar_summary(f"validation/class/{class_names[c]}", round(float(AP[i]),5), epoch)
-                            csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv",'w')
+                            csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv",'a')
 
                         #Write mAP value as last line
                         data = ["--",  #
@@ -1031,12 +1061,19 @@ def run():
                 print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
                 log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}', "logs/" + date + "_log" + ".txt")
                 exit()
+    except KeyboardInterrupt:
+        torch.save(model.state_dict(), 'INTERRUPTED.pth')
+        print('Saved interrupt')
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)
     except Exception as e:
-        print(f'---- ERROR! -> {sys.exc_info()[2]}')
+        print(f'---- ERROR! -> {traceback.format_exc()}')
         # Create new log file
         f = open("ERROR_log_" + date + ".txt", "w")
         f.close()
-        to_print = f"ERROR log - {date} \n Software version: {ver} \n Args: {args} \n Error message: \n {str(sys.exc_info()[2])}"
+        to_print = f"ERROR log - {date} \n Software version: {ver} \n Args: {args} \n Error message: \n {str(traceback.format_exc())}"
         log_file_writer(to_print, "ERROR_log_" + date + ".txt")
 
 if __name__ == "__main__":
