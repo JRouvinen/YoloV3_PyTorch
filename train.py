@@ -763,8 +763,11 @@ def run():
                             scheduler.step(loss)
                         else:
                             scheduler.step()
-                        lr = scheduler.get_last_lr()
-                        lr = lr[0]
+                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+                            lr = optimizer.param_groups[0]['lr']
+                        else:
+                            lr = scheduler.get_last_lr()
+                            lr = lr[0]
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
