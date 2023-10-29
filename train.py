@@ -462,7 +462,7 @@ def run():
             warmup_epochs = 3
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
-            round(warmup_epochs * num_batches), 100
+            round(warmup_epochs * num_batches), 50
         )  # number of warmup iterations, max(3 epochs, 100 iterations)
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names)*int(model.hyperparams['max_batches_factor'])
@@ -686,14 +686,14 @@ def run():
                 outputs = model(imgs)
                 loss, loss_components = compute_loss(outputs, targets, model)
 
-                if (np.isnan(loss.item()) or np.isinf(loss.item())) and debug:
+                if np.isnan(loss.item()) or np.isinf(loss.item()):
                     #IMPROVEMENT: This part needs a bit better handling of these cases
                     print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
                     continue
-
-                # Backward
-                #loss.backward()
-                scaler.scale(loss).backward()
+                else:
+                    # Backward
+                    #loss.backward()
+                    scaler.scale(loss).backward()
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
