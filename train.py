@@ -463,7 +463,7 @@ def run():
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
             round(warmup_epochs * num_batches), 50
-        )  # number of warmup iterations, max(3 epochs, 100 iterations)
+        )  # number of warmup iterations, max(3 epochs, 50 iterations)
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names)*int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum batch size - {max_batches}")
@@ -607,6 +607,7 @@ def run():
 
         lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
+        scheduler_last_epoch_2_run = False
         # #################
         # Use ModelEMA - V0.x.xx -> Not implemented correctly
         # #################
@@ -749,7 +750,9 @@ def run():
 
                     else:
                         warmup_run = False
-                        scheduler.last_epoch = start_epoch - 1
+                        if not scheduler_last_epoch_2_run:
+                            scheduler.last_epoch = start_epoch - 1
+                            scheduler_last_epoch_2_run = True
                         # Set and parse the learning rate to the steps defined in the cfg
                         # lr = optimizer.param_groups[0]['lr']
                         # Version 0.3.15-PERF-C
