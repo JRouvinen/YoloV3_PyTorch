@@ -730,17 +730,19 @@ def run():
                             #scaler.step(optimizer)
                             #scaler.update()
 
-                        #lr = lr * (batches_done / model.hyperparams['burn_in'])
+
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                             lr = optimizer.param_groups[0]['lr']
                         else:
-                            lr = scheduler.get_last_lr()
-                            lr = lr[0]
+                            #lr = scheduler.get_last_lr()
+                            #lr = lr[0]
+                            lr = lr * (batches_done / model.hyperparams['burn_in'])
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
 
                     else:
                         warmup_run = False
+                        scheduler.last_epoch = start_epoch - 1
                         # Set and parse the learning rate to the steps defined in the cfg
                         # lr = optimizer.param_groups[0]['lr']
                         # Version 0.3.15-PERF-C
