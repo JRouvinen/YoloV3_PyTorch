@@ -62,7 +62,6 @@ from torch.optim import lr_scheduler
 
 import numpy as np
 # Added on V0.3.0
-import clearml
 import configparser
 
 # Added on V0.3.1
@@ -323,6 +322,7 @@ def run():
             clearml_run = False
 
         if clearml_run:
+            import clearml
             task_name = model_name
             if offline == "True":
                 # Use the set_offline class method before initializing a Task
@@ -582,10 +582,9 @@ def run():
                 verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'ConstantLR':
             scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
-        elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, last_epoch=-1,verbose=True)
         elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
-            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']), max_lr=0.1,verbose=True)
+            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
+                                                          max_lr=0.1, cycle_momentum=True, verbose=True)
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
@@ -718,7 +717,10 @@ def run():
 
                         else:
                             optimizer.step()
-                            scheduler.step()
+                            if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+                                scheduler.step(loss)
+                            else:
+                                scheduler.step()
                             #scaler.step(optimizer)
                             #scaler.update()
 
@@ -753,7 +755,10 @@ def run():
                         #scaler.step(optimizer)
                         #scaler.update()
                         optimizer.step()
-                        scheduler.step()
+                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+                            scheduler.step(loss)
+                        else:
+                            scheduler.step()
                         lr = scheduler.get_last_lr()
                         lr = lr[0]
                         # Set learning rate
