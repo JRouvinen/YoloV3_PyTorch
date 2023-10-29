@@ -586,7 +586,12 @@ def run():
             scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
                                                           max_lr=0.1, cycle_momentum=True, verbose=True)
         elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
-            scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1, steps_per_epoch=len(dataloader), epochs=int(args.epochs))
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
+                                                            steps_per_epoch=len(dataloader), epochs=int(args.epochs))
+        elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
+            lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                          lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
