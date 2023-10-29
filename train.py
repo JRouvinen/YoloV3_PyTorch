@@ -614,7 +614,7 @@ def run():
         # #################
         # Creates a GradScaler once at the beginning of training.
         #scaler = GradScaler()
-        #scaler = torch.cuda.amp.GradScaler(enabled=amp)
+        scaler = torch.cuda.amp.GradScaler(enabled=amp)
         # #################
         # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
         # #################
@@ -692,8 +692,8 @@ def run():
                     continue
 
                 # Backward
-                loss.backward()
-                #scaler.scale(loss).backward()
+                #loss.backward()
+                scaler.scale(loss).backward()
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
@@ -712,7 +712,8 @@ def run():
                         #    param.grad = None
                         if model.hyperparams['optimizer'] in valid_optimizers:
                             with warmup_scheduler.dampening():
-                                optimizer.step()
+                                #optimizer.step()
+                                scaler.step(optimizer)
                                 if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                                     scheduler.step(loss)
                                 else:
@@ -721,14 +722,15 @@ def run():
                                 #scaler.update()
 
                         else:
-                            optimizer.step()
+                            #optimizer.step()
+                            scaler.step(optimizer)
                             if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                                 scheduler.step(loss)
 
                             else:
                                 scheduler.step()
                             #scaler.step(optimizer)
-                            #scaler.update()
+                            scaler.update()
 
 
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
@@ -763,9 +765,9 @@ def run():
 
                     if not warmup_run:
                         # Run optimizer
-                        #scaler.step(optimizer)
-                        #scaler.update()
-                        optimizer.step()
+                        scaler.step(optimizer)
+                        scaler.update()
+                        #optimizer.step()
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                             scheduler.step(loss)
                         else:
