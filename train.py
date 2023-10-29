@@ -160,7 +160,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18C"
+    ver = "0.3.18E"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -585,6 +585,8 @@ def run():
         elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
             scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
                                                           max_lr=0.1, cycle_momentum=True, verbose=True)
+        elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
+            scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1, steps_per_epoch=len(dataloader), epochs=int(args.epochs))
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
