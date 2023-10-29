@@ -47,6 +47,7 @@ from __future__ import division
 import os
 import argparse
 import datetime
+import sys
 import time
 import tqdm
 import subprocess as sp
@@ -371,6 +372,19 @@ def run():
         # ############
         # Create model - Updated on V0.3.14
         # ############
+
+        '''
+        Traceback (most recent call last):
+          File "/content/YoloV3_PyTorch/train.py", line 375, in run
+            model = load_model(args.model, gpu, args.pretrained_weights)
+          File "/content/YoloV3_PyTorch/models.py", line 341, in load_model
+            model = Darknet(model_path).to(device)
+          File "/content/YoloV3_PyTorch/models.py", line 199, in __init__
+            self.hyperparams, self.module_list = create_modules(self.module_defs)
+          File "/content/YoloV3_PyTorch/models.py", line 25, in create_modules
+            'batch': int(hyperparams['batch']),
+        KeyError: 'batch'
+        '''
 
         model = load_model(args.model, gpu, args.pretrained_weights)
 
@@ -1014,10 +1028,11 @@ def run():
                 log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}', "logs/" + date + "_log" + ".txt")
                 exit()
     except Exception as e:
+        print(f'---- ERROR! -> {sys.exc_info()[2]}')
         # Create new log file
         f = open("ERROR_log_" + date + ".txt", "w")
         f.close()
-        to_print = f"ERROR log - {date} \n Software version: {ver} \n Args: {args} \n Error message: \n {e}"
+        to_print = f"ERROR log - {date} \n Software version: {ver} \n Args: {args} \n Error message: \n {str(sys.exc_info()[2])}"
         log_file_writer(to_print, "ERROR_log_" + date + ".txt")
 
 if __name__ == "__main__":
