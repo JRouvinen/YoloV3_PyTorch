@@ -1,11 +1,11 @@
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
-def csv_writer(data, filename):
+def csv_writer(data, filename, oper):
     #header = ['Iterations','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
     #header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1']
     #log_path = filename.replace("checkpoints", "")
-    with open(filename, 'a', encoding='UTF8') as f:
+    with open(filename, oper, encoding='UTF8') as f:
         table_writer = csv.writer(f)
         # write the data
         table_writer.writerow(data)
