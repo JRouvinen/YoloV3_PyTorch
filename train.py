@@ -160,7 +160,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18E"
+    ver = "0.3.18G"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -550,10 +550,9 @@ def run():
                 verbose=False)
         #ChainedScheduler
         elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
-            scheduler1 = ConstantLR(optimizer, factor=0.1, total_iters=int(model.hyperparams['warmup']), verbose=False)
+            scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']), verbose=False)
             scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
             scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1,scheduler2])
-
         # LRScheduler
         elif model.hyperparams['lr_sheduler'] == 'LRScheduler':
             scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
@@ -583,14 +582,14 @@ def run():
             scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
             scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
-                                                          max_lr=0.1, cycle_momentum=True, verbose=True)
+                                                          max_lr=0.1, cycle_momentum=True, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
             scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
                                                             steps_per_epoch=len(dataloader), epochs=int(args.epochs))
         elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
             lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                          lr_lambda=lf, verbose=True)  # plot_lr_scheduler(optimizer, scheduler, epochs)
+                                                          lr_lambda=lf, verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
@@ -707,6 +706,9 @@ def run():
                 ###############
                 #print('update cycle:',(batches_done % integ_batch_num))
                 if batches_done % mini_batch_size == 0:
+                    scaler.step(optimizer)
+                    scheduler.step()
+                    scaler.update()
                     # Adapt learning rate
                     # Get learning rate defined in cfg
                     #lr = model.hyperparams['learning_rate']
@@ -715,86 +717,13 @@ def run():
                         lr = lr * (batches_done / model.hyperparams['burn_in'])
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
-                        '''
-                        #if batches_done == model.hyperparams['burn_in']:
-                        #    optimizer.zero_grad()
-                        # for param in model.parameters():
-                        #    param.grad = None
-                        if model.hyperparams['optimizer'] in valid_optimizers:
-                            with warmup_scheduler.dampening():
-                                optimizer.step()
-                                scaler.step(optimizer)
-                                #scaler.step(optimizer)
-                                if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                                    scheduler.step(loss)
-                                else:
-                                    scheduler.step()
-                                scaler.update()
 
-                        else:
-                            #optimizer.step()
-                            scaler.step(optimizer)
-                            if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                                scheduler.step(loss)
-                            else:
-                                scheduler.step()
-                            #scaler.step(optimizer)
-                            scaler.update()
-
-
-                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                            lr = optimizer.param_groups[0]['lr']
-                        else:
-                            #lr = scheduler.get_last_lr()
-                            #lr = lr[0]
-                            lr = lr * (batches_done / model.hyperparams['burn_in'])
-                        for g in optimizer.param_groups:
-                            g['lr'] = float(lr)
-                        '''
                     else:
-                        warmup_run = False
-                        if not scheduler_last_epoch_2_run:
-                            #scheduler.last_epoch = start_epoch - 1
-                            scheduler_last_epoch_2_run = True
-                        # Set and parse the learning rate to the steps defined in the cfg
-                        # lr = optimizer.param_groups[0]['lr']
-                        # Version 0.3.15-PERF-C
-                        # Update learning rate based on the scheduler
-                        '''
-                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                            #scheduler.step(loss)
-                            scaler.step(optimizer)
-                        else:
-                            scheduler.step()
-                        if model.hyperparams['lr_sheduler'] != 'ReduceLROnPlateau':
-                            lr = scheduler.get_last_lr()
-                            lr = lr[0]
-                            # Set learning rate
-                            for g in optimizer.param_groups:
-                                g['lr'] = lr
-                        '''
-
-                    if not warmup_run:
-                        # Run optimizer
-                        scaler.step(optimizer)
-                        #optimizer.step()
-                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                            scheduler.step(loss)
-                        else:
-                            scheduler.step()
-                        scaler.update()
-                        if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-                            lr = optimizer.param_groups[0]['lr']
-                        else:
-                            lr = scheduler.get_last_lr()
-                            lr = lr[0]
+                        lr = scheduler.get_last_lr()
+                        lr = lr[0]
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
-                    if debug:
-                        print(f'---- DEBUG: LR - {lr}')
-                    # Reset gradients
-                    #optimizer.zero_grad()
 
                 if debug:
                     print(f'Loss components dim: {loss_components.dim()}')
