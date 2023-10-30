@@ -135,7 +135,7 @@ NOTE! This is just for information only -> the software uses an autobatcher for 
 Darknet allows you to specify a variable called subdivisions that lets you process a fraction of the batch size at one time on your GPU.
 
 You can start the training with subdivisions=1, and if you get an Out of memory error, increase the subdivision parameter by multiples of 2(e.g. 2, 4, 8, 16) till the training proceeds successfully. The GPU will process $batch/subdivision$ number of images at any time, but the full batch or iteration would be complete only after all the images in batch (set above) are processed.
-
+NOTE! This is just for information only -> the software uses an autobatcher for calculating optimal batch size based on GPU memory available.
 ### 5.3 Width, Height, Channels
 These configuration parameters specify the input image size and the number of channels.
 ```python
@@ -159,7 +159,8 @@ Overfitting simply means it will do very well on training data and poorly on tes
 It is almost like the neural network has memorized the answer to all images in the training set but really not learned the underlying concept. 
 One of the ways to mitigate this problem is to penalize large values for weights. The parameter decay controls this penalty term. 
 The default value works just fine, but you may want to tweak this if you notice overfitting.
-### 5.5 Learning Rate, Steps, Scales, Burn In (warm-up)
+### 5.5 Learning Rate, Steps, Scales, Burn In (warm-up), Optimizers and Learning rate schedulers
+#### Learning Rate, Steps, Scales
 ```python
 # Number of warmup epochs, usually should not be more than 3
 warmup=1
@@ -189,6 +190,7 @@ In the previous paragraph, we mentioned that the learning rate needs to be high 
 While that statement is largely true, it has been empirically found that the training speed tends to increase if we have a lower learning rate for a short period of time at the very beginning. This is controlled by the burn_in parameter. Sometimes this burn-in period is also called warm-up period.
 
 NOTE! The warmup phase is automatically calculated and only parameter in config file that affects its length is 'warmup'
+#### Burn In (warm-up)
 ```python
 warmup_epochs = int(model.hyperparams['warmup'])
 num_batches = len(dataloader)  # number of batches
@@ -196,6 +198,21 @@ warmup_num = max(
         round(warmup_epochs * num_batches), 100
     )  # number of warmup iterations, max(3 epochs, 100 iterations)
 ```
+#### Optimizers and schedulers
+Short description about both
+
+Valid combinations
+
+| Scheduler → | CosineAnnealingLR | ChainedScheduler | ExponentialLR   | ConstantLR      | CyclicLR        | OneCycleLR      | LambdaLR        |
+|-------------|-------------------|------------------|-----------------|-----------------|-----------------|-----------------|-----------------|
+| Optimizer ↓ |![cosineannealing_lr.png](images%2Fcosineannealing_lr.png)   | [ChainedScheduler]  | ![exponential_lr.png](images%2Fexponential_lr.png) | [ConstantLR] | ![cyclic_lr_exp_range.png](images%2Fcyclic_lr_exp_range.png) | ![onecycle_lr_cos.png](images%2Fonecycle_lr_cos.png) | ![lambda_lr.png](images%2Flambda_lr.png) |
+| adamw       |         X         |         X        |        X        |        X        |        -        |        X        |        X        |
+| sgd         |         X         |         X        |                 |                 |                 |                 |                 |
+| rmsprop     |                   |                  |                 |                 |                 |                 |                 |
+| adam        |                   |                  |                 |                 |                 |                 |                 |
+| adadelta    |                   |                  |                 |                 |                 |                 |                 |
+| adamax      |                   |                  |                 |                 |                 |                 |                 |
+
 ### 5.6 Data augmentation
 Data collection and annotation might take a long time.
 

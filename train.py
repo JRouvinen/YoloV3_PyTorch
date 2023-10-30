@@ -160,7 +160,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18G"
+    ver = "0.3.18H"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -538,9 +538,7 @@ def run():
         # #################
         # Scheduler selector - V0.3.18
         # #################
-        valid_optimizers = ["adam", "adamw", "adamax"]
-        if model.hyperparams['optimizer'] in valid_optimizers:
-            warmup_scheduler = warmup.UntunedLinearWarmup(optimizer)
+
         # CosineAnnealingLR
         if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -553,23 +551,6 @@ def run():
             scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']), verbose=False)
             scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
             scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1,scheduler2])
-        # LRScheduler
-        elif model.hyperparams['lr_sheduler'] == 'LRScheduler':
-            scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
-        #---- ERROR! -> Traceback (most recent call last):
-        #  File "\train.py", line 557, in run
-        #    scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
-        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 79, in __init__
-        #    self._initial_step()
-        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 85, in _initial_step
-        #    self.step()
-        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 150, in step
-        #    values = self.get_lr()
-        #  File "\lib\site-packages/torch\optim\lr_scheduler.py", line 111, in get_lr
-        #    raise NotImplementedError
-        #NotImplementedError
-
-        # ExponentialLR
         elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
             scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
@@ -582,7 +563,7 @@ def run():
             scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
         elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
             scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
-                                                          max_lr=0.1, cycle_momentum=True, verbose=False)
+                                                          max_lr=0.1, cycle_momentum=True, verbose=False) #mode (str): One of {triangular, triangular2, exp_range}.
         elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
             scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
                                                             steps_per_epoch=len(dataloader), epochs=int(args.epochs))
