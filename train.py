@@ -720,6 +720,7 @@ def run():
                             g['lr'] = float(lr)
 
                     else:
+                        warmup_run = False
                         lr = scheduler.get_last_lr()
                         lr = lr[0]
                         # Set learning rate
