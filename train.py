@@ -714,7 +714,8 @@ def run():
                     #lr = model.hyperparams['learning_rate']
                     if integ_batch_num < warmup_num:
                         # Burn in
-                        lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        #lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        lr = lr * (batches_done / warmup_num)
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
 
