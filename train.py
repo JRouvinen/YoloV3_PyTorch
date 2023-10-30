@@ -710,8 +710,12 @@ def run():
                     # Adapt learning rate
                     # Get learning rate defined in cfg
                     #lr = model.hyperparams['learning_rate']
-                    if integ_batch_num <= warmup_num:
+                    if integ_batch_num < warmup_num:
                         # Burn in
+                        lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        for g in optimizer.param_groups:
+                            g['lr'] = float(lr)
+                        '''
                         #if batches_done == model.hyperparams['burn_in']:
                         #    optimizer.zero_grad()
                         # for param in model.parameters():
@@ -746,7 +750,7 @@ def run():
                             lr = lr * (batches_done / model.hyperparams['burn_in'])
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
-
+                        '''
                     else:
                         warmup_run = False
                         if not scheduler_last_epoch_2_run:
