@@ -41,7 +41,6 @@ perform evaluations every 5 epochs. The pretrained weights from  weights/yolov3.
 
 '''
 
-
 from __future__ import division
 
 import os
@@ -67,7 +66,7 @@ import configparser
 # Added on V0.3.1
 import utils.pytorch_warmup as warmup
 
-#import utils.writer
+# import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
@@ -160,7 +159,7 @@ def check_folders():
 
 
 def run():
-    ver = "0.3.18H"
+    ver = "0.3.18IA"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -174,7 +173,8 @@ def run():
         parser = argparse.ArgumentParser(description="Trains the YOLO model.")
         parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
                             help="Path to model definition file (.cfg)")
-        parser.add_argument("-d", "--data", type=str, default="config/coco.data", help="Path to data config file (.data)")
+        parser.add_argument("-d", "--data", type=str, default="config/coco.data",
+                            help="Path to data config file (.data)")
         parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
         parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
         parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
@@ -197,7 +197,8 @@ def run():
         parser.add_argument("--logdir", type=str, default="logs",
                             help="Directory for training log files (e.g. for TensorBoard)")
         parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-        parser.add_argument("--checkpoint_keep_best", type=bool, default=True, help="Should the best checkpoint be saved")
+        parser.add_argument("--checkpoint_keep_best", type=bool, default=True,
+                            help="Should the best checkpoint be saved")
         parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
         args = parser.parse_args()
         print(f"Command line arguments: {args}")
@@ -237,7 +238,7 @@ def run():
         start_epoch = 0
         train_fitness = 0
         fi_train = 0
-        #Get model weight eval parameters
+        # Get model weight eval parameters
         # Create a ConfigParser object
         weight_eval_params = parse_model_weight_config(args.model)
         # Access the parameters from the config file
@@ -276,7 +277,7 @@ def run():
 
         # Create training csv file
         header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
-        csv_writer(header, args.logdir + "/" + model_name + "_training_plots.csv",'a')
+        csv_writer(header, args.logdir + "/" + model_name + "_training_plots.csv", 'a')
 
         # Create evaluation csv file
         header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
@@ -284,7 +285,7 @@ def run():
 
         # Create validation csv file
         header = ['Index', 'Class', 'AP']
-        csv_writer(header, f"checkpoints/best/{model_name}_eval_stats.csv",'a')
+        csv_writer(header, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
 
         ################
         # Create ClearML task - version 0.3.0
@@ -303,14 +304,14 @@ def run():
            d. It connects the task to the arguments passed to the script. 
            e. It instantiates an OutputModel object with the task object and sets the framework to "PyTorch". 
         '''
-        #get clearml parameters
+        # get clearml parameters
         # Create a ConfigParser object
         config = configparser.ConfigParser()
         # Read the config file
         config.read(r'config/clearml.cfg')
         # Access the parameters from the config file
         proj_name = config.get('clearml', 'proj_name')
-        #task_name = config.get('clearml', 'task_name')
+        # task_name = config.get('clearml', 'task_name')
         offline = config.get('clearml', 'offline')
         if config.get('clearml', 'clearml_save_last') == "True":
             clearml_save_last = True
@@ -343,7 +344,7 @@ def run():
         It then creates a model, freezes its layers, and checks the AMP (Automatic Mixed Precision) setting. 
         The code also logs the model's hyperparameters and prints the model summary if the verbose flag is set. 
         Finally, it calculates the batch size based on the model's hyperparameters and AMP setting. 
-     
+
         Step-wise explanation: 
         1. The code checks if the GPU parameter is greater than or equal to 0. 
         2. If the GPU is available (determined by  torch.cuda.is_available() ), the device is set to "cuda". Otherwise, it is set to "cpu". 
@@ -375,21 +376,6 @@ def run():
         # Create model - Updated on V0.3.14
         # ############
 
-        '''
-        Traceback (most recent call last):
-          File "/content/YoloV3_PyTorch/train.py", line 375, in run
-            model = load_model(args.model, gpu, args.pretrained_weights)
-          File "/content/YoloV3_PyTorch/models.py", line 341, in load_model
-            model = Darknet(model_path).to(device)
-          File "/content/YoloV3_PyTorch/models.py", line 199, in __init__
-            self.hyperparams, self.module_list = create_modules(self.module_defs)
-          File "/content/YoloV3_PyTorch/models.py", line 25, in create_modules
-            'batch': int(hyperparams['batch']),
-        KeyError: 'batch'
-        --> fix on 0.3.18A
-        
-        '''
-
         model = load_model(args.model, gpu, args.pretrained_weights)
 
         # ############
@@ -400,7 +386,7 @@ def run():
         # ############
         # Check AMP - V.0.3.14
         # ############
-        #amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
+        # amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
         amp = False
         # ############
         # Log hyperparameters to clearml
@@ -428,7 +414,7 @@ def run():
         '''
         #399-592 
         The code is for training a model using a specified optimizer.  
-     
+
         1. It creates a dataloader for training data and a separate dataloader for validation data. 
         2. It determines the number of warmup epochs based on the model's hyperparameters. 
         3. It calculates the number of warmup iterations based on the number of warmup epochs and the number of batches in the training dataloader. 
@@ -465,7 +451,7 @@ def run():
             round(warmup_epochs * num_batches), 50
         )  # number of warmup iterations, max(3 epochs, 50 iterations)
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
-        max_batches = len(class_names)*int(model.hyperparams['max_batches_factor'])
+        max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
         log_file_writer(f"Maximum batch size: {max_batches}", "logs/" + date + "_log" + ".txt")
         # #################
@@ -477,7 +463,7 @@ def run():
                 if not args.noautoanchor:
                     check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)  # run AutoAnchor
                 model.half().float()  # pre-reduce anchor precision
-    
+
             callbacks.run('on_pretrain_routine_end', labels, names)
         '''
 
@@ -485,15 +471,55 @@ def run():
         # Create optimizer
         # ################
         params = [p for p in model.parameters() if p.requires_grad]
-        if model.hyperparams['optimizer'] == "adamw":
-            optimizer = optim.AdamW(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-                amsgrad=True
-            )
-        elif model.hyperparams['optimizer'] == "sgd":
+        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax"]
+        if model.hyperparams['optimizer'] in implemented_optimizers:
+            if model.hyperparams['optimizer'] == "adamw":
+                optimizer = optim.AdamW(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    betas=(0.9, 0.999),
+                    weight_decay=model.hyperparams['decay'],
+                    amsgrad=True
+                )
+            elif model.hyperparams['optimizer'] == "sgd":
+                optimizer = optim.SGD(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    weight_decay=model.hyperparams['decay'],
+                    momentum=model.hyperparams['momentum'],
+                    nesterov=model.hyperparams['nesterov'],
+                )
+            elif model.hyperparams['optimizer'] == "rmsprop":
+                optimizer = optim.RMSprop(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    weight_decay=model.hyperparams['decay'],
+                    momentum=model.hyperparams['momentum']
+                )
+
+            elif model.hyperparams['optimizer'] == "adam":
+                optimizer = optim.Adam(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    betas=(0.9, 0.999),
+                    weight_decay=model.hyperparams['decay'],
+                    amsgrad=True
+                )
+            elif model.hyperparams['optimizer'] == "adadelta":
+                optimizer = optim.Adadelta(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    weight_decay=model.hyperparams['decay'],
+                )
+            elif model.hyperparams['optimizer'] == "adamax":
+                optimizer = optim.Adamax(
+                    params,
+                    lr=model.hyperparams['learning_rate'],
+                    betas=(0.9, 0.999),
+                    weight_decay=model.hyperparams['decay'],
+                )
+        else:
+            print("- ⚠ - Unknown optimizer. Reverting into SGD optimizer.")
             optimizer = optim.SGD(
                 params,
                 lr=model.hyperparams['learning_rate'],
@@ -501,105 +527,76 @@ def run():
                 momentum=model.hyperparams['momentum'],
                 nesterov=model.hyperparams['nesterov'],
             )
-        elif model.hyperparams['optimizer'] == "rmsprop":
-            optimizer = optim.RMSprop(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                weight_decay=model.hyperparams['decay'],
-                momentum=model.hyperparams['momentum']
-            )
-
-        elif model.hyperparams['optimizer'] == "adam":
-                    optimizer = optim.Adam(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-                amsgrad=True
-            )
-        elif model.hyperparams['optimizer'] == "adadelta":
-            optimizer = optim.Adadelta(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                weight_decay=model.hyperparams['decay'],
-        )
-        elif model.hyperparams['optimizer'] == "adamax":
-            optimizer = optim.Adamax(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                betas=(0.9, 0.999),
-                weight_decay=model.hyperparams['decay'],
-        )
-        else:
-            print("- ⚠ - Unknown optimizer. Please choose between (adam, adamw, adamax,"
-                  "adadelta, sgd, rmsprop).")
-            exit()
+            model.hyperparams['optimizer'] = 'sgd'
         num_steps = len(dataloader) * args.epochs
         # #################
         # Scheduler selector - V0.3.18
         # #################
-
-        # CosineAnnealingLR
-        if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer,
-                T_max=num_steps,
-                eta_min=0.000001,
-                verbose=False)
-        #ChainedScheduler
-        elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
-            scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']), verbose=False)
-            scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
-            scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1,scheduler2])
-        elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
-        elif model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
-            scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer,
-                'min',
-                patience=int(args.evaluation_interval),
-                verbose=False)
-        elif model.hyperparams['lr_sheduler'] == 'ConstantLR':
-            scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
-        elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
-            scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=float(model.hyperparams['learning_rate']),
-                                                          max_lr=0.1, cycle_momentum=True, verbose=False) #mode (str): One of {triangular, triangular2, exp_range}.
-        elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
-            scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
-                                                            steps_per_epoch=len(dataloader), epochs=int(args.epochs))
-        elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
-            lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
-            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                          lr_lambda=lf, verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
+        implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
+                                  'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
+                                  'CyclicLR', 'OneCycleLR', 'LambdaLR']
+        if model.hyperparams['lr_sheduler'] in implemented_schedulers:
+            # CosineAnnealingLR
+            if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer,
+                    T_max=num_steps,
+                    eta_min=0.000001,
+                    verbose=False)
+            # ChainedScheduler
+            elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
+                scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']),
+                                        verbose=False)
+                scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
+                scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
+            elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
+                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
+            elif model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+                scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    'min',
+                    patience=int(args.evaluation_interval),
+                    verbose=False)
+            elif model.hyperparams['lr_sheduler'] == 'ConstantLR':
+                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
+            elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
+                scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
+                                                              base_lr=float(model.hyperparams['learning_rate']),
+                                                              max_lr=0.1, cycle_momentum=True,
+                                                              verbose=False)  # mode (str): One of {triangular, triangular2, exp_range}.
+            elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
+                scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
+                                                                steps_per_epoch=len(dataloader),
+                                                                epochs=int(args.epochs))
+            elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
+                lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+                scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                              lr_lambda=lf,
+                                                              verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
         else:
-            print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
-            model.hyperparams['lr_sheduler'] = 'LRScheduler'
-            scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
-        print(f"- ⚠ - Using optimizer - {model.hyperparams['optimizer']} with LR scheduler - {model.hyperparams['lr_sheduler']}")
-
-        # Old Scheduler -> depricated on version 0.3.18
-        #if args.cos_lr != -1:
-        #    lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
-        #else:
-        #    lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(model.hyperparams['lrf'])  # linear
-        #scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
-        # End of old scheduler
+            print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
+            model.hyperparams['lr_sheduler'] = 'LambdaLR'
+            lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(
+                model.hyperparams['lrf'])
+            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
+                                                          lr_lambda=lf, verbose=False)
+        print(
+            f"- ⚠ - Using {model.hyperparams['optimizer']} - optimizer with {model.hyperparams['lr_sheduler']} - LR scheduler")
 
         lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
-        scheduler_last_epoch_2_run = False
         # #################
         # Use ModelEMA - V0.x.xx -> Not implemented correctly
         # #################
 
         # EMA
-        #ema = ModelEMA(model) if args.ema != -1 else None
+        # ema = ModelEMA(model) if args.ema != -1 else None
 
         # #################
         # Create GradScaler - V 0.3.14
         # #################
         # Creates a GradScaler once at the beginning of training.
-        #scaler = GradScaler()
+        # scaler = GradScaler()
         scaler = torch.cuda.amp.GradScaler(enabled=amp)
         # #################
         # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
@@ -642,7 +639,7 @@ def run():
         25. It calculates the execution time for the current epoch and prints a message indicating the maximum number of batches reached if the condition is met. 
         '''
 
-        #Modded on V0.3.14J
+        # Modded on V0.3.14J
 
         for epoch in range(1, args.epochs + 1):
             epoch_start = time.time()
@@ -653,7 +650,7 @@ def run():
             model.train()  # Set model to training mode
             mloss = torch.zeros(3, device=device)  # mean losses
             # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
-            #for param in model.parameters():
+            # for param in model.parameters():
             #    param.grad = None
 
             for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
@@ -661,41 +658,40 @@ def run():
                 batches_done = len(dataloader) * epoch + batch_i
                 integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
-
-                #imgs = imgs.to(device, non_blocking=True).float() / 255 -> causes overflow sometimes
+                # imgs = imgs.to(device, non_blocking=True).float() / 255 -> causes overflow sometimes
                 imgs = imgs.to(device, non_blocking=True)
 
                 targets = targets.to(device)
                 # Enable autocasting for mixed precision training
-                #with autocast():
+                # with autocast():
                 # Forward
                 outputs = model(imgs)
                 loss, loss_components = compute_loss(outputs, targets, model)
 
                 if np.isnan(loss.item()) or np.isinf(loss.item()):
-                    #IMPROVEMENT: This part needs a bit better handling of these cases
+                    # IMPROVEMENT: This part needs a bit better handling of these cases
                     print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
                     continue
                 else:
                     # Backward
-                    #loss.backward()
+                    # loss.backward()
                     scaler.scale(loss).backward()
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
                 # Run optimizer
                 ###############
-                #print('update cycle:',(batches_done % integ_batch_num))
+                # print('update cycle:',(batches_done % integ_batch_num))
                 if batches_done % mini_batch_size == 0:
                     scaler.step(optimizer)
                     scheduler.step()
                     scaler.update()
                     # Adapt learning rate
                     # Get learning rate defined in cfg
-                    #lr = model.hyperparams['learning_rate']
+                    # lr = model.hyperparams['learning_rate']
                     if integ_batch_num < warmup_num:
                         # Burn in
-                        #lr = lr * (batches_done / model.hyperparams['burn_in'])
+                        # lr = lr * (batches_done / model.hyperparams['burn_in'])
                         lr = lr * (batches_done / warmup_num)
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
@@ -734,7 +730,7 @@ def run():
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
-                    #Tensorflow logger - learning rate V0.3.4I
+                    # Tensorflow logger - learning rate V0.3.4I
                     logger.scalar_summary("train/learning rate", lr, batches_done)
 
                     model.seen += imgs.size(0)
@@ -753,7 +749,8 @@ def run():
                                                   value=float(loss_components[3]))
                         task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                                   value=mloss)
-                        task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done, value=lr)
+                        task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done,
+                                                  value=lr)
 
                 # ############
                 # Log training progress writers
@@ -768,7 +765,7 @@ def run():
                             float(loss_components[3]),  # Loss
                             ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
                             ]
-                    csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv",'a')
+                    csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv", 'a')
 
                     # ############
                     # ClearML csv reporter logger - V0.3.6
@@ -790,7 +787,8 @@ def run():
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
                     loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
                     lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
-                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array, batches_array,
+                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,
+                                        batches_array,
                                         args.logdir + "/" + date)
 
             # #############
@@ -826,16 +824,18 @@ def run():
                     float(loss_components[3]),  # Loss
                 ]
                 # Updated on version 0.3.12
-                #w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
+                # w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
                 fi_train = training_fitness(np.array(training_evaluation_metrics).reshape(1, -1), w_train)
                 train_fitness = float(fi_train[0])
                 logger.scalar_summary("fitness/training", train_fitness, epoch)
                 if fi_train < best_training_fitness:
-                    print(f"- ✅ - Auto evaluation result: New best training fitness {fi_train}, old best {best_training_fitness} ----")
+                    print(
+                        f"- ✅ - Auto evaluation result: New best training fitness {fi_train}, old best {best_training_fitness} ----")
                     best_training_fitness = fi_train
                     do_auto_eval = True
                 else:
-                    print(f"- ❎ - Auto evaluation result: Training fitness {fi_train}, best {best_training_fitness} ----")
+                    print(
+                        f"- ❎ - Auto evaluation result: Training fitness {fi_train}, best {best_training_fitness} ----")
 
                 # ############
                 # ClearML training fitness logger - V0.3.4
@@ -897,14 +897,14 @@ def run():
                     # Current fitness calculation - V0.3.6B
                     # ############
                     # Updated on version 0.3.12
-                    #w = [0.1, 0.1, 0.6, 0.2, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
+                    # w = [0.1, 0.1, 0.6, 0.2, 0.0]  # weights for [P, R, mAP@0.5, f1, ap class]
                     fi = fitness(np.array(evaluation_metrics).reshape(1, -1),
                                  w)  # weighted combination of [P, R, mAP@0.5, f1]
                     curr_fitness = float(fi[0])
                     curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
                     logger.scalar_summary("fitness/model", round(best_fitness, 4), epoch)
                     train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
-                    #logger.scalar_summary("fitness/training", float(fi_train), epoch)
+                    # logger.scalar_summary("fitness/training", float(fi_train), epoch)
                     print(
                         f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
 
@@ -913,7 +913,7 @@ def run():
                         # ClearML fitness logger - V0.3.3
                         # ############
                         task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
-                                                      value=curr_fitness)
+                                                  value=curr_fitness)
                     # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                     # img writer - evaluation
                     eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
@@ -922,7 +922,8 @@ def run():
                     mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
                     f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                     img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
-                                          curr_fitness_array, train_fitness_array,eval_epoch_array, args.logdir + "/" + date)
+                                          curr_fitness_array, train_fitness_array, eval_epoch_array,
+                                          args.logdir + "/" + date)
 
                     if curr_fitness > best_fitness:
                         best_fitness = curr_fitness
@@ -935,7 +936,6 @@ def run():
                         if clearml_run:
                             task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
 
-
                         ############################
                         # Save best checkpoint evaluation stats into csv - V0.3.8
                         #############################
@@ -943,20 +943,20 @@ def run():
                         precision, recall, AP, f1, ap_class = metrics_output
                         # Gets class AP and mean AP
                         for i, c in enumerate(ap_class):
-                            csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv",'w')
+                            csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv", 'w')
                             data = [c,  # Class index
                                     class_names[c],  # Class name
                                     "%.5f" % AP[i],  # Class AP
                                     ]
-                            logger.scalar_summary(f"validation/class/{class_names[c]}", round(float(AP[i]),5), epoch)
-                            csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv",'a')
+                            logger.scalar_summary(f"validation/class/{class_names[c]}", round(float(AP[i]), 5), epoch)
+                            csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
 
-                        #Write mAP value as last line
+                        # Write mAP value as last line
                         data = ["--",  #
                                 'mAP',  #
                                 str(round(AP.mean(), 5)),
                                 ]
-                        csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv",'a')
+                        csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
 
                         # ############
                         # ClearML csv reporter logger - V0.3.8
@@ -983,7 +983,7 @@ def run():
                             f1.mean(),  # f1
                             curr_fitness  # Fitness
                             ]
-                    csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv",'a')
+                    csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv", 'a')
                     # ############
                     # ClearML csv reporter logger - V0.3.6
                     # ############
@@ -997,13 +997,12 @@ def run():
                             url=csv_url
                         )
 
-
-
             epoch_end = time.time()
-            exec_time = epoch_end-epoch_start
+            exec_time = epoch_end - epoch_start
             if batches_done >= max_batches:
                 print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
-                log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}', "logs/" + date + "_log" + ".txt")
+                log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}',
+                                "logs/" + date + "_log" + ".txt")
                 exit()
     except KeyboardInterrupt:
         torch.save(model.state_dict(), 'INTERRUPTED.pth')
@@ -1019,6 +1018,7 @@ def run():
         f.close()
         to_print = f"ERROR log - {date} \n Software version: {ver} \n Args: {args} \n Error message: \n {str(traceback.format_exc())}"
         log_file_writer(to_print, "ERROR_log_" + date + ".txt")
+
 
 if __name__ == "__main__":
     run()

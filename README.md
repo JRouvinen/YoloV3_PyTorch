@@ -200,8 +200,66 @@ warmup_num = max(
 ```
 #### Optimizers and schedulers
 Short description about both
+##### AdamW
+AdamW is a variant of Adam optimizer which corrects the weight decay. 
+Weight decay is a regularization method where a small fixed proportion of the weights is subtracted at each training step. 
+AdamW is often preferred to original Adam because of its handling of weight decay that leads to better generalization and therefore better performance.
+##### SGD (Stochastic Gradient Descent)
+This is the basis of many other optimizers in machine learning. 
+It updates the parameters by directly subtracting the gradient of the loss function for a single training sample. 
+It's simple and computationally efficient, but it can be much slower to converge than more modern optimizers.
 
-Valid combinations
+##### RMSProp (Root Mean Square Propagation) 
+RMSProp is known for its effective handling of the diminishing learning rates. 
+It uses a moving average of squared gradients to normalize the gradient.
+
+##### Adadelta 
+Adadelta is an extension of Adagrad that seeks to reduce its aggressive, monotonically decreasing learning rate. 
+It dynamically adapts over time using only the raw gradient information and has minimal computational overhead.
+
+##### Adamax 
+Adamax is a variant of Adam. 
+It's considered to be more robust to noise as it uses the max norm of the gradients, 
+making it suitable for tasks where the parameters need robust updating. 
+
+--------------------------------------------------------------------------------------------------------------------
+
+##### CosineAnnealingLR
+This scheduler adjusts the learning rate using a cosine annealing schedule. 
+It decreases the learning rate from the maximum to the minimum according to a cosine function. 
+After reaching the minimum learning rate, it restarts in a cyclic manner.
+
+##### ChainedScheduler
+A scheduler that combines multiple learning rate schedulers in a sequence.
+
+##### ExponentialLR
+ExponentialLR decreases the learning rate for each epoch with a constant rate. 
+This useful when you want to reduce learning rate gradually.
+
+##### ReduceLROnPlateau 
+This scheduler reduces learning rate when a metric has stopped improving. 
+This is effective when the model hits a plateau in learning and an adjustment in the learning rate can stimulate more 
+learning or fine-tuning.
+
+##### ConstantLR
+This scheduler keeps the learning rate constant for all epochs. 
+It’s useful for fine-tuning models when we don't want the learning rate to change.
+
+##### CyclicLR
+This scheduler varies the learning rate between two boundaries with a cyclic schedule. 
+This is beneficial when we're unsure about how small or large the learning rate should be.
+
+##### OneCycleLR
+The scheduler adjusts the learning rate according to the 1cycle policy. 
+It starts from a lower learning rate and gradually reaches the maximum learning rate. 
+Post that, it starts decreasing the learning rate slowly. 
+This schedule is generally used in training wide residual networks.
+
+##### LambdaLR
+With LambaLR, you can pass any function to define the learning rate adjustment.
+This makes this scheduler highly flexible.
+
+##### Valid optimizer - scheduler combinations
 
 | Scheduler → | CosineAnnealingLR | ChainedScheduler | ExponentialLR   | ConstantLR      | CyclicLR        | OneCycleLR      | LambdaLR        |
 |-------------|-------------------|------------------|-----------------|-----------------|-----------------|-----------------|-----------------|
