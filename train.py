@@ -466,7 +466,7 @@ def run():
         )  # number of warmup iterations, max(3 epochs, 50 iterations)
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names)*int(model.hyperparams['max_batches_factor'])
-        print(f"- ⚠ - Maximum batch size - {max_batches}")
+        print(f"- ⚠ - Maximum number of iterations - {max_batches}")
         log_file_writer(f"Maximum batch size: {max_batches}", "logs/" + date + "_log" + ".txt")
         # #################
         # Use autoanchor -> Not implemented yet
@@ -534,7 +534,6 @@ def run():
             print("- ⚠ - Unknown optimizer. Please choose between (adam, adamw, adamax,"
                   "adadelta, sgd, rmsprop).")
             exit()
-        print(f"- ⚠ - Using optimizer - {model.hyperparams['optimizer']}")
         num_steps = len(dataloader) * args.epochs
         # #################
         # Scheduler selector - V0.3.18
@@ -596,7 +595,8 @@ def run():
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
             scheduler = torch.optim.lr_scheduler.LRScheduler(optimizer)
-        print(f"- ⚠ - Using scheduler - {model.hyperparams['lr_sheduler']}")
+        print(f"- ⚠ - Using optimizer - {model.hyperparams['optimizer']} with LR scheduler - {model.hyperparams['lr_sheduler']}")
+
         # Old Scheduler -> depricated on version 0.3.18
         #if args.cos_lr != -1:
         #    lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
@@ -732,7 +732,6 @@ def run():
                             scaler.step(optimizer)
                             if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                                 scheduler.step(loss)
-
                             else:
                                 scheduler.step()
                             #scaler.step(optimizer)
@@ -774,12 +773,12 @@ def run():
                     if not warmup_run:
                         # Run optimizer
                         scaler.step(optimizer)
-                        scaler.update()
                         #optimizer.step()
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                             scheduler.step(loss)
                         else:
                             scheduler.step()
+                        scaler.update()
                         if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                             lr = optimizer.param_groups[0]['lr']
                         else:
