@@ -718,14 +718,14 @@ def run():
                         #    param.grad = None
                         if model.hyperparams['optimizer'] in valid_optimizers:
                             with warmup_scheduler.dampening():
-                                #optimizer.step()
+                                optimizer.step()
                                 scaler.step(optimizer)
+                                #scaler.step(optimizer)
                                 if model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
                                     scheduler.step(loss)
                                 else:
                                     scheduler.step()
-                                #scaler.step(optimizer)
-                                #scaler.update()
+                                scaler.update()
 
                         else:
                             #optimizer.step()
