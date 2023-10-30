@@ -751,7 +751,7 @@ def run():
                     else:
                         warmup_run = False
                         if not scheduler_last_epoch_2_run:
-                            scheduler.last_epoch = start_epoch - 1
+                            #scheduler.last_epoch = start_epoch - 1
                             scheduler_last_epoch_2_run = True
                         # Set and parse the learning rate to the steps defined in the cfg
                         # lr = optimizer.param_groups[0]['lr']
