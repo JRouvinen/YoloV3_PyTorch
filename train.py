@@ -590,7 +590,7 @@ def run():
         elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
             lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
-                                                          lr_lambda=lf)  # plot_lr_scheduler(optimizer, scheduler, epochs)
+                                                          lr_lambda=lf, verbose=True)  # plot_lr_scheduler(optimizer, scheduler, epochs)
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LRScheduler")
             model.hyperparams['lr_sheduler'] = 'LRScheduler'
@@ -746,7 +746,6 @@ def run():
                             lr = lr * (batches_done / model.hyperparams['burn_in'])
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
-                        print(f'---- DEBUG: LR - {lr}')
 
                     else:
                         warmup_run = False
@@ -788,7 +787,6 @@ def run():
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
-                        print(f'---- DEBUG: LR - {lr}')
                     if debug:
                         print(f'---- DEBUG: LR - {lr}')
                     # Reset gradients
