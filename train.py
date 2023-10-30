@@ -746,6 +746,7 @@ def run():
                             lr = lr * (batches_done / model.hyperparams['burn_in'])
                         for g in optimizer.param_groups:
                             g['lr'] = float(lr)
+                        print(f'---- DEBUG: LR - {lr}')
 
                     else:
                         warmup_run = False
@@ -787,6 +788,7 @@ def run():
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
+                        print(f'---- DEBUG: LR - {lr}')
                     if debug:
                         print(f'---- DEBUG: LR - {lr}')
                     # Reset gradients
