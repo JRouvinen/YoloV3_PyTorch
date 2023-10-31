@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.18JB"
+    ver = "0.3.18JC"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -463,6 +463,8 @@ def run(test_arguments=None):
         warmup_num = max(
             round(warmup_epochs * num_batches), 50
         )  # number of warmup iterations, max(3 epochs, 50 iterations)
+        if warmup_num >= num_batches:
+            warmup_num = int(warmup_num * 0.25)  # if warmup_num is greater than num_batches, set it to 25% of num_batches
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
@@ -689,7 +691,8 @@ def run(test_arguments=None):
                 else:
                     # Backward
                     # loss.backward()
-                    scaler.scale(loss).backward()
+                    if integ_batch_num > 5:
+                        scaler.scale(loss).backward()
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############

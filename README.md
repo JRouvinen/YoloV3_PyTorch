@@ -228,7 +228,7 @@ making it suitable for tasks where the parameters need robust updating.
 This scheduler adjusts the learning rate using a cosine annealing schedule. 
 It decreases the learning rate from the maximum to the minimum according to a cosine function. 
 After reaching the minimum learning rate, it restarts in a cyclic manner.
-
+![cosineannealing_lr.png](images%2Fcosineannealing_lr.png)
 ##### ChainedScheduler
 A scheduler that combines multiple learning rate schedulers in a sequence.
 
@@ -260,17 +260,14 @@ With LambaLR, you can pass any function to define the learning rate adjustment.
 This makes this scheduler highly flexible.
 
 ##### Valid optimizer - scheduler combinations
-
-| Scheduler → | CosineAnnealingLR | ChainedScheduler | ExponentialLR   | ConstantLR      | CyclicLR        | OneCycleLR      | LambdaLR        |
-|-------------|-------------------|------------------|-----------------|-----------------|-----------------|-----------------|-----------------|
-| Optimizer ↓ |![cosineannealing_lr.png](images%2Fcosineannealing_lr.png)   | [ChainedScheduler]  | ![exponential_lr.png](images%2Fexponential_lr.png) | [ConstantLR] | ![cyclic_lr_exp_range.png](images%2Fcyclic_lr_exp_range.png) | ![onecycle_lr_cos.png](images%2Fonecycle_lr_cos.png) | ![lambda_lr.png](images%2Flambda_lr.png) |
-| adamw       |         X         |         X        |        X        |        X        |        -        |        X        |        X        |
-| sgd         |         X         |         X        |                 |                 |                 |                 |                 |
-| rmsprop     |                   |                  |                 |                 |                 |                 |                 |
-| adam        |                   |                  |                 |                 |                 |                 |                 |
-| adadelta    |                   |                  |                 |                 |                 |                 |                 |
-| adamax      |                   |                  |                 |                 |                 |                 |                 |
-
+| Scheduler → Optimizer ↓ | CosineAnnealingLR (Scheduler test1) | ChainedScheduler (Scheduler test2) | ExponentialLR (Scheduler test3) | ReduceLROnPlateau (Scheduler test4) | ConstantLR (Scheduler test5) | CyclicLR (Scheduler test6) | OneCycleLR (Scheduler test7) | LambdaLR (Scheduler test8) |
+|-------------------------|-------------------------------------|------------------------------------|---------------------------------|-------------------------------------|------------------------------|----------------------------|------------------------------|----------------------------|
+| adamw                   | x                                   | x                                  | x                               | x                                   | x                            | -                          | x                            | x                          |
+| sgd                     | x                                   | x                                  | x                               | x                                   | x                            | x                          | x                            | x                          |
+| rmsprop                 |                                     |                                    |                                 |                                     |                              |                            |                              |                            |
+| adam                    |                                     |                                    |                                 |                                     |                              |                            |                              |                            |
+| adadelta                |                                     |                                    |                                 |                                     |                              |                            |                              |                            |
+| adamax                  |                                     |                                    |                                 |                                     |                              |                            |                              |                            |
 ### 5.6 Data augmentation
 Data collection and annotation might take a long time.
 
