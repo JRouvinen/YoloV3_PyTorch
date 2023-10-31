@@ -6,9 +6,14 @@ except ImportError:
     exit()
 import pytest
 import sys
+
 sys.path.append("YoloV3_PyTorch")
 from train import *
 
+global gpu
+global epochs
+epochs = "25"
+gpu = "-1"
 class TestRun:
 
     def get_setup_file(self):
@@ -45,58 +50,76 @@ class TestRun:
         args = parser.parse_args()
         return args
 
+
+
     def test_run1(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_1.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 45
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_1.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run2(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_2.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 47
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_2.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run3(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_3.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 49
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_3.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run4(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_4.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 51
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_4.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run5(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_5.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 53
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_5.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run6(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_6.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 55
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_6.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run7(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_7.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 57
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_7.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"
 
     def test_run8(self):
-        testargs = ["prog", "-m", "tests/configs/Test-tiny_8.cfg", "-d", "tests/configs/Test.data", "-e", "25", "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g","-1"]
+        seed = 59
+        testargs = ["prog", "-m", "tests/configs/Test-tiny_8.cfg", "-d", "tests/configs/Test.data", "-e", epochs,
+                    "--n_cpu", "2",
+                    "--pretrained_weights", "weights/yolov3-tiny.weights", "--evaluation_interval", "3", "-g", gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == "Finished training for 25 epochs"
+            assert run(setup) == f"Finished training for {epochs} epochs"

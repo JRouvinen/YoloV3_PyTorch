@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.18JC"
+    ver = "0.3.18JD"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -687,13 +687,12 @@ def run(test_arguments=None):
                 if np.isnan(loss.item()) or np.isinf(loss.item()):
                     # IMPROVEMENT: This part needs a bit better handling of these cases
                     print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
+
+                try:
+                    scaler.scale(loss).backward()
+                except:
+                    print("- ⚠ - Warning: Element 0 of tensor ---")
                     continue
-                else:
-                    try:
-                        scaler.scale(loss).backward()
-                    except:
-                        print("Element 0 of tensor")
-                        continue
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
