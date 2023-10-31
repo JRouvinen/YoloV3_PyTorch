@@ -142,6 +142,10 @@ def check_folders():
     logs_path_there = os.path.exists(local_path + "/logs/")
     if not logs_path_there:
         os.mkdir(local_path + "/logs/")
+    # Check of logs/profiles folder exists
+    logs_path_there = os.path.exists(local_path + "/logs/profiles/")
+    if not logs_path_there:
+        os.mkdir(local_path + "/logs/profiles/")
     # Check if checkpoints folder exists
     ckpt_path_there = os.path.exists(local_path + "/checkpoints/")
     if not ckpt_path_there:
@@ -156,7 +160,7 @@ def check_folders():
         os.mkdir(local_path + "/output/")
 
 
-@profile(filename='./logs/train.prof', stdout=False)
+@profile(filename='./logs/profiles/train.prof', stdout=False)
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     ver = "0.3.17-Profiler"
