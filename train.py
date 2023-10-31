@@ -51,26 +51,27 @@ import time
 import traceback
 
 import tqdm
-import subprocess as sp
+#import subprocess as sp
 import torch
-from torch.cuda.amp import GradScaler, autocast
+#from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from torch.optim import lr_scheduler
+#from torch.optim import lr_scheduler
+from profilehooks import profile
 
 import numpy as np
 # Added on V0.3.0
 import configparser
 
 # Added on V0.3.1
-import utils.pytorch_warmup as warmup
+#import utils.pytorch_warmup as warmup
 
 # import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
-from utils.smart_optimizer import smart_optimizer
+#from utils.smart_optimizer import smart_optimizer
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
     check_amp
 from utils.datasets import ListDataset
@@ -116,14 +117,6 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
         worker_init_fn=worker_seed_set)
     return dataloader
 
-
-def get_gpu_memory():
-    command = "nvidia-smi --query-gpu=memory.free --format=csv"
-    memory_free_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
-    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
-    return memory_free_values
-
-
 def find_and_del_last_ckpt():
     is_pth_file = False
     list_of_files = os.listdir('checkpoints/')
@@ -144,6 +137,10 @@ def check_folders():
     logs_path_there = os.path.exists(local_path + "/logs/")
     if not logs_path_there:
         os.mkdir(local_path + "/logs/")
+    # Check if logs/profiles folder exists
+    logs_path_there = os.path.exists(local_path + "/logs/profiles/")
+    if not logs_path_there:
+        os.mkdir(local_path + "/logs/profiles/")
     # Check if checkpoints folder exists
     ckpt_path_there = os.path.exists(local_path + "/checkpoints/")
     if not ckpt_path_there:
@@ -157,70 +154,86 @@ def check_folders():
     if not output_path_there:
         os.mkdir(local_path + "/output/")
 
-
-def run():
-    ver = "0.3.18IA"
+@profile(filename='./logs/profiles/train.prof', stdout=False)
+def run(test_arguments=None):
+    ver = "0.3.18J"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
-        check_folders()
-        # Create new log file
-        f = open("logs/" + date + "_log" + ".txt", "w")
-        f.close()
-        log_file_writer("Software version: " + ver, "logs/" + date + "_log" + ".txt")
-        print_environment_info(ver, "logs/" + date + "_log" + ".txt")
+        #check_folders()
 
-        parser = argparse.ArgumentParser(description="Trains the YOLO model.")
-        parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
-                            help="Path to model definition file (.cfg)")
-        parser.add_argument("-d", "--data", type=str, default="config/coco.data",
-                            help="Path to data config file (.data)")
-        parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
-        parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
-        parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
-        parser.add_argument("--pretrained_weights", type=str,
-                            help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
-        parser.add_argument("--checkpoint_interval", type=int, default=5,
-                            help="Interval of epochs between saving model weights")
-        parser.add_argument("--evaluation_interval", type=int, default=5,
-                            help="Interval of epochs between evaluations on validation set")
-        parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-        parser.add_argument("--iou_thres", type=float, default=0.1,
-                            help="Evaluation: IOU threshold required to qualify as detected")
-        parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
-        parser.add_argument("--nms_thres", type=float, default=0.3,
-                            help="Evaluation: IOU threshold for non-maximum suppression")
-        parser.add_argument("--sync_bn", type=int, default=-1,
-                            help="Set use of SyncBatchNorm")
-        parser.add_argument("--cos_lr", type=int, default=0,
-                            help="Set type of scheduler")
-        parser.add_argument("--logdir", type=str, default="logs",
-                            help="Directory for training log files (e.g. for TensorBoard)")
-        parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-        parser.add_argument("--checkpoint_keep_best", type=bool, default=True,
-                            help="Should the best checkpoint be saved")
-        parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
-        args = parser.parse_args()
+        if test_arguments == None:
+            parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
+            parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
+                                help="Path to model definition file (.cfg)")
+            parser.add_argument("-d", "--data", type=str, default="config/coco.data",
+                                help="Path to data config file (.data)")
+            parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
+            parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
+            parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
+            parser.add_argument("--pretrained_weights", type=str,
+                                help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
+            parser.add_argument("--checkpoint_interval", type=int, default=5,
+                                help="Interval of epochs between saving model weights")
+            parser.add_argument("--evaluation_interval", type=int, default=5,
+                                help="Interval of epochs between evaluations on validation set")
+            parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
+            parser.add_argument("--iou_thres", type=float, default=0.1,
+                                help="Evaluation: IOU threshold required to qualify as detected")
+            parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
+            parser.add_argument("--nms_thres", type=float, default=0.3,
+                                help="Evaluation: IOU threshold for non-maximum suppression")
+            parser.add_argument("--sync_bn", type=int, default=-1,
+                                help="Set use of SyncBatchNorm")
+            parser.add_argument("--cos_lr", type=int, default=0,
+                                help="Set type of scheduler")
+            parser.add_argument("--logdir", type=str, default="logs",
+                                help="Directory for training log files (e.g. for TensorBoard)")
+            parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
+            parser.add_argument("--checkpoint_keep_best", type=bool, default=True,
+                                help="Should the best checkpoint be saved")
+            parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
+            args = parser.parse_args()
+        else:
+            args = test_arguments
         print(f"Command line arguments: {args}")
-        log_file_writer(f"Command line arguments: {args}", "logs/" + date + "_log" + ".txt")
 
         if args.seed != -1:
             provide_determinism(args.seed)
 
-        logger = Logger(args.logdir)  # Tensorboard logger
 
         # Get data configuration
         data_config = parse_data_config(args.data)
         train_path = data_config["train"]
         valid_path = data_config["valid"]
         class_names = load_classes(data_config["names"])
-        if args.verbose:
-            print(f'Class names: {class_names}')
+        n_classes = len(class_names)
+
         model_name = data_config["model_name"]
         if model_name == '':
             model_name = str(date)
         else:
             model_name = model_name + '_' + str(date)
+        local_path = os.getcwd()
+        model_logs_path = os.path.join(local_path,args.logdir, model_name)
+        #Create model named log folder in logs folder
+
+        # Check if logs folder exists
+        logs_path_there = os.path.exists(model_logs_path)
+        if not logs_path_there:
+            os.mkdir(model_logs_path)
+        #Create and write model log files
+        model_logfile_path = model_logs_path +'/'+ date + model_name +"_logfile" + ".txt"
+        # Create new log file
+        f = open(model_logfile_path, "w")
+        f.close()
+        log_file_writer("Software version: " + ver, model_logfile_path)
+        log_file_writer(f"Command line arguments: {args}", model_logfile_path)
+        if args.verbose:
+            print(f'Class names: {class_names}')
+            log_file_writer(f"Class names: {class_names}", model_logfile_path)
+        print_environment_info(ver, model_logfile_path)
+        logger = Logger(model_logs_path)  # Tensorboard logger
 
         debug = False
         gpu = args.gpu
@@ -229,15 +242,15 @@ def run():
         best_fitness = 0.0
         checkpoints_saved = 0
         device = torch.device("cpu")
-        epoch_start = ""
-        epoch_end = ""
+        #epoch_start = ""
+        #epoch_end = ""
         exec_time = 0
         do_auto_eval = False
-        use_smart_optimizer = False
+        #use_smart_optimizer = False
         warmup_run = True
         start_epoch = 0
         train_fitness = 0
-        fi_train = 0
+        #fi_train = 0
         # Get model weight eval parameters
         # Create a ConfigParser object
         weight_eval_params = parse_model_weight_config(args.model)
@@ -277,11 +290,11 @@ def run():
 
         # Create training csv file
         header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
-        csv_writer(header, args.logdir + "/" + model_name + "_training_plots.csv", 'a')
+        csv_writer(header, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
         # Create evaluation csv file
         header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
-        csv_writer(header, args.logdir + "/" + model_name + "_evaluation_plots.csv", 'a')
+        csv_writer(header, model_logs_path + "/" + model_name + "_evaluation_plots.csv", 'a')
 
         # Create validation csv file
         header = ['Index', 'Class', 'AP']
@@ -370,7 +383,7 @@ def run():
             else:
                 device = torch.device("cpu")
         print(f'Using cuda device - {device}')
-        log_file_writer(f'Using cuda device - {device}', "logs/" + date + "_log" + ".txt")
+        log_file_writer(f'Using cuda device - {device}', model_logfile_path)
 
         # ############
         # Create model - Updated on V0.3.14
@@ -393,7 +406,7 @@ def run():
         # ############
         if clearml_run:
             task.connect_configuration(model.hyperparams)
-        log_file_writer(f"Model hyperparameters: {model.hyperparams}", "logs/" + date + "_log" + ".txt")
+        log_file_writer(f"Model hyperparameters: {model.hyperparams}", model_logfile_path)
 
         # Print model
         if args.verbose:
@@ -453,7 +466,7 @@ def run():
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
-        log_file_writer(f"Maximum batch size: {max_batches}", "logs/" + date + "_log" + ".txt")
+        log_file_writer(f"Maximum batch size: {max_batches}", model_logfile_path)
         # #################
         # Use autoanchor -> Not implemented yet
         # #################
@@ -582,6 +595,7 @@ def run():
                                                           lr_lambda=lf, verbose=False)
         print(
             f"- ⚠ - Using {model.hyperparams['optimizer']} - optimizer with {model.hyperparams['lr_sheduler']} - LR scheduler")
+        log_file_writer(f"Using {model.hyperparams['optimizer']} - optimizer with {model.hyperparams['lr_sheduler']} - LR scheduler", model_logfile_path)
 
         lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
@@ -603,7 +617,7 @@ def run():
         # #################
         if args.sync_bn != -1 and torch.cuda.is_available() is True:
             model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
-            log_file_writer(f'Using SyncBatchNorm()', "logs/" + date + "_log" + ".txt")
+            log_file_writer(f'Using SyncBatchNorm()', model_logfile_path)
 
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
@@ -765,14 +779,14 @@ def run():
                             float(loss_components[3]),  # Loss
                             ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
                             ]
-                    csv_writer(data, args.logdir + "/" + model_name + "_training_plots.csv", 'a')
+                    csv_writer(data, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
                     # ############
                     # ClearML csv reporter logger - V0.3.6
                     # ############
                     if clearml_run:
                         # Report table - CSV from path
-                        csv_url = args.logdir + "/" + model_name + "_training_plots.csv"
+                        csv_url = model_logs_path + "/" + model_name + "_training_plots.csv"
                         task.logger.report_table(
                             "Training plots",
                             "training_plots.csv",
@@ -789,7 +803,7 @@ def run():
                     lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
                     img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,
                                         batches_array,
-                                        args.logdir + "/" + date)
+                                        model_logs_path+'/'+model_name)
 
             # #############
             # Save progress -> changed on version 0.3.11F to save every eval epoch
@@ -923,7 +937,7 @@ def run():
                     f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
                     img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
                                           curr_fitness_array, train_fitness_array, eval_epoch_array,
-                                          args.logdir + "/" + date)
+                                          model_logs_path+'/'+model_name)
 
                     if curr_fitness > best_fitness:
                         best_fitness = curr_fitness
@@ -983,13 +997,13 @@ def run():
                             f1.mean(),  # f1
                             curr_fitness  # Fitness
                             ]
-                    csv_writer(data, args.logdir + "/" + model_name + "_evaluation_plots.csv", 'a')
+                    csv_writer(data, model_logs_path + "/" + model_name + "_evaluation_plots.csv", 'a')
                     # ############
                     # ClearML csv reporter logger - V0.3.6
                     # ############
                     if clearml_run:
                         # Report table - CSV from path
-                        csv_url = args.logdir + "/" + model_name + "_evaluation_plots.csv"
+                        csv_url = model_logs_path + "/" + model_name + "_evaluation_plots.csv"
                         task.logger.report_table(
                             "Evaluation plots",
                             "evaluation_plots.csv",
@@ -1003,7 +1017,18 @@ def run():
                 print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
                 log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}',
                                 "logs/" + date + "_log" + ".txt")
-                exit()
+                if test_arguments != None:
+                    return "Maximum number of batches reached - " + str(batches_done) + "/" + str(max_batches)
+                else:
+                    exit()
+            elif epoch == args.epochs:
+                print(f'Finished training for {args.epochs} epochs')
+                log_file_writer(f'Finished training for {args.epochs} epochs',
+                                model_logfile_path)
+                if test_arguments != None:
+                    return "Finished training for " + str(args.epochs) + " epochs"
+                else:
+                    exit()
     except KeyboardInterrupt:
         torch.save(model.state_dict(), 'INTERRUPTED.pth')
         print('Saved interrupt')
@@ -1021,6 +1046,7 @@ def run():
 
 
 if __name__ == "__main__":
+    check_folders()
     run()
 
 # python train.py -m config/yolov3_ITDM_simple.cfg -d config/Nova.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1
