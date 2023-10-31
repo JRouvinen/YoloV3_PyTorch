@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.18JD"
+    ver = "0.3.18K"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -368,7 +368,8 @@ def run(test_arguments=None):
         7. The model's hyperparameters are logged. 
         8. If the verbose flag is True, the model summary is printed. 
         9. The batch size is initially set to the model's batch hyperparameter. 
-        10. The code attempts to calculate the batch size using the  check_train_batch_size  function, passing in the model, height hyperparameter, and AMP setting. If an exception occurs, the batch size remains the same and the subdivisions hyperparameter is used instead. 
+        10. The code attempts to calculate the batch size using the  check_train_batch_size  function, passing in the model, 
+        height hyperparameter, and AMP setting. If an exception occurs, the batch size remains the same and the subdivisions hyperparameter is used instead. 
         11. The mini_batch_size is calculated by dividing the batch size by the subdivisions hyperparameter.
         '''
         # ############
@@ -464,6 +465,7 @@ def run(test_arguments=None):
             round(warmup_epochs * num_batches), 50
         )  # number of warmup iterations, max(3 epochs, 50 iterations)
         if warmup_num >= num_batches:
+
             warmup_num = int(warmup_num * 0.25)  # if warmup_num is greater than num_batches, set it to 25% of num_batches
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
@@ -556,7 +558,7 @@ def run(test_arguments=None):
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
                     T_max=num_steps,
-                    eta_min=0.000001,
+                    eta_min=0.00001,
                     verbose=False)
             # ChainedScheduler
             elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
@@ -578,7 +580,7 @@ def run(test_arguments=None):
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                               base_lr=float(model.hyperparams['learning_rate']),
                                                               max_lr=0.1, cycle_momentum=True,
-                                                              verbose=False)  # mode (str): One of {triangular, triangular2, exp_range}.
+                                                              verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
                 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
                                                                 steps_per_epoch=len(dataloader),
@@ -698,23 +700,25 @@ def run(test_arguments=None):
                 ###############
                 # Run optimizer
                 ###############
-                # print('update cycle:',(batches_done % integ_batch_num))
-                if batches_done % mini_batch_size == 0:
+
+                if warmup_run:
                     scaler.step(optimizer)
                     scheduler.step()
                     scaler.update()
-                    # Adapt learning rate
-                    # Get learning rate defined in cfg
-                    # lr = model.hyperparams['learning_rate']
-                    if integ_batch_num < warmup_num:
-                        # Burn in
-                        # lr = lr * (batches_done / model.hyperparams['burn_in'])
-                        lr = lr * (batches_done / warmup_num)
-                        for g in optimizer.param_groups:
-                            g['lr'] = float(lr)
-
-                    else:
+                    # Burn in
+                    # lr = lr * (batches_done / model.hyperparams['burn_in'])
+                    lr = lr * (batches_done / warmup_num)
+                    for g in optimizer.param_groups:
+                        g['lr'] = float(lr)
+                    if integ_batch_num >= warmup_num:
                         warmup_run = False
+
+                else:
+                    if batches_done % mini_batch_size == 0:
+                        #warmup_run = False
+                        scaler.step(optimizer)
+                        scheduler.step()
+                        scaler.update()
                         lr = scheduler.get_last_lr()
                         lr = lr[0]
                         # Set learning rate
@@ -775,12 +779,13 @@ def run(test_arguments=None):
                 #
                 # training csv writer
                 if loss_components.dim() > 0:
+                    lr_float = format(float(lr), '.7f')
                     data = [batches_done,
                             float(loss_components[0]),  # Iou Loss
                             float(loss_components[1]),  # Object Loss
                             float(loss_components[2]),  # Class Loss
                             float(loss_components[3]),  # Loss
-                            ("%.17f" % lr).rstrip('0').rstrip('.')  # Learning rate
+                            (lr_float)  # Learning rate
                             ]
                     csv_writer(data, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
@@ -803,11 +808,10 @@ def run(test_arguments=None):
                     obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
                     loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
-                    lr_array = np.concatenate((lr_array, np.array([("%.17f" % lr).rstrip('0').rstrip('.')])))
+                    lr_array = np.concatenate((lr_array, np.array([lr_float])))
                     img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,
                                         batches_array,
                                         model_logs_path+'/'+model_name)
-
             # #############
             # Save progress -> changed on version 0.3.11F to save every eval epoch
             # #############
@@ -959,13 +963,16 @@ def run(test_arguments=None):
 
                         precision, recall, AP, f1, ap_class = metrics_output
                         # Gets class AP and mean AP
+                        #print('ap cls',ap_class)
+                        #print('AP',AP)
+                        #print(class_names)
                         for i, c in enumerate(ap_class):
                             csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv", 'w')
                             data = [c,  # Class index
-                                    class_names[c],  # Class name
+                                    class_names[i],  # Class name
                                     "%.5f" % AP[i],  # Class AP
                                     ]
-                            logger.scalar_summary(f"validation/class/{class_names[c]}", round(float(AP[i]), 5), epoch)
+                            logger.scalar_summary(f"validation/class/{class_names[i]}", round(float(AP[i]), 5), epoch)
                             csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
 
                         # Write mAP value as last line
@@ -1033,8 +1040,16 @@ def run(test_arguments=None):
                 else:
                     exit()
     except KeyboardInterrupt:
+        # Get the current directory
+        current_directory = os.getcwd()
+        # Define the file path
+        file_path = os.path.join(current_directory, "INTERRUPTED.pth")
+        if os.path.exists(file_path):
+            # Delete the file
+            os.remove(file_path)
+            print("The old INTERRUPTED.pth has been deleted.")
         torch.save(model.state_dict(), 'INTERRUPTED.pth')
-        print('Saved interrupt')
+        print('Current weights are saved into INTERRUPTED.pth')
         try:
             sys.exit(0)
         except SystemExit:

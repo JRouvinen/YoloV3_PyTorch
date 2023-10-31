@@ -47,9 +47,9 @@ class TestRun():
         return args
 
     def test_run(self):
-        seed = 42
-        gpu = 0
-        epochs = 30
+        seed = "42"
+        gpu = "0"
+        epochs = "30"
         testargs = ["prog", "-m", "tests/configs/Test-tiny_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed]
         with patch.object(sys, 'argv', testargs):

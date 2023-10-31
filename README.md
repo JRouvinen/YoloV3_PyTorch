@@ -228,6 +228,7 @@ making it suitable for tasks where the parameters need robust updating.
 This scheduler adjusts the learning rate using a cosine annealing schedule. 
 It decreases the learning rate from the maximum to the minimum according to a cosine function. 
 After reaching the minimum learning rate, it restarts in a cyclic manner.
+
 ![cosineannealing_lr.png](images%2Fcosineannealing_lr.png)
 ##### ChainedScheduler
 A scheduler that combines multiple learning rate schedulers in a sequence.
@@ -235,6 +236,8 @@ A scheduler that combines multiple learning rate schedulers in a sequence.
 ##### ExponentialLR
 ExponentialLR decreases the learning rate for each epoch with a constant rate. 
 This useful when you want to reduce learning rate gradually.
+
+![exponential_lr.png](images%2Fexponential_lr.png)
 
 ##### ReduceLROnPlateau 
 This scheduler reduces learning rate when a metric has stopped improving. 
@@ -245,19 +248,30 @@ learning or fine-tuning.
 This scheduler keeps the learning rate constant for all epochs. 
 It’s useful for fine-tuning models when we don't want the learning rate to change.
 
+
+
 ##### CyclicLR
 This scheduler varies the learning rate between two boundaries with a cyclic schedule. 
 This is beneficial when we're unsure about how small or large the learning rate should be.
 
+![cyclic_lr_exp_range.png](images%2Fcyclic_lr_exp_range.png)
+![cyclic_lr_triangular.png](images%2Fcyclic_lr_triangular.png)
+![cyclic_lr_triangular2.png](images%2Fcyclic_lr_triangular2.png)
 ##### OneCycleLR
 The scheduler adjusts the learning rate according to the 1cycle policy. 
 It starts from a lower learning rate and gradually reaches the maximum learning rate. 
 Post that, it starts decreasing the learning rate slowly. 
 This schedule is generally used in training wide residual networks.
 
+
+
+![onecycle_lr_cos.png](images%2Fonecycle_lr_cos.png)
+![onecycle_lr_linear.png](images%2Fonecycle_lr_linear.png)
 ##### LambdaLR
 With LambaLR, you can pass any function to define the learning rate adjustment.
 This makes this scheduler highly flexible.
+
+![lambda_lr.png](images%2Flambda_lr.png)
 
 ##### Valid optimizer - scheduler combinations
 | Scheduler → Optimizer ↓ | CosineAnnealingLR (Scheduler test1) | ChainedScheduler (Scheduler test2) | ExponentialLR (Scheduler test3) | ReduceLROnPlateau (Scheduler test4) | ConstantLR (Scheduler test5) | CyclicLR (Scheduler test6) | OneCycleLR (Scheduler test7) | LambdaLR (Scheduler test8) |
