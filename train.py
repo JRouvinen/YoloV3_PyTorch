@@ -689,11 +689,11 @@ def run(test_arguments=None):
                     print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
                     continue
                 else:
-                    # Check if any elements of the loss tensor require gradients
-                    for element in loss:
-                        if not element.requires_grad:
-                            print("Element {} does not require gradients".format(element))
-                scaler.scale(loss).backward()
+                    try:
+                        scaler.scale(loss).backward()
+                    except:
+                        print("Element 0 of tensor")
+                        continue
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
                 ###############
