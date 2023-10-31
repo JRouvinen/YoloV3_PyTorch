@@ -16,6 +16,7 @@ from detect import detect_image, detect_images
 from models import load_model
 from utils.parse_config import parse_autodetect_config
 from utils.utils import load_classes, rescale_boxes
+from profilehooks import profile
 
 
 #from utils.utils import load_classes, rescale_boxes, non_max_suppression, print_environment_info
@@ -170,9 +171,11 @@ def monitor_folder_ssh(host, port, username, password, directory, interval):
     sftp.close()
     client.close()
     '''
+@profile(filename='./logs/profiles/autoDetect.prof', stdout=False)
+
 def run():
     date = datetime.datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
-    ver = "0.2.0"
+    ver = "0.2.1"
     '''
     #print_environment_info(ver, "output/" + date + "_detect" + ".txt")
     # Parse config file
