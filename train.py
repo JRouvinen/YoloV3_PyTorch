@@ -160,7 +160,7 @@ def run(test_arguments=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
-        #check_folders()
+        check_folders()
 
         if test_arguments == None:
             parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
