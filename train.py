@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.18J"
+    ver = "0.3.18JA"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -223,7 +223,7 @@ def run(test_arguments=None):
         if not logs_path_there:
             os.mkdir(model_logs_path)
         #Create and write model log files
-        model_logfile_path = model_logs_path +'/'+ date + model_name +"_logfile" + ".txt"
+        model_logfile_path = model_logs_path + model_name +"_logfile" + ".txt"
         # Create new log file
         f = open(model_logfile_path, "w")
         f.close()
