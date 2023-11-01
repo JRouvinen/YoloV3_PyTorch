@@ -191,6 +191,8 @@ def run(test_arguments=None):
                                 help="Directory for training log files (e.g. for TensorBoard)")
             parser.add_argument("--name", type=str, default=None,
                                 help="Name for trained model")
+            parser.add_argument("--warmup", type=bool, default=True,
+                                help="Name for trained model")
             parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
             parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
             args = parser.parse_args()
@@ -250,7 +252,10 @@ def run(test_arguments=None):
         exec_time = 0
         do_auto_eval = False
         #use_smart_optimizer = False
-        warmup_run = True
+        if args.warmup:
+            warmup_run = True
+        else:
+            warmup_run = False
         start_epoch = 0
         train_fitness = 0
         #fi_train = 0
