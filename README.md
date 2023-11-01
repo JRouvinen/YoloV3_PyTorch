@@ -238,6 +238,8 @@ A scheduler that combines multiple learning rate schedulers in a sequence.
 ExponentialLR decreases the learning rate for each epoch with a constant rate. 
 This useful when you want to reduce learning rate gradually.
 
+![exponential_lr.png](images%2Fexponential_lr.png)
+
 ##### ReduceLROnPlateau 
 This scheduler reduces learning rate when a metric has stopped improving. 
 This is effective when the model hits a plateau in learning and an adjustment in the learning rate can stimulate more 
@@ -251,15 +253,40 @@ It’s useful for fine-tuning models when we don't want the learning rate to cha
 This scheduler varies the learning rate between two boundaries with a cyclic schedule. 
 This is beneficial when we're unsure about how small or large the learning rate should be.
 
+![cyclic_lr_exp_range.png](images%2Fcyclic_lr_exp_range.png)
+![cyclic_lr_triangular.png](images%2Fcyclic_lr_triangular.png)
+![cyclic_lr_triangular2.png](images%2Fcyclic_lr_triangular2.png)
 ##### OneCycleLR
 The scheduler adjusts the learning rate according to the 1cycle policy. 
 It starts from a lower learning rate and gradually reaches the maximum learning rate. 
 Post that, it starts decreasing the learning rate slowly. 
 This schedule is generally used in training wide residual networks.
 
+![onecycle_lr_cos.png](images%2Fonecycle_lr_cos.png)
+![onecycle_lr_linear.png](images%2Fonecycle_lr_linear.png)
+
 ##### LambdaLR
 With LambaLR, you can pass any function to define the learning rate adjustment.
 This makes this scheduler highly flexible.
+
+![lambda_lr.png](images%2Flambda_lr.png)
+
+##### Multistep
+
+![multistep_lr.png](images%2Fmultistep_lr.png)
+
+##### Step
+
+![step_lr.png](images%2Fstep_lr.png)
+
+##### Multiplicative
+
+![multiplicative_lr.png](images%2Fmultiplicative_lr.png)
+
+##### CosineAnnealingWarmRestrats
+
+![cosineannealingwarmrestarts.png](images%2Fcosineannealingwarmrestarts.png)
+
 
 ##### Valid optimizer - scheduler combinations
 | Scheduler → Optimizer ↓ | CosineAnnealingLR (Scheduler test1) | ChainedScheduler (Scheduler test2) | ExponentialLR (Scheduler test3) | ReduceLROnPlateau (Scheduler test4) | ConstantLR (Scheduler test5) | CyclicLR (Scheduler test6) | OneCycleLR (Scheduler test7) | LambdaLR (Scheduler test8) |
