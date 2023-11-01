@@ -80,7 +80,7 @@ from utils.augmentations import AUGMENTATION_TRANSFORMS
 from utils.parse_config import parse_data_config, parse_model_weight_config
 from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
-from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer
+from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats
 from terminaltables import AsciiTable
 
 from torchsummary import summary
@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.19C"
+    ver = "0.3.19D"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -1000,12 +1000,18 @@ def run(test_arguments=None):
                         #print('ap cls',ap_class)
                         #print('AP',AP)
                         #print(class_names)
+                        csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv", 'w')
+                        eval_stats_class_array = np.array([])
+                        eval_stats_ap_array = np.array([])
+
                         for i, c in enumerate(ap_class):
-                            csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv", 'w')
                             data = [c,  # Class index
                                     class_names[i],  # Class name
                                     "%.5f" % AP[i],  # Class AP
                                     ]
+                            eval_stats_class_array = np.concatenate((eval_stats_class_array, np.array([class_names[i]])))
+                            eval_stats_ap_array = np.concatenate((eval_stats_ap_array, np.array([AP[i]])))
+
                             logger.scalar_summary(f"validation/class/{class_names[i]}", round(float(AP[i]), 5), epoch)
                             csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
 
@@ -1015,7 +1021,7 @@ def run(test_arguments=None):
                                 str(round(AP.mean(), 5)),
                                 ]
                         csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
-
+                        img_writer_eval_stats(eval_stats_class_array,eval_stats_ap_array,f"checkpoints/best/{model_name}")
                         # ############
                         # ClearML csv reporter logger - V0.3.8
                         # ############

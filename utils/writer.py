@@ -122,6 +122,27 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
     fig.savefig(filename+'_evaluation_metrics.png')
     plt.close()
 
+def img_writer_eval_stats(classes,ap,filename):
+    #header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']    # img_writer_data = global_step,x_loss,y_loss,w_loss,h_loss,conf_loss,cls_loss,loss,recall,precision
+    #log_path = filename.replace("checkpoints", "")
+    # Placing the plots in the plane
+    fig = plt.figure(layout="constrained", figsize=(20, 10))
+    #fig.set_dpi(1240)
+    # Using Numpy to create an array x
+
+    x = classes #classes
+    y = ap #AP values
+
+    plt.bar(x, y)
+    plt.ylabel('AP')
+    plt.xlabel('Classes')
+
+    fig.savefig(filename + '_evaluation_statistics.png')
+    # displaying the title
+    plt.title(filename)
+    plt.close()
+
+
 def log_file_writer(data, filename):
     #log_path = filename.replace("checkpoints", "")
     with open(filename, 'a', encoding='UTF8') as f:
