@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.18K"
+    ver = "0.3.19"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -171,10 +171,8 @@ def run(test_arguments=None):
             parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
             parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
             parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
-            parser.add_argument("--pretrained_weights", type=str,
+            parser.add_argument("-pw","--pretrained_weights", type=str,
                                 help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
-            parser.add_argument("--checkpoint_interval", type=int, default=5,
-                                help="Interval of epochs between saving model weights")
             parser.add_argument("--evaluation_interval", type=int, default=5,
                                 help="Interval of epochs between evaluations on validation set")
             parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
@@ -185,13 +183,13 @@ def run(test_arguments=None):
                                 help="Evaluation: IOU threshold for non-maximum suppression")
             parser.add_argument("--sync_bn", type=int, default=-1,
                                 help="Set use of SyncBatchNorm")
-            parser.add_argument("--cos_lr", type=int, default=0,
+            parser.add_argument("--scheduler", type=str, default=None,
                                 help="Set type of scheduler")
+            parser.add_argument("--optimizer", type=str, default=None,
+                                help="Set type of optimizer")
             parser.add_argument("--logdir", type=str, default="logs",
                                 help="Directory for training log files (e.g. for TensorBoard)")
             parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-            parser.add_argument("--checkpoint_keep_best", type=bool, default=True,
-                                help="Should the best checkpoint be saved")
             parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
             args = parser.parse_args()
         else:
@@ -488,7 +486,7 @@ def run(test_arguments=None):
         # Create optimizer
         # ################
         params = [p for p in model.parameters() if p.requires_grad]
-        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax"]
+        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         if model.hyperparams['optimizer'] in implemented_optimizers:
             if model.hyperparams['optimizer'] == "adamw":
                 optimizer = optim.AdamW(
@@ -535,8 +533,10 @@ def run(test_arguments=None):
                     betas=(0.9, 0.999),
                     weight_decay=model.hyperparams['decay'],
                 )
+
         else:
             print("- ⚠ - Unknown optimizer. Reverting into SGD optimizer.")
+            log_file_writer(f"- ⚠ - Unknown optimizer. Reverting into SGD optimizer.", model_logfile_path)
             optimizer = optim.SGD(
                 params,
                 lr=model.hyperparams['learning_rate'],
@@ -545,13 +545,15 @@ def run(test_arguments=None):
                 nesterov=model.hyperparams['nesterov'],
             )
             model.hyperparams['optimizer'] = 'sgd'
+
         num_steps = len(dataloader) * args.epochs
         # #################
         # Scheduler selector - V0.3.18
         # #################
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
-                                  'CyclicLR', 'OneCycleLR', 'LambdaLR']
+                                  'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
+                                  'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         if model.hyperparams['lr_sheduler'] in implemented_schedulers:
             # CosineAnnealingLR
             if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
@@ -590,6 +592,19 @@ def run(test_arguments=None):
                 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                               lr_lambda=lf,
                                                               verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
+            elif model.hyperparams['lr_sheduler'] == 'MultiplicativeLR':
+                lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+                scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lf)
+            elif model.hyperparams['lr_sheduler'] == 'StepLR':
+                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50,gamma=0.1) #Step size -> epochs
+            elif model.hyperparams['lr_sheduler'] == 'MultiStepLR':
+                scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30,80],gamma=0.1) #milestones size -> epochs
+            elif model.hyperparams['lr_sheduler'] == 'LinearLR':
+                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5,total_iters=4) #total_iters size -> epochs
+            elif model.hyperparams['lr_sheduler'] == 'PolynomialLR':
+                scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=4,power=1.0) #total_iters size -> epochs
+            elif model.hyperparams['lr_sheduler'] == 'CosineAnnealingWarmRestarts':
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5,eta_min=0) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             model.hyperparams['lr_sheduler'] = 'LambdaLR'
