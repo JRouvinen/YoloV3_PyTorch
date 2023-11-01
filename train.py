@@ -58,7 +58,10 @@ from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlatea
 from torch.utils.data import DataLoader
 import torch.optim as optim
 #from torch.optim import lr_scheduler
-from profilehooks import profile
+#Profilers
+#from profilehooks import profile
+from line_profiler import profile
+#from memory_profiler import profile
 
 import numpy as np
 # Added on V0.3.0
@@ -154,9 +157,9 @@ def check_folders():
     if not output_path_there:
         os.mkdir(local_path + "/output/")
 
-@profile(filename='./logs/profiles/train.prof', stdout=False)
+@profile
 def run(test_arguments=None):
-    ver = "0.3.19D"
+    ver = "0.3.19DB"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
