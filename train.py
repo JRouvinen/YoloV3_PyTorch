@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.19A"
+    ver = "0.3.19C"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -189,6 +189,8 @@ def run(test_arguments=None):
                                 help="Set type of optimizer")
             parser.add_argument("--logdir", type=str, default="logs",
                                 help="Directory for training log files (e.g. for TensorBoard)")
+            parser.add_argument("--name", type=str, default=None,
+                                help="Name for trained model")
             parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
             parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
             args = parser.parse_args()
@@ -207,11 +209,14 @@ def run(test_arguments=None):
         class_names = load_classes(data_config["names"])
         n_classes = len(class_names)
 
-        model_name = data_config["model_name"]
-        if model_name == '':
-            model_name = str(date)
+        if args.name != None:
+            model_name = args.name
         else:
-            model_name = model_name + '_' + str(date)
+            model_name = data_config["model_name"]
+            if model_name == '':
+                model_name = str(date)
+            else:
+                model_name = model_name + '_' + str(date)
         local_path = os.getcwd()
         model_logs_path = os.path.join(local_path,args.logdir, model_name)
         #Create model named log folder in logs folder
@@ -558,7 +563,6 @@ def run(test_arguments=None):
             req_scheduler = args.scheduler
         else:
             req_scheduler = model.hyperparams['lr_sheduler']
-
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
                                   'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
@@ -1066,7 +1070,7 @@ def run(test_arguments=None):
                 log_file_writer(f'Finished training for {args.epochs} epochs',
                                 model_logfile_path)
                 if test_arguments != None:
-                    return "Finished training for " + str(args.epochs) + " epochs"
+                    return f"Finished training for {args.epochs} epochs, with {req_optimizer} optimizer and {req_scheduler} lr sheduler"
                 else:
                     exit()
     except KeyboardInterrupt:
