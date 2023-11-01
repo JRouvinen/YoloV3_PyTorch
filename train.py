@@ -156,7 +156,7 @@ def check_folders():
 
 @profile(filename='./logs/profiles/train.prof', stdout=False)
 def run(test_arguments=None):
-    ver = "0.3.19"
+    ver = "0.3.19A"
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -381,7 +381,7 @@ def run(test_arguments=None):
                 device = torch.device("cuda")
             else:
                 device = torch.device("cpu")
-        print(f'Using cuda device - {device}')
+        print(f'---- Using cuda device - {device} ----')
         log_file_writer(f'Using cuda device - {device}', model_logfile_path)
 
         # ############
@@ -485,10 +485,14 @@ def run(test_arguments=None):
         # ################
         # Create optimizer
         # ################
+        if args.optimizer != None:
+            req_optimizer = args.optimizer
+        else:
+            req_optimizer = model.hyperparams['optimizer']
         params = [p for p in model.parameters() if p.requires_grad]
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
-        if model.hyperparams['optimizer'] in implemented_optimizers:
-            if model.hyperparams['optimizer'] == "adamw":
+        if req_optimizer in implemented_optimizers:
+            if req_optimizer == "adamw":
                 optimizer = optim.AdamW(
                     params,
                     lr=model.hyperparams['learning_rate'],
@@ -496,7 +500,7 @@ def run(test_arguments=None):
                     weight_decay=model.hyperparams['decay'],
                     amsgrad=True
                 )
-            elif model.hyperparams['optimizer'] == "sgd":
+            elif req_optimizer == "sgd":
                 optimizer = optim.SGD(
                     params,
                     lr=model.hyperparams['learning_rate'],
@@ -504,7 +508,7 @@ def run(test_arguments=None):
                     momentum=model.hyperparams['momentum'],
                     nesterov=model.hyperparams['nesterov'],
                 )
-            elif model.hyperparams['optimizer'] == "rmsprop":
+            elif req_optimizer == "rmsprop":
                 optimizer = optim.RMSprop(
                     params,
                     lr=model.hyperparams['learning_rate'],
@@ -512,7 +516,7 @@ def run(test_arguments=None):
                     momentum=model.hyperparams['momentum']
                 )
 
-            elif model.hyperparams['optimizer'] == "adam":
+            elif req_optimizer == "adam":
                 optimizer = optim.Adam(
                     params,
                     lr=model.hyperparams['learning_rate'],
@@ -520,13 +524,13 @@ def run(test_arguments=None):
                     weight_decay=model.hyperparams['decay'],
                     amsgrad=True
                 )
-            elif model.hyperparams['optimizer'] == "adadelta":
+            elif req_optimizer == "adadelta":
                 optimizer = optim.Adadelta(
                     params,
                     lr=model.hyperparams['learning_rate'],
                     weight_decay=model.hyperparams['decay'],
                 )
-            elif model.hyperparams['optimizer'] == "adamax":
+            elif req_optimizer == "adamax":
                 optimizer = optim.Adamax(
                     params,
                     lr=model.hyperparams['learning_rate'],
@@ -550,71 +554,76 @@ def run(test_arguments=None):
         # #################
         # Scheduler selector - V0.3.18
         # #################
+        if args.scheduler != None:
+            req_scheduler = args.scheduler
+        else:
+            req_scheduler = model.hyperparams['lr_sheduler']
+
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
                                   'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
-        if model.hyperparams['lr_sheduler'] in implemented_schedulers:
+        if req_scheduler in implemented_schedulers:
             # CosineAnnealingLR
-            if model.hyperparams['lr_sheduler'] == 'CosineAnnealingLR':
+            if req_scheduler == 'CosineAnnealingLR':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
                     T_max=num_steps,
                     eta_min=0.00001,
                     verbose=False)
             # ChainedScheduler
-            elif model.hyperparams['lr_sheduler'] == 'ChainedScheduler':
+            elif req_scheduler == 'ChainedScheduler':
                 scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']),
                                         verbose=False)
                 scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
-            elif model.hyperparams['lr_sheduler'] == 'ExponentialLR':
+            elif req_scheduler == 'ExponentialLR':
                 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
-            elif model.hyperparams['lr_sheduler'] == 'ReduceLROnPlateau':
+            elif req_scheduler == 'ReduceLROnPlateau':
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     'min',
                     patience=int(args.evaluation_interval),
                     verbose=False)
-            elif model.hyperparams['lr_sheduler'] == 'ConstantLR':
+            elif req_scheduler == 'ConstantLR':
                 scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
-            elif model.hyperparams['lr_sheduler'] == 'CyclicLR':
+            elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                               base_lr=float(model.hyperparams['learning_rate']),
                                                               max_lr=0.1, cycle_momentum=True,
                                                               verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
-            elif model.hyperparams['lr_sheduler'] == 'OneCycleLR':
+            elif req_scheduler == 'OneCycleLR':
                 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
                                                                 steps_per_epoch=len(dataloader),
                                                                 epochs=int(args.epochs))
-            elif model.hyperparams['lr_sheduler'] == 'LambdaLR':
+            elif req_scheduler == 'LambdaLR':
                 lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
                 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                               lr_lambda=lf,
                                                               verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
-            elif model.hyperparams['lr_sheduler'] == 'MultiplicativeLR':
+            elif req_scheduler == 'MultiplicativeLR':
                 lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
                 scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lf)
-            elif model.hyperparams['lr_sheduler'] == 'StepLR':
+            elif req_scheduler == 'StepLR':
                 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50,gamma=0.1) #Step size -> epochs
-            elif model.hyperparams['lr_sheduler'] == 'MultiStepLR':
+            elif req_scheduler == 'MultiStepLR':
                 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30,80],gamma=0.1) #milestones size -> epochs
-            elif model.hyperparams['lr_sheduler'] == 'LinearLR':
+            elif req_scheduler == 'LinearLR':
                 scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5,total_iters=4) #total_iters size -> epochs
-            elif model.hyperparams['lr_sheduler'] == 'PolynomialLR':
+            elif req_scheduler == 'PolynomialLR':
                 scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=4,power=1.0) #total_iters size -> epochs
-            elif model.hyperparams['lr_sheduler'] == 'CosineAnnealingWarmRestarts':
+            elif req_scheduler == 'CosineAnnealingWarmRestarts':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5,eta_min=0) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
-            model.hyperparams['lr_sheduler'] = 'LambdaLR'
+            req_scheduler = 'LambdaLR'
             lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(
                 model.hyperparams['lrf'])
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                           lr_lambda=lf, verbose=False)
         print(
-            f"- ⚠ - Using {model.hyperparams['optimizer']} - optimizer with {model.hyperparams['lr_sheduler']} - LR scheduler")
-        log_file_writer(f"Using {model.hyperparams['optimizer']} - optimizer with {model.hyperparams['lr_sheduler']} - LR scheduler", model_logfile_path)
+            f"- ⚠ - Using {req_optimizer} - optimizer with {req_scheduler} - LR scheduler")
+        log_file_writer(f"Using {req_optimizer} - optimizer with {req_scheduler} - LR scheduler", model_logfile_path)
 
         lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
@@ -718,7 +727,10 @@ def run(test_arguments=None):
 
                 if warmup_run:
                     scaler.step(optimizer)
-                    scheduler.step()
+                    if req_scheduler == 'ReduceLROnPlateau':
+                        scheduler.step(loss)
+                    else:
+                        scheduler.step()
                     scaler.update()
                     # Burn in
                     # lr = lr * (batches_done / model.hyperparams['burn_in'])
@@ -732,7 +744,10 @@ def run(test_arguments=None):
                     if batches_done % mini_batch_size == 0:
                         #warmup_run = False
                         scaler.step(optimizer)
-                        scheduler.step()
+                        if req_scheduler == 'ReduceLROnPlateau':
+                            scheduler.step(loss)
+                        else:
+                            scheduler.step()
                         scaler.update()
                         lr = scheduler.get_last_lr()
                         lr = lr[0]
