@@ -85,9 +85,9 @@ from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
 from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats
 from terminaltables import AsciiTable
-
 from torchsummary import summary
 
+from utils.datasetsV2 import create_dataloader
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
@@ -157,9 +157,23 @@ def check_folders():
     if not output_path_there:
         os.mkdir(local_path + "/output/")
 
+def collate(batch):
+    images = []
+    bboxes = []
+    for img, box in batch:
+        images.append([img])
+        bboxes.append([box])
+    images = np.concatenate(images, axis=0)
+    images = images.transpose(0, 3, 1, 2)
+    images = torch.from_numpy(images).div(255.0)
+    bboxes = np.concatenate(bboxes, axis=0)
+    bboxes = torch.from_numpy(bboxes)
+    return images, bboxes
+
 @profile
 def run(test_arguments=None):
-    ver = "0.3.19DB"
+    print("train.py local path: " + os.getcwd())
+    ver = "0.3.19DB - DataL_v2" # https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/train.py
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
         # Check folders
@@ -212,7 +226,7 @@ def run(test_arguments=None):
         train_path = data_config["train"]
         valid_path = data_config["valid"]
         class_names = load_classes(data_config["names"])
-        n_classes = len(class_names)
+        #n_classes = len(class_names)
 
         if args.name != None:
             model_name = args.name
@@ -454,20 +468,30 @@ def run(test_arguments=None):
         # Create Dataloader
         # #################
 
+        train_dataset = Yolo_dataset(train_path, model.hyperparams, train=True)
+        val_dataset = Yolo_dataset(valid_path, model.hyperparams, train=False)
+
+        # Version 1 - data loader
+        '''
         # Load training dataloader
         dataloader = _create_data_loader(
-            train_path,
+            train_dataset,
             mini_batch_size,
             model.hyperparams['height'],
             args.n_cpu,
             args.multiscale_training)
 
+        
+
         # Load validation dataloader
         validation_dataloader = _create_validation_data_loader(
-            valid_path,
+            val_dataset,
             mini_batch_size,
             model.hyperparams['height'],
             args.n_cpu)
+        '''
+
+
         warmup_epochs = int(model.hyperparams['warmup'])
         if warmup_epochs > 3:
             warmup_epochs = 3
@@ -476,7 +500,6 @@ def run(test_arguments=None):
             round(warmup_epochs * num_batches), 50
         )  # number of warmup iterations, max(3 epochs, 50 iterations)
         if warmup_num >= num_batches:
-
             warmup_num = int(warmup_num * 0.25)  # if warmup_num is greater than num_batches, set it to 25% of num_batches
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
