@@ -28,7 +28,9 @@ from tqdm import tqdm
 #from utils.torch_utils import torch_distributed_zero_first
 
 # Parameters
-help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
+#help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
+help_url = 'https://look_in_here.org'
+
 img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng']  # acceptable image suffixes
 vid_formats = ['mov', 'avi', 'mp4', 'mpg', 'mpeg', 'm4v', 'wmv', 'mkv']  # acceptable video suffixes
 
@@ -88,7 +90,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, hyp=None, augment=Fa
                                   hyp=hyp,  # augmentation hyperparameters
                                   rect=rect,  # rectangular training
                                   cache_images=cache,
-                                  single_cls=opt.single_cls,
+                                  single_cls=False,
                                   stride=int(stride),
                                   pad=pad,
                                   rank=rank)
@@ -428,7 +430,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.label_files = img2label_paths(cache.keys())  # update
 
         n = len(shapes)  # number of images
-        bi = np.floor(np.arange(n) / batch_size).astype(np.int)  # batch index
+        bi = np.floor(np.arange(n) / batch_size).astype(np.int64)  # batch index
         nb = bi[-1] + 1  # number of batches
         self.batch = bi  # batch index of image
         self.n = n
@@ -455,7 +457,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 elif mini > 1:
                     shapes[i] = [1, 1 / mini]
 
-            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
+            self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int64) * stride
 
         # Check labels
         create_datasubset, extract_bounding_boxes, labels_loaded = False, False, False
@@ -568,7 +570,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             index = self.indices[index]
 
         hyp = self.hyp
-        mosaic = self.mosaic and random.random() < hyp['mosaic']
+        mosaic = self.mosaic and random.random() < float(hyp['mosaic'])
         if mosaic:
             # Load mosaic
             img, labels = load_mosaic(self, index)
@@ -576,7 +578,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             shapes = None
 
             # MixUp https://arxiv.org/pdf/1710.09412.pdf
-            if random.random() < hyp['mixup']:
+            if random.random() < float(hyp['mixup']):
                 img2, labels2 = load_mosaic(self, random.randint(0, len(self.labels) - 1))
                 #img2, labels2 = load_mosaic9(self, random.randint(0, len(self.labels) - 1))
                 r = np.random.beta(8.0, 8.0)  # mixup ratio, alpha=beta=8.0
@@ -614,7 +616,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                                                  perspective=hyp['perspective'])
 
             # Augment colorspace
-            augment_hsv(img, hgain=hyp['hsv_h'], sgain=hyp['hsv_s'], vgain=hyp['hsv_v'])
+            augment_hsv(img, hgain=float(hyp['hsv_h']), sgain=float(hyp['hsv_s']), vgain=float(hyp['hsv_v']))
 
             # Apply cutouts
             # if random.random() < 0.9:
@@ -628,13 +630,13 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
 
         if self.augment:
             # flip up-down
-            if random.random() < hyp['flipud']:
+            if random.random() < float(hyp['flipud']):
                 img = np.flipud(img)
                 if nL:
                     labels[:, 2] = 1 - labels[:, 2]
 
             # flip left-right
-            if random.random() < hyp['fliplr']:
+            if random.random() < float(hyp['fliplr']):
                 img = np.fliplr(img)
                 if nL:
                     labels[:, 1] = 1 - labels[:, 1]
@@ -1025,11 +1027,11 @@ def load_mosaic(self, index):
 
     # Augment
     img4, labels4 = random_perspective(img4, labels4,
-                                       degrees=self.hyp['degrees'],
-                                       translate=self.hyp['translate'],
-                                       scale=self.hyp['scale'],
-                                       shear=self.hyp['shear'],
-                                       perspective=self.hyp['perspective'],
+                                       degrees=float(self.hyp['degrees']),
+                                       translate=float(self.hyp['translate']),
+                                       scale=float(self.hyp['scale']),
+                                       shear=float(self.hyp['shear']),
+                                       perspective=float(self.hyp['perspective']),
                                        border=self.mosaic_border)  # border to remove
 
     return img4, labels4

@@ -43,6 +43,7 @@ perform evaluations every 5 epochs. The pretrained weights from  weights/yolov3.
 
 from __future__ import division
 
+import math
 import os
 import argparse
 import datetime
@@ -57,10 +58,14 @@ import torch
 from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 import torch.optim as optim
+
+import test
+from utils.plots import plot_images
+from utils.torch_utils import ModelEMA
 #from torch.optim import lr_scheduler
 #Profilers
 #from profilehooks import profile
-from line_profiler import profile
+#from line_profiler import profile
 #from memory_profiler import profile
 
 import numpy as np
@@ -74,20 +79,19 @@ import configparser
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
-#from utils.smart_optimizer import smart_optimizer
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
-    check_amp
+    check_amp, check_img_size, labels_to_image_weights, labels_to_class_weights
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
-# from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
-from utils.parse_config import parse_data_config, parse_model_weight_config
+from utils.parse_config import parse_data_config, parse_model_weight_config, parse_hyp_config
 from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
 from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats
 from terminaltables import AsciiTable
 from torchsummary import summary
-
-from utils.datasetsV2 import create_dataloader
+from utils.datasets_v2 import create_dataloader
+from torch.cuda import amp
+from statistics import mean
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
@@ -157,76 +161,16 @@ def check_folders():
     if not output_path_there:
         os.mkdir(local_path + "/output/")
 
-def collate(batch):
-    images = []
-    bboxes = []
-    for img, box in batch:
-        images.append([img])
-        bboxes.append([box])
-    images = np.concatenate(images, axis=0)
-    images = images.transpose(0, 3, 1, 2)
-    images = torch.from_numpy(images).div(255.0)
-    bboxes = np.concatenate(bboxes, axis=0)
-    bboxes = torch.from_numpy(bboxes)
-    return images, bboxes
-
-@profile
-def run(test_arguments=None):
-    print("train.py local path: " + os.getcwd())
-    ver = "0.3.19DB - DataL_v2" # https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/train.py
+def run(args,data_config,hyp_config,ver,clearml=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
-        # Check folders
-        check_folders()
-
-        if test_arguments == None:
-            parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
-            parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
-                                help="Path to model definition file (.cfg)")
-            parser.add_argument("-d", "--data", type=str, default="config/coco.data",
-                                help="Path to data config file (.data)")
-            parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
-            parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
-            parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
-            parser.add_argument("-pw","--pretrained_weights", type=str,
-                                help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
-            parser.add_argument("--evaluation_interval", type=int, default=5,
-                                help="Interval of epochs between evaluations on validation set")
-            parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
-            parser.add_argument("--iou_thres", type=float, default=0.1,
-                                help="Evaluation: IOU threshold required to qualify as detected")
-            parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
-            parser.add_argument("--nms_thres", type=float, default=0.3,
-                                help="Evaluation: IOU threshold for non-maximum suppression")
-            parser.add_argument("--sync_bn", type=int, default=-1,
-                                help="Set use of SyncBatchNorm")
-            parser.add_argument("--scheduler", type=str, default=None,
-                                help="Set type of scheduler")
-            parser.add_argument("--optimizer", type=str, default=None,
-                                help="Set type of optimizer")
-            parser.add_argument("--logdir", type=str, default="logs",
-                                help="Directory for training log files (e.g. for TensorBoard)")
-            parser.add_argument("--name", type=str, default=None,
-                                help="Name for trained model")
-            parser.add_argument("--warmup", type=bool, default=True,
-                                help="Name for trained model")
-            parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-            parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
-            args = parser.parse_args()
-        else:
-            args = test_arguments
-        print(f"Command line arguments: {args}")
-
         if args.seed != -1:
             provide_determinism(args.seed)
 
-
-        # Get data configuration
-        data_config = parse_data_config(args.data)
         train_path = data_config["train"]
         valid_path = data_config["valid"]
         class_names = load_classes(data_config["names"])
-        #n_classes = len(class_names)
+        num_classes = len(class_names)
 
         if args.name != None:
             model_name = args.name
@@ -244,6 +188,12 @@ def run(test_arguments=None):
         logs_path_there = os.path.exists(model_logs_path)
         if not logs_path_there:
             os.mkdir(model_logs_path)
+
+        model_imgs_logs_path = '/images/'
+        logs_img_path_there = os.path.exists(model_logs_path+model_imgs_logs_path)
+        if not logs_img_path_there:
+            os.mkdir(model_logs_path+model_imgs_logs_path)
+            model_imgs_logs_path = model_logs_path+model_imgs_logs_path
         #Create and write model log files
         model_logfile_path = model_logs_path +'/'+ model_name +"_logfile" + ".txt"
         # Create new log file
@@ -273,16 +223,21 @@ def run(test_arguments=None):
             warmup_run = True
         else:
             warmup_run = False
-        start_epoch = 0
-        train_fitness = 0
+        start_epoch, train_fitness = 0,0
+        clearml_run = False
         #fi_train = 0
         # Get model weight eval parameters
-        # Create a ConfigParser object
-        weight_eval_params = parse_model_weight_config(args.model)
         # Access the parameters from the config file
-        w_train = weight_eval_params[0]
-        w = weight_eval_params[1]
+        w_train = []
+        w = []
 
+        w_train_str = hyp_config['w_train'].strip('][').split(', ')
+        w_str = hyp_config['w'].strip('][').split(', ')
+
+        for i in w_train_str:
+            w_train.append(float(i))
+        for i in w_str:
+            w.append(float(i))
         # #################
         # Create Logging variables
         # #################
@@ -342,40 +297,36 @@ def run(test_arguments=None):
            d. It connects the task to the arguments passed to the script. 
            e. It instantiates an OutputModel object with the task object and sets the framework to "PyTorch". 
         '''
-        # get clearml parameters
-        # Create a ConfigParser object
-        config = configparser.ConfigParser()
-        # Read the config file
-        config.read(r'config/clearml.cfg')
-        # Access the parameters from the config file
-        proj_name = config.get('clearml', 'proj_name')
-        # task_name = config.get('clearml', 'task_name')
-        offline = config.get('clearml', 'offline')
-        if config.get('clearml', 'clearml_save_last') == "True":
-            clearml_save_last = True
-        else:
-            clearml_save_last = False
-        if config.get('clearml', 'clearml_run') == "True":
-            clearml_run = True
-        else:
-            clearml_run = False
+        if clearml != None:
+            # Access the parameters from the config file
+            proj_name = clearml.get('clearml', 'proj_name')
+            # task_name = config.get('clearml', 'task_name')
+            offline = clearml.get('clearml', 'offline')
+            if clearml.get('clearml', 'clearml_save_last') == "True":
+                clearml_save_last = True
+            else:
+                clearml_save_last = False
+            if clearml.get('clearml', 'clearml_run') == "True":
+                clearml_run = True
+            else:
+                clearml_run = False
 
-        if clearml_run:
-            import clearml
-            task_name = model_name
-            if offline == "True":
-                # Use the set_offline class method before initializing a Task
-                clearml.Task.set_offline(offline_mode=True)
-            # Create a new task
-            task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
-                'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
-                'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
-                'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
-                'megengine': False, 'jsonargparse': True, 'catboost': False})
-            # Log model configurations
-            task.connect(args)
-            # Instantiate an OutputModel with a task object argument
-            clearml.OutputModel(task=task, framework="PyTorch")
+            if clearml_run:
+                import clearml
+                task_name = model_name
+                if offline == "True":
+                    # Use the set_offline class method before initializing a Task
+                    clearml.Task.set_offline(offline_mode=True)
+                # Create a new task
+                task = clearml.Task.init(project_name=proj_name, task_name=task_name, auto_connect_frameworks={
+                    'matplotlib': False, 'tensorflow': False, 'tensorboard': False, 'pytorch': True,
+                    'xgboost': False, 'scikit': True, 'fastai': False, 'lightgbm': False,
+                    'hydra': False, 'detect_repository': True, 'tfdefines': False, 'joblib': False,
+                    'megengine': False, 'jsonargparse': True, 'catboost': False})
+                # Log model configurations
+                task.connect(args)
+                # Instantiate an OutputModel with a task object argument
+                clearml.OutputModel(task=task, framework="PyTorch")
         '''
         #322-374 
         This code checks the availability of a GPU and sets the device to either "cuda" if a GPU is available or "cpu" if not. 
@@ -412,10 +363,10 @@ def run(test_arguments=None):
         log_file_writer(f'Using cuda device - {device}', model_logfile_path)
 
         # ############
-        # Create model - Updated on V0.3.14
+        # Create model - Updated on V0.4.0
         # ############
 
-        model = load_model(args.model, gpu, args.pretrained_weights)
+        model = load_model(args.model, hyp_config,gpu, args.pretrained_weights)
 
         # ############
         # Freeze model layers
@@ -425,8 +376,7 @@ def run(test_arguments=None):
         # ############
         # Check AMP - V.0.3.14
         # ############
-        # amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
-        amp = False
+        #amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
         # ############
         # Log hyperparameters to clearml
         # ############
@@ -438,69 +388,170 @@ def run(test_arguments=None):
         if args.verbose:
             summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
-        batch_size = model.hyperparams['batch']
+
         # ############
         # Batch size calculation - V0.3.1
         # ############
+        cuda = device.type != 'cpu'
+        batch_size = model.hyperparams['batch']
         try:
-            batch_size = check_train_batch_size(model, model.hyperparams['height'], amp)
+            batch_size = check_train_batch_size(model, model.hyperparams['height'], cuda)
             sub_div = 1
         except:
             batch_size = model.hyperparams['batch']
             sub_div = model.hyperparams['subdivisions']
 
         mini_batch_size = batch_size // sub_div
-        '''
-        #399-592 
-        The code is for training a model using a specified optimizer.  
+        nbs = 64  # nominal batch size
+        accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
+        hyp_config['weight_decay'] = float(hyp_config['weight_decay'])*batch_size * accumulate / nbs  # scale weight_decay
 
-        1. It creates a dataloader for training data and a separate dataloader for validation data. 
-        2. It determines the number of warmup epochs based on the model's hyperparameters. 
-        3. It calculates the number of warmup iterations based on the number of warmup epochs and the number of batches in the training dataloader. 
-        4. It creates an optimizer based on the specified optimizer in the model's hyperparameters. 
-        5. It creates a learning rate scheduler based on the specified optimizer. 
-        6. It creates a GradScaler for gradient scaling during training. 
-        7. It checks if sync batch normalization is enabled and converts the model to use sync batch normalization if so. 
-        8. It creates logging variables for tracking loss, learning rate, and evaluation metrics. 
-        9. It sets the initial learning rate. 
-        '''
+        # ################
+        # Create optimizer - V0.4
+        # ################
+
+        pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
+        for k, v in dict(model.named_parameters()).items():
+            if '.bias' in k:
+                pg2.append(v)  # biases
+            elif 'Conv2d.weight' in k:
+                pg1.append(v)  # apply weight_decay
+            elif 'm.weight' in k:
+                pg1.append(v)  # apply weight_decay
+            elif 'w.weight' in k:
+                pg1.append(v)  # apply weight_decay
+            else:
+                pg0.append(v)  # all else
+
+
+
+        if args.optimizer != None:
+            req_optimizer = args.optimizer
+        else:
+            req_optimizer = hyp_config['optimizer']
+        params = [p for p in model.parameters() if p.requires_grad]
+        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
+        if req_optimizer in implemented_optimizers:
+            if req_optimizer == "adamw":
+                optimizer = optim.AdamW(
+                    params,
+                    lr=float(hyp_config['lr0']),
+                    betas=(float(hyp_config['momentum']), 0.999),
+                    amsgrad=True
+                )
+            elif req_optimizer == "sgd":
+                optimizer = optim.SGD(
+                    pg0,
+                    lr=float(hyp_config['lr0']),
+                    momentum=float(hyp_config['momentum']),
+                    nesterov=True,
+                )
+            elif req_optimizer == "rmsprop":
+                optimizer = optim.RMSprop(
+                    pg0,
+                    lr=float(hyp_config['lr0']),
+                    momentum=float(hyp_config['momentum'])
+                )
+
+            elif req_optimizer == "adam":
+                optimizer = optim.Adam(
+                    pg0,
+                    lr=float(hyp_config['lr0']),
+                    betas=(float(hyp_config['momentum']), 0.999),
+                )
+            elif req_optimizer == "adadelta":
+                optimizer = optim.Adadelta(
+                    pg0,
+                    lr=float(hyp_config['lr0']),
+                )
+            elif req_optimizer == "adamax":
+                optimizer = optim.Adamax(
+                    pg0,
+                    lr=float(hyp_config['lr0']),
+                    betas=(float(hyp_config['momentum']), 0.999),
+                )
+
+        else:
+            print("- ⚠ - Unknown optimizer. Reverting into SGD optimizer.")
+            log_file_writer(f"- ⚠ - Unknown optimizer. Reverting into SGD optimizer.", model_logfile_path)
+            optimizer = optim.SGD(
+                pg0,
+                lr=float(hyp_config['lr0']),
+                momentum=float(hyp_config['momentum']),
+                nesterov=True,
+            )
+            model.hyperparams['optimizer'] = 'sgd'
+
+        optimizer.add_param_group({'params': pg1, 'weight_decay': hyp_config['weight_decay']})  # add pg1 with weight_decay
+        optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+        print(f'---- Optimizer groups: {len(pg2)} .bias, {len(pg1)} conv.weight, {len(pg0)} other ----')
+        del pg0, pg1, pg2
+
         # #################
-        # Create Dataloader
+        # Smart resume - V0.4
         # #################
+        pretrained = args.pretrained_weights.endswith('.pt')
+        if pretrained:
+            resume = True
+            results_file = 'results.txt'
+            ckpt = torch.load(args.weights, map_location=device)  # load checkpoint
+            state_dict = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
+            # Optimizer
+            if ckpt['optimizer'] is not None:
+                optimizer.load_state_dict(ckpt['optimizer'])
+                best_fitness = ckpt['best_fitness']
+                best_fitness_p = ckpt['best_fitness_p']
+                best_fitness_r = ckpt['best_fitness_r']
+                best_fitness_ap50 = ckpt['best_fitness_ap50']
+                best_fitness_ap = ckpt['best_fitness_ap']
+                best_fitness_f = ckpt['best_fitness_f']
 
-        train_dataset = Yolo_dataset(train_path, model.hyperparams, train=True)
-        val_dataset = Yolo_dataset(valid_path, model.hyperparams, train=False)
+            # Results
+            if ckpt.get('training_results') is not None:
+                with open(results_file, 'w') as file:
+                    file.write(ckpt['training_results'])  # write results.txt
 
-        # Version 1 - data loader
+            # Epochs
+            start_epoch = ckpt['epoch'] + 1
+            if resume:
+                assert start_epoch > 0, '%s training to %g epochs is finished, nothing to resume.' % (args.weights, args.epochs)
+            if args.epochs < start_epoch:
+                print('%s has been trained for %g epochs. Fine-tuning for %g additional epochs.' %
+                            (args.weights, ckpt['epoch'], args.epochs))
+                args.epochs += ckpt['epoch']  # finetune additional epochs
+
+            del ckpt, state_dict
+        # #################
+        # Create Dataloader - V0.4
+        # #################
+        # Image sizes
+        image_dims = [int(model.hyperparams['width']), int(model.hyperparams['height'])]
+        gs = 64  # int(max(model.stride))  # grid size (max stride)
+        imgsize, imgsize_test = [check_img_size(x, gs) for x in image_dims]  # verify imgsz are gs-multiples
+        workers = int(args.n_cpu)
+        # Trainloader
+        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,
+                                                hyp=hyp_config, augment=True, cache=False, rect=False,
+                                                rank=-1, world_size=1, workers=int(args.n_cpu))
+
         '''
-        # Load training dataloader
-        dataloader = _create_data_loader(
-            train_dataset,
-            mini_batch_size,
-            model.hyperparams['height'],
-            args.n_cpu,
-            args.multiscale_training)
-
-        
-
-        # Load validation dataloader
+        validation_dataloader = create_dataloader(valid_path, imgsize, batch_size*2, gs, args,
+                                       hyp=hyp_config, cache=False, rect=True,
+                                       rank=-1, world_size=1, workers=int(args.n_cpu))  # testloader
+        '''
         validation_dataloader = _create_validation_data_loader(
-            val_dataset,
+            valid_path,
             mini_batch_size,
             model.hyperparams['height'],
             args.n_cpu)
-        '''
 
-
-        warmup_epochs = int(model.hyperparams['warmup'])
-        if warmup_epochs > 3:
-            warmup_epochs = 3
+        warmup_epochs = float(hyp_config['warmup_epochs'])
+        if warmup_epochs > 5.0:
+            warmup_epochs = 5.0
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
-            round(warmup_epochs * num_batches), 50
-        )  # number of warmup iterations, max(3 epochs, 50 iterations)
-        if warmup_num >= num_batches:
-            warmup_num = int(warmup_num * 0.25)  # if warmup_num is greater than num_batches, set it to 25% of num_batches
+            round(warmup_epochs * num_batches), 1000)  # number of warmup iterations, max(3 epochs, 50 iterations)
+        warmup_num =  min(warmup_num, (warmup_epochs - start_epoch) / 2 * num_batches)  # limit warmup to < 1/2 of training
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
@@ -517,76 +568,9 @@ def run(test_arguments=None):
 
             callbacks.run('on_pretrain_routine_end', labels, names)
         '''
-
-        # ################
-        # Create optimizer
-        # ################
-        if args.optimizer != None:
-            req_optimizer = args.optimizer
-        else:
-            req_optimizer = model.hyperparams['optimizer']
-        params = [p for p in model.parameters() if p.requires_grad]
-        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
-        if req_optimizer in implemented_optimizers:
-            if req_optimizer == "adamw":
-                optimizer = optim.AdamW(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    betas=(0.9, 0.999),
-                    weight_decay=model.hyperparams['decay'],
-                    amsgrad=True
-                )
-            elif req_optimizer == "sgd":
-                optimizer = optim.SGD(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    weight_decay=model.hyperparams['decay'],
-                    momentum=model.hyperparams['momentum'],
-                    nesterov=model.hyperparams['nesterov'],
-                )
-            elif req_optimizer == "rmsprop":
-                optimizer = optim.RMSprop(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    weight_decay=model.hyperparams['decay'],
-                    momentum=model.hyperparams['momentum']
-                )
-
-            elif req_optimizer == "adam":
-                optimizer = optim.Adam(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    betas=(0.9, 0.999),
-                    weight_decay=model.hyperparams['decay'],
-                    amsgrad=True
-                )
-            elif req_optimizer == "adadelta":
-                optimizer = optim.Adadelta(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    weight_decay=model.hyperparams['decay'],
-                )
-            elif req_optimizer == "adamax":
-                optimizer = optim.Adamax(
-                    params,
-                    lr=model.hyperparams['learning_rate'],
-                    betas=(0.9, 0.999),
-                    weight_decay=model.hyperparams['decay'],
-                )
-
-        else:
-            print("- ⚠ - Unknown optimizer. Reverting into SGD optimizer.")
-            log_file_writer(f"- ⚠ - Unknown optimizer. Reverting into SGD optimizer.", model_logfile_path)
-            optimizer = optim.SGD(
-                params,
-                lr=model.hyperparams['learning_rate'],
-                weight_decay=model.hyperparams['decay'],
-                momentum=model.hyperparams['momentum'],
-                nesterov=model.hyperparams['nesterov'],
-            )
-            model.hyperparams['optimizer'] = 'sgd'
-
         num_steps = len(dataloader) * args.epochs
+
+
         # #################
         # Scheduler selector - V0.3.18
         # #################
@@ -632,7 +616,7 @@ def run(test_arguments=None):
                                                                 steps_per_epoch=len(dataloader),
                                                                 epochs=int(args.epochs))
             elif req_scheduler == 'LambdaLR':
-                lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+                lf = lambda x: ((1 + math.cos(x * math.pi / args.epochs)) / 2) * (1 - float(hyp_config['lrf'])) + float(hyp_config['lrf'])  # cosine
                 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                               lr_lambda=lf,
                                                               verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
@@ -652,8 +636,7 @@ def run(test_arguments=None):
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
-            lf = lambda x: (1 - x / args.epochs) * (1.0 - float(model.hyperparams['lrf'])) + float(
-                model.hyperparams['lrf'])
+            lf = lambda x: (1 - x / args.epochs) * (1.0 - float(hyp_config['lrf'])) + float(hyp_config['lrf'])
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                           lr_lambda=lf, verbose=False)
         print(
@@ -662,19 +645,20 @@ def run(test_arguments=None):
 
         lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
+
         # #################
         # Use ModelEMA - V0.x.xx -> Not implemented correctly
         # #################
 
         # EMA
-        # ema = ModelEMA(model) if args.ema != -1 else None
+        ema = ModelEMA(model) if args.ema != -1 else None
 
         # #################
         # Create GradScaler - V 0.3.14
         # #################
         # Creates a GradScaler once at the beginning of training.
         # scaler = GradScaler()
-        scaler = torch.cuda.amp.GradScaler(enabled=amp)
+        scaler = torch.cuda.amp.GradScaler(enabled=cuda)
         # #################
         # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
         # #################
@@ -682,41 +666,24 @@ def run(test_arguments=None):
             model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model).to(device)
             log_file_writer(f'Using SyncBatchNorm()', model_logfile_path)
 
+        # Model parameters
+
+        hyp_config['cls'] = float(hyp_config['cls'])* num_classes / 80.  # scale coco-tuned hyp['cls'] to current dataset
+        model.nc = num_classes  # attach number of classes to model
+        model.hyp = hyp_config  # attach hyperparameters to model
+        model.gr = 1.0  # iou loss ratio (obj_loss = 1.0 or iou)
+        model.class_weights = labels_to_class_weights(dataset.labels, num_classes).to(device)  # attach class weights
+        model.names = class_names
+
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
         print(
             f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
-        '''
-        1. The code starts a loop for the number of epochs specified in the  args.epochs  variable. 
-        2. It initializes a variable  epoch_start  to record the start time of each epoch. 
-        3. If the current epoch is greater than 1, it prints an estimated execution time based on the previous epoch's execution time. 
-        4. If it is a warmup run, it prints a message indicating that a warmup cycle is being run. 
-        5. It sets the model to training mode using  model.train() . 
-        6. It initializes a tensor  mloss  to store the mean losses. 
-        7. The code then enters a loop to iterate over the batches in the dataloader. 
-        8. It initializes the optimizer gradients to zero using  optimizer.zero_grad() . 
-        9. It calculates the number of batches done so far using the  len(dataloader) * epoch + batch_i  formula. 
-        10. It calculates the integrated batch number using  batch_i + num_batches * epoch . 
-        11. It moves the input images and targets to the device specified and enables autocasting for mixed precision training. 
-        12. It performs the forward pass through the model and calculates the loss and loss components using the  compute_loss()  function. 
-        13. If the loss is not NaN, it scales the loss for gradient calculation using  scaler.scale(loss) . 
-        14. It performs the backward pass and optimizer step using  scaler.step(optimizer)  and  scaler.update() . 
-        15. It applies gradient clipping using  torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm) . 
-        16. If the current batch number is divisible by the mini_batch_size, it adapts the learning rate based on the conditions specified. 
-        17. It updates the learning rate and performs the optimizer step. 
-        18. It resets the gradients using  optimizer.zero_grad() . 
-        19. It logs the loss components, batch loss, and learning rate using various loggers and writers. 
-        20. If the current epoch is a multiple of the evaluation_interval or do_auto_eval is True, it evaluates the model on the validation set. 
-        21. It logs the evaluation metrics using various loggers and writers. 
-        22. It calculates the current fitness based on the evaluation metrics. 
-        23. If the current fitness is better than the best fitness, it saves the model checkpoint and updates the best fitness. 
-        24. It logs the evaluation metrics and fitness values in CSV files. 
-        25. It calculates the execution time for the current epoch and prints a message indicating the maximum number of batches reached if the condition is met. 
-        '''
 
-        # Modded on V0.3.14J
+        torch.save(model, './checkpoints/init.pt')
+        # Modded on V0.4
 
         for epoch in range(1, args.epochs + 1):
             epoch_start = time.time()
@@ -725,74 +692,94 @@ def run(test_arguments=None):
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
             model.train()  # Set model to training mode
-            mloss = torch.zeros(3, device=device)  # mean losses
+            mloss = torch.zeros(4, device=device)  # mean losses
             # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
             # for param in model.parameters():
             #    param.grad = None
 
-            for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
+            for batch_i, (imgs, targets, paths, _) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
                 optimizer.zero_grad()
                 batches_done = len(dataloader) * epoch + batch_i
                 integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
-                # imgs = imgs.to(device, non_blocking=True).float() / 255 -> causes overflow sometimes
-                imgs = imgs.to(device, non_blocking=True)
+                imgs = imgs.to(device, non_blocking=True).float() / 255 # -> causes overflow sometimes # uint8 to float32, 0-255 to 0.0-1.0
+                # imgs = imgs.to(device, non_blocking=True)
 
-                targets = targets.to(device)
-                # Enable autocasting for mixed precision training
-                # with autocast():
+                ###########
+                # Warmup - 0.4
+                ###########
+                if integ_batch_num <= warmup_num:
+                    #scaler.step(optimizer)ät
+                    x_interp = [0, warmup_num]
+
+                    #accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
+                    # Simplified version
+                    accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
+                    for j, x in enumerate(optimizer.param_groups):
+                        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                        #x['lr'] = np.interp(integ_batch_num, warmup_num,
+                        #                    [hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                        conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
+                        choices = [0.0, x['initial_lr'] * epoch]
+                        x['lr_simplified'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
+                        if 'momentum' in x:
+                            x['momentum'] = np.interp(integ_batch_num, warmup_num, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
+
+                '''
+                # Multi-scale
+                if opt.multi_scale:
+                    sz = random.randrange(imgsz * 0.5, imgsz * 1.5 + gs) // gs * gs  # size
+                    sf = sz / max(imgs.shape[2:])  # scale factor
+                    if sf != 1:
+                        ns = [math.ceil(x * sf / gs) * gs for x in
+                              imgs.shape[2:]]  # new shape (stretched to gs-multiple)
+                        imgs = F.interpolate(imgs, size=ns, mode='bilinear', align_corners=False)
+                '''
+                ###############
                 # Forward
-                outputs = model(imgs)
-                loss, loss_components = compute_loss(outputs, targets, model)
+                ###############
+                with amp.autocast(enabled=cuda):
+                    pred = model(imgs)  # forward
+                    loss, loss_items = compute_loss(pred, targets.to(device), model)  # loss scaled by batch_size
 
-                if np.isnan(loss.item()) or np.isinf(loss.item()):
-                    # IMPROVEMENT: This part needs a bit better handling of these cases
-                    print("- ⚠ - Warning: Loss is NaN or Inf, skipping this update... ---")
-
-                try:
-                    scaler.scale(loss).backward()
-                except:
-                    print("- ⚠ - Warning: Element 0 of tensor ---")
-                    continue
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+
+                ###############
+                # Backward
+                ###############
+                scaler.scale(loss).backward()
+
                 ###############
                 # Run optimizer
                 ###############
-
-                if warmup_run:
-                    scaler.step(optimizer)
-                    if req_scheduler == 'ReduceLROnPlateau':
-                        scheduler.step(loss)
-                    else:
-                        scheduler.step()
+                # Optimize
+                if integ_batch_num % accumulate == 0:
+                    scaler.step(optimizer)  # optimizer.step
                     scaler.update()
-                    # Burn in
-                    # lr = lr * (batches_done / model.hyperparams['burn_in'])
-                    lr = lr * (batches_done / warmup_num)
-                    for g in optimizer.param_groups:
-                        g['lr'] = float(lr)
-                    if integ_batch_num >= warmup_num:
-                        warmup_run = False
+                    optimizer.zero_grad()
+                    if ema:
+                        ema.update(model)
 
-                else:
-                    if batches_done % mini_batch_size == 0:
-                        #warmup_run = False
-                        scaler.step(optimizer)
-                        if req_scheduler == 'ReduceLROnPlateau':
-                            scheduler.step(loss)
-                        else:
-                            scheduler.step()
-                        scaler.update()
-                        lr = scheduler.get_last_lr()
-                        lr = lr[0]
-                        # Set learning rate
-                        for g in optimizer.param_groups:
-                            g['lr'] = lr
+                mloss = (mloss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
+                if torch.cuda.is_available():
+                    mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+                    print(f'---- GPU Memory usage: {mem} ----')
 
-                if debug:
-                    print(f'Loss components dim: {loss_components.dim()}')
-                if loss_components.dim() != 0:
+                # Plot
+                if args.evaluation_interval % epoch == 0 and args.verbose:
+                    f = f'{model_logs_path}/images/train_batch{integ_batch_num}.jpg'  # filename
+                    plot_images(images=imgs, targets=targets, paths=model_logs_path, fname=f)
+                    # if tb_writer:
+                    #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
+                    #     tb_writer.add_graph(model, imgs)  # add model to tensorboard
+
+                # Scheduler
+                lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
+                scheduler.step()
+
+                # mAP
+                if loss_items.dim() != 0:
                     # ############
                     # Log progress
                     # ############
@@ -800,24 +787,24 @@ def run(test_arguments=None):
                         print(AsciiTable(
                             [
                                 ["Type", "Value"],
-                                ["IoU loss", float(loss_components[0])],
-                                ["Object loss", float(loss_components[1])],
-                                ["Class loss", float(loss_components[2])],
-                                ["Loss", float(loss_components[3])],
+                                ["IoU loss", float(loss_items[0])],
+                                ["Object loss", float(loss_items[1])],
+                                ["Class loss", float(loss_items[2])],
+                                ["Loss", float(loss_items[3])],
                                 ["Batch loss", to_cpu(mloss).item()],
                             ]).table)
 
                     # Tensorboard logging
                     tensorboard_log = [
-                        ("train/iou_loss", float(loss_components[0])),
-                        ("train/obj_loss", float(loss_components[1])),
-                        ("train/class_loss", float(loss_components[2])),
-                        ("train/loss", float(loss_components[3])),
+                        ("train/iou_loss", float(loss_items[0])),
+                        ("train/obj_loss", float(loss_items[1])),
+                        ("train/class_loss", float(loss_items[2])),
+                        ("train/loss", float(loss_items[3])),
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
                     # Tensorflow logger - learning rate V0.3.4I
-                    logger.scalar_summary("train/learning rate", lr, batches_done)
+                    logger.scalar_summary("train/learning rate", mean(lr), batches_done)
 
                     model.seen += imgs.size(0)
 
@@ -826,30 +813,30 @@ def run(test_arguments=None):
                     # ############
                     if clearml_run:
                         task.logger.report_scalar(title="Train/Losses", series="IoU loss", iteration=batches_done,
-                                                  value=float(loss_components[0]))
+                                                  value=float(loss_items[0]))
                         task.logger.report_scalar(title="Train/Losses", series="Object loss", iteration=batches_done,
-                                                  value=float(loss_components[1]))
+                                                  value=float(loss_items[1]))
                         task.logger.report_scalar(title="Train/Losses", series="Class loss", iteration=batches_done,
-                                                  value=float(loss_components[2]))
+                                                  value=float(loss_items[2]))
                         task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
-                                                  value=float(loss_components[3]))
+                                                  value=float(loss_items[3]))
                         task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                                   value=mloss)
                         task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done,
-                                                  value=lr)
+                                                  value=mean(lr))
 
                 # ############
                 # Log training progress writers
                 # ############
                 #
                 # training csv writer
-                if loss_components.dim() > 0:
-                    lr_float = format(float(lr), '.7f')
+                if loss_items.dim() > 0:
+                    lr_float = format(float(mean(lr)), '.7f')
                     data = [batches_done,
-                            float(loss_components[0]),  # Iou Loss
-                            float(loss_components[1]),  # Object Loss
-                            float(loss_components[2]),  # Class Loss
-                            float(loss_components[3]),  # Loss
+                            float(loss_items[0]),  # Iou Loss
+                            float(loss_items[1]),  # Object Loss
+                            float(loss_items[2]),  # Class Loss
+                            float(loss_items[3]),  # Loss
                             (lr_float)  # Learning rate
                             ]
                     csv_writer(data, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
@@ -869,10 +856,10 @@ def run(test_arguments=None):
 
                     # img writer
                     batches_array = np.concatenate((batches_array, np.array([batches_done])))
-                    iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_components[0])])))
-                    obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_components[1])])))
-                    cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_components[2])])))
-                    loss_array = np.concatenate((loss_array, np.array([float(loss_components[3].item())])))
+                    iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_items[0])])))
+                    obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_items[1])])))
+                    cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_items[2])])))
+                    loss_array = np.concatenate((loss_array, np.array([float(loss_items[3].item())])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
                     img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,
                                         batches_array,
@@ -897,17 +884,17 @@ def run(test_arguments=None):
                 if clearml_run and clearml_save_last:
                     task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
 
-            if auto_eval is True and loss_components.dim() > 0:
+            if auto_eval is True and loss_items.dim() > 0:
                 # #############
                 # Training fitness evaluation
                 # Calculate weighted loss -> smaller losses better training fitness
                 # #############
                 print("\n- 🔄 - Auto evaluating model on training metrics ----")
                 training_evaluation_metrics = [
-                    float(loss_components[0]),  # Iou Loss
-                    float(loss_components[1]),  # Object Loss
-                    float(loss_components[2]),  # Class Loss
-                    float(loss_components[3]),  # Loss
+                    float(loss_items[0]),  # Iou Loss
+                    float(loss_items[1]),  # Object Loss
+                    float(loss_items[2]),  # Class Loss
+                    float(loss_items[3]),  # Loss
                 ]
                 # Updated on version 0.3.12
                 # w_train = [0.20, 0.30, 0.30, 0.20]  # weights for [IOU, Class, Object, Loss]
@@ -1098,15 +1085,15 @@ def run(test_arguments=None):
                 print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
                 log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}',
                                 "logs/" + date + "_log" + ".txt")
-                if test_arguments != None:
+                if args.test_cycle != None:
                     return "Maximum number of batches reached - " + str(batches_done) + "/" + str(max_batches)
                 else:
                     exit()
-            elif epoch == args.epochs:
+            elif epoch >= args.epochs:
                 print(f'Finished training for {args.epochs} epochs')
                 log_file_writer(f'Finished training for {args.epochs} epochs',
                                 model_logfile_path)
-                if test_arguments != None:
+                if args.test_cycle != None:
                     return f"Finished training for {args.epochs} epochs, with {req_optimizer} optimizer and {req_scheduler} lr sheduler"
                 else:
                     exit()
@@ -1135,7 +1122,63 @@ def run(test_arguments=None):
 
 
 if __name__ == "__main__":
+    ver = "0.3.19DB - DataL_v2" # https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/train.py
+    # Check folders
     check_folders()
-    run()
+    parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
+    parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg",
+                        help="Path to model definition file (.cfg)")
+    parser.add_argument("-d", "--data", type=str, default="config/coco.data",
+                        help="Path to data config file (.data)")
+    parser.add_argument("--hyp", type=str, default="config/hyp.cfg",
+                        help="Path to data config file (.data)")
+    parser.add_argument("-e", "--epochs", type=int, default=300, help="Number of epochs")
+    parser.add_argument("-v", "--verbose", action='store_true', help="Makes the training more verbose")
+    parser.add_argument("--n_cpu", type=int, default=2, help="Number of cpu threads to use during batch generation")
+    parser.add_argument("-pw", "--pretrained_weights", type=str,
+                        help="Path to checkpoint file (.weights or .pth). Starts training from checkpoint model")
+    parser.add_argument("--evaluation_interval", type=int, default=3,
+                        help="Interval of epochs between evaluations on validation set")
+    parser.add_argument("--multiscale_training", action="store_true", help="Allow multi-scale training")
+    parser.add_argument("--iou_thres", type=float, default=0.1,
+                        help="Evaluation: IOU threshold required to qualify as detected")
+    parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--nms_thres", type=float, default=0.3,
+                        help="Evaluation: IOU threshold for non-maximum suppression")
+    parser.add_argument("--sync_bn", type=int, default=-1,
+                        help="Set use of SyncBatchNorm")
+    parser.add_argument("--ema", type=int, default=1,
+                        help="Set use of ModelEMA")
+    parser.add_argument("--scheduler", type=str, default=None,
+                        help="Set type of scheduler")
+    parser.add_argument("--optimizer", type=str, default=None,
+                        help="Set type of optimizer")
+    parser.add_argument("--logdir", type=str, default="logs",
+                        help="Directory for training log files (e.g. for TensorBoard)")
+    parser.add_argument("--name", type=str, default=None,
+                        help="Name for trained model")
+    parser.add_argument("--warmup", type=bool, default=True,
+                        help="Name for trained model")
+    parser.add_argument("--clearml", type=bool, default=False,
+                        help="Connect to clearml server")
+    parser.add_argument("--test_cycle", type=bool, default=False,
+                        help="Define if script should return test feedback")
+    parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
+    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
+    args = parser.parse_args()
+
+    print(f"Command line arguments: {args}")
+    # Get data configuration
+    data_config = parse_data_config(args.data)
+    # Get hyperparameters configuration
+    hyp_config = parse_hyp_config(args.hyp)
+    clearml_cfg = None
+    if args.clearml is True:
+        # get clearml parameters
+        # Create a ConfigParser object
+        clearml_cfg = configparser.ConfigParser()
+        # Read the config file
+        clearml_cfg.read(r'config/clearml.cfg')
+    run(args,data_config,hyp_config,ver,clearml_cfg)
 
 # python train.py -m config/yolov3_ITDM_simple.cfg -d config/Nova.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1

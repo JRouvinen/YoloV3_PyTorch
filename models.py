@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.parse_config import parse_model_config
+from utils.parse_config import parse_model_config, parse_model_config_and_hyperparams
 from utils.utils import weights_init_normal
 
 
@@ -29,13 +29,13 @@ def create_modules(module_defs: List[dict]) -> Tuple[dict, nn.ModuleList]:
         'channels': int(hyperparams['channels']),
         'optimizer': hyperparams.get('optimizer'),
         'momentum': float(hyperparams['momentum']),
-        'decay': float(hyperparams['decay']),
-        'learning_rate': float(hyperparams['learning_rate']),
-        'burn_in': int(hyperparams['burn_in']),
-        'max_batches': int(hyperparams['max_batches']),
-        'policy': hyperparams['policy'],
-        'lr_steps': list(zip(map(int,   hyperparams["steps"].split(",")),
-                             map(float, hyperparams["scales"].split(","))))
+        'decay': float(hyperparams['weight_decay']),
+        'learning_rate': float(hyperparams['lr0']),
+        #'burn_in': int(hyperparams['burn_in']),
+        #'max_batches': int(hyperparams['max_batches']),
+        #'policy': hyperparams['policy'],
+        #'lr_steps': list(zip(map(int,   hyperparams["steps"].split(",")),
+        #                     map(float, hyperparams["scales"].split(","))))
     })
     assert hyperparams["height"] == hyperparams["width"], \
         "Height and width should be equal! Non square images are padded with zeros."
@@ -193,9 +193,10 @@ class YOLOLayer(nn.Module):
 class Darknet(nn.Module):
     """YOLOv3 object detection model"""
 
-    def __init__(self, config_path, img_size=640):
+    def __init__(self, config_path, hyp,img_size=640):
         super(Darknet, self).__init__()
-        self.module_defs = parse_model_config(config_path)
+        #self.module_defs = parse_model_config(config_path)
+        self.module_defs = parse_model_config_and_hyperparams(config_path,hyp)
         self.hyperparams, self.module_list = create_modules(self.module_defs)
         self.img_size = img_size
         self.yolo_layers = [layer[0]
@@ -318,7 +319,7 @@ class Darknet(nn.Module):
         fp.close()
 
 
-def load_model(model_path, gpu, weights_path=None):
+def load_model(model_path, hyp,gpu, weights_path=None):
     print("model gpu:",gpu)
     """Loads the yolo model from file.
 
@@ -338,18 +339,56 @@ def load_model(model_path, gpu, weights_path=None):
     else:
         device = torch.device("cpu")
 
-    model = Darknet(model_path).to(device)
+    model = Darknet(model_path, hyp).to(device)
 
     model.apply(weights_init_normal)
 
     # If pretrained weights are specified, start from checkpoint or weight file
     if weights_path:
         if weights_path.endswith(".pth"):
-            # Load checkpoint weights
-            #model.load_state_dict(torch.load(weights_path, map_location=device))
-            model.load_state_dict(torch.load(weights_path, map_location='cpu')) # load checkpoint to CPU to avoid CUDA memory leak
+            # Load checkpoint weight
+            model.load_state_dict(torch.load(weights_path, map_location=device))
+            #model.load_state_dict(torch.load(weights_path, map_location='cpu')) # load checkpoint to CPU to avoid CUDA memory leak
         else:
             # Load darknet weights
             model.load_darknet_weights(weights_path)
     return model
 
+def save_weights(self, path='model.weights', cutoff=-1):
+    # Converts a PyTorch model to Darket format (*.pt to *.weights)
+    # Note: Does not work if model.fuse() is applied
+    with open(path, 'wb') as f:
+        # Write Header https://github.com/AlexeyAB/darknet/issues/2914#issuecomment-496675346
+        self.version.tofile(f)  # (int32) version info: major, minor, revision
+        self.seen.tofile(f)  # (int64) number of images seen during training
+
+        # Iterate through layers
+        for i, (mdef, module) in enumerate(zip(self.module_defs[:cutoff], self.module_list[:cutoff])):
+            if mdef['type'] == 'convolutional':
+                conv_layer = module[0]
+                # If batch norm, load bn first
+                if mdef['batch_normalize']:
+                    bn_layer = module[1]
+                    bn_layer.bias.data.cpu().numpy().tofile(f)
+                    bn_layer.weight.data.cpu().numpy().tofile(f)
+                    bn_layer.running_mean.data.cpu().numpy().tofile(f)
+                    bn_layer.running_var.data.cpu().numpy().tofile(f)
+                # Load conv bias
+                else:
+                    conv_layer.bias.data.cpu().numpy().tofile(f)
+                # Load conv weights
+                conv_layer.weight.data.cpu().numpy().tofile(f)
+
+def convert(cfg='config/yolov3-spp.cfg', weights='weights/yolov3-spp.weights', saveto='converted.weights'):
+    # Converts between PyTorch and Darknet format per extension (i.e. *.weights convert to *.pt and vice versa)
+    # from models import *; convert('cfg/yolov3-spp.cfg', 'weights/yolov3-spp.weights')
+
+    # Initialize model
+    model = Darknet(cfg)
+    ckpt = torch.load(weights)  # load checkpoint
+    try:
+        ckpt['model'] = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
+        model.load_state_dict(ckpt['model'], strict=False)
+        save_weights(model, path=saveto, cutoff=-1)
+    except KeyError as e:
+        print(e)
