@@ -164,6 +164,11 @@ def check_folders():
 def run(args,data_config,hyp_config,ver,clearml=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     try:
+
+        if args.optimizer != None:
+            hyp_config['optimizer'] = args.optimizer
+        if args.scheduler != None:
+            hyp_config['scheduler'] = args.scheduler
         if args.seed != -1:
             provide_determinism(args.seed)
 
@@ -283,20 +288,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         ################
         # Create ClearML task - version 0.3.0
         ################
-        '''
-        #269-301 
-        1. The code first creates a ConfigParser object to parse the configuration file. 
-        2. It reads the configuration file specified in the path 'config/clearml.cfg'. 
-        3. It retrieves the values of the parameters 'proj_name', 'offline', 'clearml_save_last', and 'clearml_run' from the 'clearml' section of the config file. 
-        4. If the value of 'clearml_save_last' is "True", it sets the variable 'clearml_save_last' to True, otherwise False. 
-        5. If the value of 'clearml_run' is "True", it sets the variable 'clearml_run' to True, otherwise False. 
-        6. If 'clearml_run' is True, it proceeds with the following steps: 
-           a. It sets the variable 'task_name' to the value of 'model_name'. 
-           b. If 'offline' is "True", it sets the ClearML task to offline mode using the 'set_offline' class method. 
-           c. It initializes a new ClearML task with the specified 'proj_name' and 'task_name', and disables certain auto-connect frameworks. 
-           d. It connects the task to the arguments passed to the script. 
-           e. It instantiates an OutputModel object with the task object and sets the framework to "PyTorch". 
-        '''
+
         if clearml != None:
             # Access the parameters from the config file
             proj_name = clearml.get('clearml', 'proj_name')
@@ -327,27 +319,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 task.connect(args)
                 # Instantiate an OutputModel with a task object argument
                 clearml.OutputModel(task=task, framework="PyTorch")
-        '''
-        #322-374 
-        This code checks the availability of a GPU and sets the device to either "cuda" if a GPU is available or "cpu" if not. 
-        It then creates a model, freezes its layers, and checks the AMP (Automatic Mixed Precision) setting. 
-        The code also logs the model's hyperparameters and prints the model summary if the verbose flag is set. 
-        Finally, it calculates the batch size based on the model's hyperparameters and AMP setting. 
 
-        Step-wise explanation: 
-        1. The code checks if the GPU parameter is greater than or equal to 0. 
-        2. If the GPU is available (determined by  torch.cuda.is_available() ), the device is set to "cuda". Otherwise, it is set to "cpu". 
-        3. The chosen device is printed and logged. 
-        4. The model is loaded using the specified model, GPU, and pretrained weights. 
-        5. The AMP setting is checked and set to False. 
-        6. If the clearml_run flag is True, the model's hyperparameters are connected to the clearml task. 
-        7. The model's hyperparameters are logged. 
-        8. If the verbose flag is True, the model summary is printed. 
-        9. The batch size is initially set to the model's batch hyperparameter. 
-        10. The code attempts to calculate the batch size using the  check_train_batch_size  function, passing in the model, 
-        height hyperparameter, and AMP setting. If an exception occurs, the batch size remains the same and the subdivisions hyperparameter is used instead. 
-        11. The mini_batch_size is calculated by dividing the batch size by the subdivisions hyperparameter.
-        '''
         # ############
         # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
         # ############
@@ -568,8 +540,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
             callbacks.run('on_pretrain_routine_end', labels, names)
         '''
-        num_steps = len(dataloader) * args.epochs
 
+        num_steps = len(dataloader) * args.epochs
 
         # #################
         # Scheduler selector - V0.3.18
@@ -776,8 +748,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                 # Scheduler
                 lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
-                scheduler.step()
-
+                if req_scheduler != 'ReduceLROnPlateau':
+                    scheduler.step()
+                else:
+                    scheduler.step(loss)
                 # mAP
                 if loss_items.dim() != 0:
                     # ############
@@ -1122,7 +1096,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.3.19DB - DataL_v2" # https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/train.py
+    ver = "0.4.0 - RC"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

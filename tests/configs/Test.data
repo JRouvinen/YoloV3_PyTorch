@@ -1,6 +1,6 @@
 classes=5
 train=data/test_set_v3_updated/train.txt
 valid=data/test_set_v3_updated/val.txt
-names=config/Lyra.names
+names=config/Test.names
 backup=backup/
 model_name=Test-tiny

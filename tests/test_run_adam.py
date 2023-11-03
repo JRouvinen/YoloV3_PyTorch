@@ -61,14 +61,14 @@ class TestRun:
 
 
     def test_run_sgd_CosineAnnealingLR(self):
-        seed = "22"
+        seed = "122"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_CosineAnnealingLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -83,14 +83,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ChainedScheduler(self):
-        seed = "24"
+        seed = "124"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_ChainedScheduler"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -105,14 +105,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ExponentialLR(self):
-        seed = "26"
+        seed = "126"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_ExponentialLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -127,14 +127,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ReduceLROnPlateau(self):
-        seed = "28"
+        seed = "128"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_ReduceLROnPlateau"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -149,14 +149,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ConstantLR(self):
-        seed = "30"
+        seed = "130"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_ConstantLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -171,14 +171,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_CyclicLR(self):
-        seed = "32"
+        seed = "132"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_CyclicLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -193,14 +193,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_OneCycleLR(self):
-        seed = "34"
+        seed = "134"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_OneCycleLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -215,14 +215,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_LambdaLR(self):
-        seed = "36"
+        seed = "136"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_LambdaLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -237,14 +237,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_MultiplicativeLR(self):
-        seed = "38"
+        seed = "138"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_MultiplicativeLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -259,14 +259,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_StepLR(self):
-        seed = "40"
+        seed = "140"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_StepLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -281,14 +281,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_MultiStepLR(self):
-        seed = "42"
+        seed = "142"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_MultiStepLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -303,14 +303,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_LinearLR(self):
-        seed = "44"
+        seed = "144"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_LinearLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -325,14 +325,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_PolynomialLR(self):
-        seed = "44"
+        seed = "144"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_PolynomialLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
@@ -347,14 +347,14 @@ class TestRun:
             assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_CosineAnnealingWarmRestarts(self):
-        seed = "46"
+        seed = "146"
         epochs = "30"
         gpu = "0"
         name = "test_run_sgd_CosineAnnealingWarmRestarts"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        optimizer = "sgd"
+        optimizer = "adam"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',

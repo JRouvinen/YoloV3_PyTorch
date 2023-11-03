@@ -423,6 +423,7 @@ A minimal PyTorch implementation of YOLOv3.
 - Training YOLOV3: Deep Learning Based Custom Object Detection: https://learnopencv.com/training-yolov3-deep-learning-based-custom-object-detector/
 - Training Yolo for Object Detection in PyTorch with Your Custom Dataset — The Simple Way: https://towardsdatascience.com/training-yolo-for-object-detection-in-pytorch-with-your-custom-dataset-the-simple-way-1aa6f56cf7d9
 - A PyTorch Extension for Learning Rate Warmup: https://github.com/Tony-Y/pytorch_warmup
+- PyTorch implementation of YOLOv4: https://github.com/WongKinYiu/PyTorch_YOLOv4/blob/master/train.py
 - Original code for this fork: 
 # 12. What if's
 ### In case of Protobuf TypeError:

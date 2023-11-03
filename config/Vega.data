@@ -1,6 +1,0 @@
-classes=21
-train=data/ITDM/ITDM_1028img_ext1234_interf/train.txt
-valid=data/ITDM/ITDM_1028img_ext1234_interf/val.txt
-names=config/ITDM_simple.names
-backup=backup/
-model_name=Vega
