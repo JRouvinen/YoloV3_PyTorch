@@ -58,7 +58,33 @@ class TestRun:
         args = parser.parse_args()
         return args
 
+    def parse_hyp_config(path):
+        """Parses the hyperparamaters configuration file"""
+        options = dict()
+        with open(path, 'r') as fp:
+            lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if line == '' or line.startswith('#') or line.startswith('['):
+                continue
+            key, value = line.split('=')
+            options[key.strip()] = value.strip()
+        return options
 
+    def parse_data_config(path):
+        """Parses the data configuration file"""
+        options = dict()
+        options['gpus'] = '0,1,2,3'
+        options['num_workers'] = '10'
+        with open(path, 'r') as fp:
+            lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if line == '' or line.startswith('#'):
+                continue
+            key, value = line.split('=')
+            options[key.strip()] = value.strip()
+        return options
 
     def test_run_sgd_CosineAnnealingLR(self):
         seed = "122"
@@ -76,11 +102,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CosineAnnealingLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ChainedScheduler(self):
         seed = "124"
@@ -98,11 +127,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ChainedScheduler'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ExponentialLR(self):
         seed = "126"
@@ -120,11 +152,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ExponentialLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ReduceLROnPlateau(self):
         seed = "128"
@@ -142,11 +177,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ReduceLROnPlateau'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_ConstantLR(self):
         seed = "130"
@@ -164,11 +202,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ConstantLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_CyclicLR(self):
         seed = "132"
@@ -186,11 +227,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CyclicLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_OneCycleLR(self):
         seed = "134"
@@ -208,11 +252,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'OneCycleLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_LambdaLR(self):
         seed = "136"
@@ -230,11 +277,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'LambdaLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_MultiplicativeLR(self):
         seed = "138"
@@ -252,11 +302,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'MultiplicativeLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_StepLR(self):
         seed = "140"
@@ -274,11 +327,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'StepLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_MultiStepLR(self):
         seed = "142"
@@ -296,11 +352,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'MultiStepLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_LinearLR(self):
         seed = "144"
@@ -318,11 +377,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'LinearLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_PolynomialLR(self):
         seed = "144"
@@ -340,11 +402,14 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'PolynomialLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
     def test_run_sgd_CosineAnnealingWarmRestarts(self):
         seed = "146"
@@ -362,8 +427,11 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CosineAnnealingWarmRestarts'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup, data_config, hyp_config,
+                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
