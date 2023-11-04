@@ -192,8 +192,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # Check if logs folder exists
         logs_path_there = os.path.exists(model_logs_path)
         if not logs_path_there:
-            os.mkdir(model_logs_path)
-
+            os.mkdir(model_logs_path+'/')
         model_imgs_logs_path = '/images/'
         logs_img_path_there = os.path.exists(model_logs_path+model_imgs_logs_path)
         if not logs_img_path_there:
