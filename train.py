@@ -544,6 +544,24 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         # Scheduler selector - V0.3.18
         # #################
+        '''
+        04/11/2023 - Test
+        'CosineAnnealingLR' -> OK
+        'ChainedScheduler' -> NOK, fix done
+        'ExponentialLR' -> NOK
+        'ReduceLROnPlateau' -> NOK
+        'ConstantLR' -> NOK
+          'CyclicLR' -> OK
+          'OneCycleLR' -> OK
+          'LambdaLR' -> OK
+          'MultiplicativeLR' -> NOK                         
+          'StepLR' -> NOK
+          'MultiStepLR' -> NOK
+          'LinearLR' -> NOK
+          'PolynomialLR' -> NOK
+          'CosineAnnealingWarmRestarts' -> OK
+        '''
+
         if args.scheduler != None:
             req_scheduler = args.scheduler
         else:
@@ -562,7 +580,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     verbose=False)
             # ChainedScheduler
             elif req_scheduler == 'ChainedScheduler':
-                scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(model.hyperparams['warmup']),
+                scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(hyp_config['warmup_epochs']),
                                         verbose=False)
                 scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
@@ -687,7 +705,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         #x['lr'] = np.interp(integ_batch_num, warmup_num,
                         #                    [hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                         conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
-                        choices = [0.0, x['initial_lr'] * epoch]
+                        choices = [0.0, x['initial_lr'] * epoch] # ReduceLROnPlateau -> KeyError: 'initial_lr'
                         x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
                         if 'momentum' in x:
                             x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
