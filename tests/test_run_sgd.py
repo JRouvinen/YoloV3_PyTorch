@@ -103,7 +103,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CosineAnnealingLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -128,7 +128,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ChainedScheduler'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -153,7 +153,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ExponentialLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -178,7 +178,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ReduceLROnPlateau'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -203,7 +203,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'ConstantLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -228,7 +228,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CyclicLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -253,7 +253,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'OneCycleLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -278,7 +278,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'LambdaLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -303,7 +303,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'MultiplicativeLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -328,7 +328,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'StepLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -353,7 +353,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'MultiStepLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -378,7 +378,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'LinearLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -403,7 +403,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'PolynomialLR'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
@@ -428,7 +428,7 @@ class TestRun:
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         '''
         scheduler = 'CosineAnnealingWarmRestarts'
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
