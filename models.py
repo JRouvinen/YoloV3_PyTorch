@@ -332,7 +332,7 @@ def load_model(model_path, hyp,gpu, weights_path=None):
     #DONE: Needs gpu memory check and arg parameter check
     # device = torch.device("cuda" if torch.cuda.is_available()
     #                       else "cpu")  # Select device for inference
-    #device = torch.device("cpu")
+    device = torch.device("cpu")
     if gpu != -1:
         if torch.cuda.is_available() is True:
             device = torch.device("cuda")

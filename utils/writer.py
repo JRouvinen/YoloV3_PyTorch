@@ -51,8 +51,8 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, iteration, filen
     # https://stackoverflow.com/questions/21393802/how-to-specify-values-on-y-axis-of-a-matplotlib-plot
     ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[1, 1].get_autoscaley_on()
-    ax_array[1, 1].invert_yaxis()
-    if iteration.mean() > 100:
+    #ax_array[1, 1].invert_yaxis()
+    if iteration.mean() >= 50:
         ax_array[1, 1].set_yscale('log')
         ax_array[1, 1].grid(axis='y', linestyle=' ')
     ax_array[1, 1].set_xlabel('Iteration')

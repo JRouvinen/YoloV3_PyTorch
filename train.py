@@ -282,7 +282,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         csv_writer(header, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
         # Create evaluation csv file
-        header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'AP CLS', 'Fitness']
+        header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1', 'Fitness']
         csv_writer(header, model_logs_path + "/" + model_name + "_evaluation_plots.csv", 'a')
 
         # Create validation csv file
@@ -565,7 +565,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         if args.scheduler != None:
             req_scheduler = args.scheduler
         else:
-            req_scheduler = hyp_config['lr_sheduler']
+            req_scheduler = hyp_config['lr_scheduler']
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
                                   'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
@@ -587,10 +587,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'ExponentialLR':
                 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
             elif req_scheduler == 'ReduceLROnPlateau':
+                minimum_lr = float(hyp_config['lr0']) / 1000
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     'min',
                     patience=int(args.evaluation_interval),
+                    min_lr=minimum_lr,
                     verbose=False)
             elif req_scheduler == 'ConstantLR':
                 scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
@@ -631,8 +633,14 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             f"- ⚠ - Using {req_optimizer} - optimizer with {req_scheduler} - LR scheduler")
         log_file_writer(f"Using {req_optimizer} - optimizer with {req_scheduler} - LR scheduler", model_logfile_path)
 
-        lr = model.hyperparams['learning_rate']
         scheduler.last_epoch = start_epoch - 1  # do not move
+
+        decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR','StepLR', 'MultiStepLR','LinearLR','PolynomialLR']
+        if req_scheduler in decay_schedulers:
+            # Set learning rate for decaying schedulers
+            lr = float(hyp_config['init_lr'])
+            for g in optimizer.param_groups:
+                g['lr'] = lr
 
         # #################
         # Use ModelEMA - V0.x.xx -> Not implemented correctly
@@ -710,6 +718,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
                         if 'momentum' in x:
                             x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
+
+
                 else:
                     warmup_run = False
                 '''
@@ -762,11 +772,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     #     tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Scheduler
+                # scheduler.get_last_lr()
                 lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
                 if req_scheduler != 'ReduceLROnPlateau':
                     scheduler.step()
                 else:
                     scheduler.step(loss)
+                #print(f'DEBUG - Scheduler last lr: {scheduler.get_last_lr()}  <-> Optimizer lr: {lr}')
                 # mAP
                 if loss_items.dim() != 0:
                     # ############
