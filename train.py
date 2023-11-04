@@ -163,6 +163,9 @@ def check_folders():
 
 def run(args,data_config,hyp_config,ver,clearml=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    if args.test_cycle is True:
+        # Check folders
+        check_folders()
     try:
 
         if args.optimizer != None:
