@@ -222,7 +222,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         checkpoints_saved = 0
         device = torch.device("cpu")
         cuda_available = False
-
+        mem = 0.0
         #epoch_start = ""
         #epoch_end = ""
         exec_time = 0
@@ -489,7 +489,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 print('%s has been trained for %g epochs. Fine-tuning for %g additional epochs.' %
                             (args.weights, ckpt['epoch'], args.epochs))
                 args.epochs += ckpt['epoch']  # finetune additional epochs
-
+            warmup_run = False
             del ckpt, state_dict
         # #################
         # Create Dataloader - V0.4
@@ -676,6 +676,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 print(f'- ⏳ - Estimated execution time: {round((exec_time * args.epochs) / 3600, 2)} hours ----')
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
+            if torch.cuda.is_available():
+                print(f'---- GPU Memory usage: {mem} ----')
             model.train()  # Set model to training mode
             mloss = torch.zeros(4, device=device)  # mean losses
             # https://pytorch.org/tutorials/recipes/recipes/tuning_guide.html
@@ -693,10 +695,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ###########
                 # Warmup - 0.4
                 ###########
-                if integ_batch_num <= warmup_num:
+                if integ_batch_num <= warmup_num and warmup_run:
                     #scaler.step(optimizer)ät
                     x_interp = [0, warmup_num]
-
                     #accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
                     # Simplified version
                     accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
@@ -709,7 +710,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
                         if 'momentum' in x:
                             x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
-
+                else:
+                    warmup_run = False
                 '''
                 # Multi-scale
                 if opt.multi_scale:
@@ -749,7 +751,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                 if torch.cuda.is_available():
                     mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
-                    print(f'---- GPU Memory usage: {mem} ----')
+
 
                 # Plot
                 if args.evaluation_interval % epoch == 0 and args.verbose:
@@ -1151,7 +1153,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_cycle", type=bool, default=False,
                         help="Define if script should return test feedback")
     parser.add_argument("-g", "--gpu", type=int, default=-1, help="Define which gpu should be used")
-    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
+    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducible. Set -1 to disable.")
     args = parser.parse_args()
 
     print(f"Command line arguments: {args}")
