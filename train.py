@@ -219,6 +219,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         best_fitness = 0.0
         checkpoints_saved = 0
         device = torch.device("cpu")
+        cuda_available = False
+
         #epoch_start = ""
         #epoch_end = ""
         exec_time = 0
@@ -326,18 +328,19 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # DONE:Needs checkup on available gpu memory
-        if gpu >= 0:
+        if gpu != -1:
             if torch.cuda.is_available() is True:
                 device = torch.device("cuda")
+                cuda_available = True
             else:
                 device = torch.device("cpu")
+                cuda_available = False
         print(f'---- Using cuda device - {device} ----')
         log_file_writer(f'Using cuda device - {device}', model_logfile_path)
 
         # ############
         # Create model - Updated on V0.4.0
         # ############
-
         model = load_model(args.model, hyp_config,gpu, args.pretrained_weights)
 
         # ############
@@ -345,10 +348,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # ############
         # -- Not implemented --
 
-        # ############
-        # Check AMP - V.0.3.14
-        # ############
-        #amp = check_amp(model)  # check AMP -> TODO: causes CUDA overflow error
         # ############
         # Log hyperparameters to clearml
         # ############
@@ -360,14 +359,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         if args.verbose:
             summary(model, input_size=(3, model.hyperparams['height'], model.hyperparams['height']))
 
-
         # ############
         # Batch size calculation - V0.3.1
         # ############
-        cuda = device.type != 'cpu'
+
         batch_size = model.hyperparams['batch']
         try:
-            batch_size = check_train_batch_size(model, model.hyperparams['height'], cuda)
+            batch_size = check_train_batch_size(model, model.hyperparams['height'], cuda_available)
             sub_div = 1
         except:
             batch_size = model.hyperparams['batch']
@@ -394,8 +392,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 pg1.append(v)  # apply weight_decay
             else:
                 pg0.append(v)  # all else
-
-
 
         if args.optimizer != None:
             req_optimizer = args.optimizer
@@ -523,9 +519,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
             round(warmup_epochs * num_batches), 1000)  # number of warmup iterations, max(3 epochs, 50 iterations)
-        warmup_num =  min(warmup_num, (warmup_epochs - start_epoch) / 2 * num_batches)  # limit warmup to < 1/2 of training
+        warmup_num = float(min(warmup_num, (warmup_epochs - start_epoch) / 2 * num_batches))  # limit warmup to < 1/2 of training
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
+        num_steps = len(dataloader) * args.epochs
+
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
         log_file_writer(f"Maximum batch size: {max_batches}", model_logfile_path)
         # #################
@@ -541,15 +539,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             callbacks.run('on_pretrain_routine_end', labels, names)
         '''
 
-        num_steps = len(dataloader) * args.epochs
-
         # #################
         # Scheduler selector - V0.3.18
         # #################
         if args.scheduler != None:
             req_scheduler = args.scheduler
         else:
-            req_scheduler = model.hyperparams['lr_sheduler']
+            req_scheduler = hyp_config['lr_sheduler']
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
                                   'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
@@ -621,16 +617,14 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         # Use ModelEMA - V0.x.xx -> Not implemented correctly
         # #################
-
-        # EMA
         ema = ModelEMA(model) if args.ema != -1 else None
 
         # #################
         # Create GradScaler - V 0.3.14
         # #################
         # Creates a GradScaler once at the beginning of training.
-        # scaler = GradScaler()
-        scaler = torch.cuda.amp.GradScaler(enabled=cuda)
+        scaler = torch.cuda.amp.GradScaler(enabled=cuda_available)
+
         # #################
         # SyncBatchNorm - V 0.3.14 -> not needed in current state, but is basis if multi-gpu support is created
         # #################
@@ -639,7 +633,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             log_file_writer(f'Using SyncBatchNorm()', model_logfile_path)
 
         # Model parameters
-
         hyp_config['cls'] = float(hyp_config['cls'])* num_classes / 80.  # scale coco-tuned hyp['cls'] to current dataset
         model.nc = num_classes  # attach number of classes to model
         model.hyp = hyp_config  # attach hyperparameters to model
@@ -654,7 +647,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
 
-        torch.save(model, './checkpoints/init.pt')
+        torch.save(model, f'./checkpoints/{model_name}_init.pt')
         # Modded on V0.4
 
         for epoch in range(1, args.epochs + 1):
@@ -693,9 +686,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         #                    [hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                         conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
                         choices = [0.0, x['initial_lr'] * epoch]
-                        x['lr_simplified'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
+                        x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
                         if 'momentum' in x:
-                            x['momentum'] = np.interp(integ_batch_num, warmup_num, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
+                            x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
 
                 '''
                 # Multi-scale
@@ -710,9 +703,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ###############
                 # Forward
                 ###############
-                with amp.autocast(enabled=cuda):
+                with amp.autocast(enabled=cuda_available):
                     pred = model(imgs)  # forward
                     loss, loss_items = compute_loss(pred, targets.to(device), model)  # loss scaled by batch_size
+                mloss = (mloss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
 
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -733,7 +727,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     if ema:
                         ema.update(model)
 
-                mloss = (mloss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
                 if torch.cuda.is_available():
                     mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                     print(f'---- GPU Memory usage: {mem} ----')
@@ -778,7 +771,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
                     # Tensorflow logger - learning rate V0.3.4I
-                    logger.scalar_summary("train/learning rate", mean(lr), batches_done)
+                    logger.scalar_summary("train/learning rate", np.mean(lr), batches_done)
 
                     model.seen += imgs.size(0)
 
@@ -797,7 +790,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
                                                   value=mloss)
                         task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done,
-                                                  value=mean(lr))
+                                                  value=np.mean(lr))
 
                 # ############
                 # Log training progress writers
@@ -805,7 +798,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 #
                 # training csv writer
                 if loss_items.dim() > 0:
-                    lr_float = format(float(mean(lr)), '.7f')
+                    lr_float = format(float(np.mean(lr)), '.7f')
                     data = [batches_done,
                             float(loss_items[0]),  # Iou Loss
                             float(loss_items[1]),  # Object Loss
@@ -1096,7 +1089,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.0 - RC"
+    ver = "0.4.0 - RC2"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

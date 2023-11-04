@@ -121,7 +121,7 @@ def compute_loss(predictions, targets, model):
     else:
         concatenated_loss = torch.tensor(0.0)  # or any other appropriate default value
 
-    return loss, to_cpu(concatenated_loss)
+    return loss, concatenated_loss
 
     ''' OLD IMPLEMENTATION
     # Check which device was used

@@ -82,7 +82,7 @@ def autobatch(model, imagesize=640, fraction=0.8, batch_size=16):
 
     # Check device
 
-    print(f'Computing optimal batch size for imagesize: {imagesize}')
+    print(f'- ↻ - Computing optimal batch size for imagesize: {imagesize} ----')
     device = next(model.parameters()).device  # get model device
     if device.type == 'cpu':
         print(f'- ⚠️ - CUDA not detected, using default CPU batch-size {batch_size} ----')

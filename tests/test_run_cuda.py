@@ -55,8 +55,36 @@ class TestRun():
         args = parser.parse_args()
         return args
 
+    def parse_hyp_config(path):
+        """Parses the hyperparamaters configuration file"""
+        options = dict()
+        with open(path, 'r') as fp:
+            lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if line == '' or line.startswith('#') or line.startswith('['):
+                continue
+            key, value = line.split('=')
+            options[key.strip()] = value.strip()
+        return options
+
+    def parse_data_config(path):
+        """Parses the data configuration file"""
+        options = dict()
+        options['gpus'] = '0,1,2,3'
+        options['num_workers'] = '10'
+        with open(path, 'r') as fp:
+            lines = fp.readlines()
+        for line in lines:
+            line = line.strip()
+            if line == '' or line.startswith('#'):
+                continue
+            key, value = line.split('=')
+            options[key.strip()] = value.strip()
+        return options
+
     def test_run_cuda(self):
-        seed = "148"
+        seed = "1148"
         gpu = "0"
         epochs = "30"
         scheduler = 'LambdaLR'
@@ -71,8 +99,10 @@ class TestRun():
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
-        testargs = ["prog", "-m", "tests/configs/test_run_CUDA.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "4",
+        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
                     "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
         with patch.object(sys, 'argv', testargs):
             setup = self.get_setup_file()
-            assert run(setup) == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
+            hyp_config = parse_hyp_config(setup.hyp)
+            data_config = parse_data_config(setup.data)
+            assert run(setup,data_config,hyp_config,'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
