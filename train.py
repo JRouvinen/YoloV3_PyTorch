@@ -1051,7 +1051,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             epoch_end = time.time()
             exec_time = epoch_end - epoch_start
             if batches_done >= max_batches:
-                print(f'Maximum number of batches reached - {batches_done}/{max_batches}')
+                print(f'- ❌ - Maximum number of batches reached - {batches_done}/{max_batches} -> Stopping ---- ')
                 log_file_writer(f'Maximum number of batches reached - {batches_done}/{max_batches}',
                                 "logs/" + date + "_log" + ".txt")
                 if args.test_cycle != None:
@@ -1059,7 +1059,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 else:
                     exit()
             elif epoch >= args.epochs:
-                print(f'Finished training for {args.epochs} epochs')
+                print(f'- ✅ - Finished training for {args.epochs} epochs ----')
                 log_file_writer(f'Finished training for {args.epochs} epochs',
                                 model_logfile_path)
                 if args.test_cycle != None:
@@ -1074,9 +1074,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         if os.path.exists(file_path):
             # Delete the file
             os.remove(file_path)
-            print("The old INTERRUPTED.pth has been deleted.")
+            print("- ❌ - The old INTERRUPTED.pth has been deleted... -----")
         torch.save(model.state_dict(), 'INTERRUPTED.pth')
-        print('Current weights are saved into INTERRUPTED.pth')
+        print('- 💾 - Current weights are saved into INTERRUPTED.pth ----')
         try:
             sys.exit(0)
         except SystemExit:
