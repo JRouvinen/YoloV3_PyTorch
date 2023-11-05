@@ -86,9 +86,9 @@ class TestRun:
             options[key.strip()] = value.strip()
         return options
 
-    def test_run_sgd_CosineAnnealingLR(self):
+    def test_run_adam_CosineAnnealingLR(self):
         seed = "122"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_CosineAnnealingLR"
         '''
@@ -111,9 +111,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_ChainedScheduler(self):
+    def test_run_adam_ChainedScheduler(self):
         seed = "124"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_ChainedScheduler"
         '''
@@ -136,9 +136,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_ExponentialLR(self):
+    def test_run_adam_ExponentialLR(self):
         seed = "126"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_ExponentialLR"
         '''
@@ -161,9 +161,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_ReduceLROnPlateau(self):
+    def test_run_adam_ReduceLROnPlateau(self):
         seed = "128"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_ReduceLROnPlateau"
         '''
@@ -186,9 +186,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_ConstantLR(self):
+    def test_run_adam_ConstantLR(self):
         seed = "130"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_ConstantLR"
         '''
@@ -211,9 +211,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_CyclicLR(self):
+    def test_run_adam_CyclicLR(self):
         seed = "132"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_CyclicLR"
         '''
@@ -236,9 +236,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_OneCycleLR(self):
+    def test_run_adam_OneCycleLR(self):
         seed = "134"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_OneCycleLR"
         '''
@@ -261,9 +261,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_LambdaLR(self):
+    def test_run_adam_LambdaLR(self):
         seed = "136"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_LambdaLR"
         '''
@@ -286,9 +286,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_MultiplicativeLR(self):
+    def test_run_adam_MultiplicativeLR(self):
         seed = "138"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_MultiplicativeLR"
         '''
@@ -311,9 +311,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_StepLR(self):
+    def test_run_adam_StepLR(self):
         seed = "140"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_StepLR"
         '''
@@ -336,9 +336,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_MultiStepLR(self):
+    def test_run_adam_MultiStepLR(self):
         seed = "142"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_MultiStepLR"
         '''
@@ -361,9 +361,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_LinearLR(self):
+    def test_run_adam_LinearLR(self):
         seed = "144"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_LinearLR"
         '''
@@ -386,9 +386,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_PolynomialLR(self):
+    def test_run_adam_PolynomialLR(self):
         seed = "144"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_PolynomialLR"
         '''
@@ -411,9 +411,9 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_sgd_CosineAnnealingWarmRestarts(self):
+    def test_run_adam_CosineAnnealingWarmRestarts(self):
         seed = "146"
-        epochs = "30"
+        epochs = "25"
         gpu = "0"
         name = "test_run_sgd_CosineAnnealingWarmRestarts"
         '''

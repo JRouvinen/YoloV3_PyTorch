@@ -242,6 +242,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         w_train_str = hyp_config['w_train'].strip('][').split(', ')
         w_str = hyp_config['w'].strip('][').split(', ')
+        lr_restart = False
 
         for i in w_train_str:
             w_train.append(float(i))
@@ -545,20 +546,20 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # Scheduler selector - V0.3.18
         # #################
         '''
-        04/11/2023 - Test
+        05/11/2023 - Test - sgd
         'CosineAnnealingLR' -> OK
-        'ChainedScheduler' -> NOK, fix done
-        'ExponentialLR' -> NOK
-        'ReduceLROnPlateau' -> NOK
-        'ConstantLR' -> NOK
+        'ChainedScheduler' -> OK
+        'ExponentialLR' -> OK
+        'ReduceLROnPlateau' -> OK
+        'ConstantLR' -> OK
           'CyclicLR' -> OK
           'OneCycleLR' -> OK
           'LambdaLR' -> OK
-          'MultiplicativeLR' -> NOK                         
-          'StepLR' -> NOK
-          'MultiStepLR' -> NOK
-          'LinearLR' -> NOK
-          'PolynomialLR' -> NOK
+          'MultiplicativeLR' -> OK                         
+          'StepLR' -> OK
+          'MultiStepLR' -> OK
+          'LinearLR' -> OK
+          'PolynomialLR' -> OK
           'CosineAnnealingWarmRestarts' -> OK
         '''
 
@@ -571,6 +572,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                   'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
                                   'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
         if req_scheduler in implemented_schedulers:
+            lf = lambda x: ((1 + math.cos(x * math.pi / args.epochs)) / 2) * (1 - float(hyp_config['lrf'])) + float(
+                hyp_config['lrf'])  # cosine
+
             # CosineAnnealingLR
             if req_scheduler == 'CosineAnnealingLR':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -606,7 +610,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                                                 steps_per_epoch=len(dataloader),
                                                                 epochs=int(args.epochs))
             elif req_scheduler == 'LambdaLR':
-                lf = lambda x: ((1 + math.cos(x * math.pi / args.epochs)) / 2) * (1 - float(hyp_config['lrf'])) + float(hyp_config['lrf'])  # cosine
                 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,
                                                               lr_lambda=lf,
                                                               verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
@@ -622,7 +625,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'PolynomialLR':
                 scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=4,power=1.0) #total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=5,eta_min=0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(int(args.epochs)/10),eta_min=0) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
@@ -635,7 +638,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         scheduler.last_epoch = start_epoch - 1  # do not move
 
-        decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR','StepLR', 'MultiStepLR','LinearLR','PolynomialLR']
+        decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR','StepLR', 'MultiStepLR','LinearLR','PolynomialLR', 'ReduceLROnPlateau']
         if req_scheduler in decay_schedulers:
             # Set learning rate for decaying schedulers
             lr = float(hyp_config['init_lr'])
@@ -711,17 +714,28 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
                     for j, x in enumerate(optimizer.param_groups):
                         # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                        #x['lr'] = np.interp(integ_batch_num, warmup_num,
-                        #                    [hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
-                        conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
-                        choices = [0.0, x['initial_lr'] * epoch] # ReduceLROnPlateau -> KeyError: 'initial_lr'
-                        x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
+                        if req_scheduler == "ReduceLROnPlateau":
+                            # Burn in
+                            x['lr'] *= (batches_done / warmup_num)
+                        else:
+                            #x['lr'] = np.interp(integ_batch_num, x_interp,[hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                            conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
+                            choices = [0.0, x['initial_lr'] * epoch]  # ReduceLROnPlateau -> KeyError: 'initial_lr'
+                            x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
+
                         if 'momentum' in x:
                             x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
 
 
                 else:
                     warmup_run = False
+                    if not lr_restart:
+                        lr_restart = True
+                        # Get learning rate
+                        lr = float(hyp_config['init_lr'])
+                        # Set learning rate
+                        for g in optimizer.param_groups:
+                            g['lr'] = lr
                 '''
                 # Multi-scale
                 if opt.multi_scale:
@@ -773,11 +787,17 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                 # Scheduler
                 # scheduler.get_last_lr()
-                lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
                 if req_scheduler != 'ReduceLROnPlateau':
                     scheduler.step()
                 else:
                     scheduler.step(loss)
+                    if not warmup_run:
+                        # Get learning rate
+                        lr = float(optimizer.param_groups[0]['lr'])
+                        # Set learning rate
+                        for g in optimizer.param_groups:
+                            g['lr'] = lr
+                lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
                 #print(f'DEBUG - Scheduler last lr: {scheduler.get_last_lr()}  <-> Optimizer lr: {lr}')
                 # mAP
                 if loss_items.dim() != 0:
@@ -1094,7 +1114,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 print(f'- ✅ - Finished training for {args.epochs} epochs ----')
                 log_file_writer(f'Finished training for {args.epochs} epochs',
                                 model_logfile_path)
-                if args.test_cycle != None:
+                if args.test_cycle is True:
                     return f"Finished training for {args.epochs} epochs, with {req_optimizer} optimizer and {req_scheduler} lr sheduler"
                 else:
                     exit()
@@ -1123,7 +1143,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.0 - RC2"
+    ver = "0.4.0 - RC3"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

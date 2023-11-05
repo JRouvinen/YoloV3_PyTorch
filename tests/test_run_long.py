@@ -84,11 +84,11 @@ class TestRun():
         return options
 
     def test_run_cuda(self):
-        seed = "1148"
+        seed = "13678"
         gpu = "0"
-        epochs = "30"
-        scheduler = 'ReduceLROnPlateau'
-        name = "test_run_cuda"
+        epochs = "100"
+        scheduler = 'CyclicLR'
+        name = "test_run_long"
         '''
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
