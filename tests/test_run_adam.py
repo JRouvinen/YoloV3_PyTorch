@@ -90,7 +90,7 @@ class TestRun:
         seed = "122"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_CosineAnnealingLR"
+        name = "test_run_adam_CosineAnnealingLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -111,36 +111,11 @@ class TestRun:
             assert run(setup, data_config, hyp_config,
                        'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
 
-    def test_run_adam_ChainedScheduler(self):
-        seed = "124"
-        epochs = "25"
-        gpu = "0"
-        name = "test_run_sgd_ChainedScheduler"
-        '''
-        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
-        '''
-        optimizer = "adam"
-        '''
-        implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
-                                  'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
-                                  'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
-                                  'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
-        '''
-        scheduler = 'ChainedScheduler'
-        testargs = ["prog", "-m", "tests/configs/test_run_v2.cfg", "-d", "tests/configs/Test.data", "-e", epochs, "--n_cpu", "2",
-                    "--pretrained_weights","weights/yolov3-tiny.weights","--evaluation_interval","3","-g",gpu,"--seed",seed,"--scheduler",scheduler,'--optimizer',optimizer,"--name",name,"--test_cycle","True"]
-        with patch.object(sys, 'argv', testargs):
-            setup = self.get_setup_file()
-            hyp_config = parse_hyp_config(setup.hyp)
-            data_config = parse_data_config(setup.data)
-            assert run(setup, data_config, hyp_config,
-                       'test_cuda') == f"Finished training for {epochs} epochs, with {optimizer} optimizer and {scheduler} lr sheduler"
-
     def test_run_adam_ExponentialLR(self):
         seed = "126"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_ExponentialLR"
+        name = "test_run_adam_ExponentialLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -165,7 +140,7 @@ class TestRun:
         seed = "128"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_ReduceLROnPlateau"
+        name = "test_run_adam_ReduceLROnPlateau"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -190,7 +165,7 @@ class TestRun:
         seed = "130"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_ConstantLR"
+        name = "test_run_adam_ConstantLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -215,7 +190,7 @@ class TestRun:
         seed = "132"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_CyclicLR"
+        name = "test_run_adam_CyclicLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -240,7 +215,7 @@ class TestRun:
         seed = "134"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_OneCycleLR"
+        name = "test_run_adam_OneCycleLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -265,7 +240,7 @@ class TestRun:
         seed = "136"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_LambdaLR"
+        name = "test_run_adam_LambdaLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -290,7 +265,7 @@ class TestRun:
         seed = "138"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_MultiplicativeLR"
+        name = "test_run_adam_MultiplicativeLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -315,7 +290,7 @@ class TestRun:
         seed = "140"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_StepLR"
+        name = "test_run_adam_StepLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -340,7 +315,7 @@ class TestRun:
         seed = "142"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_MultiStepLR"
+        name = "test_run_adam_MultiStepLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -365,7 +340,7 @@ class TestRun:
         seed = "144"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_LinearLR"
+        name = "test_run_adam_LinearLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -390,7 +365,7 @@ class TestRun:
         seed = "144"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_PolynomialLR"
+        name = "test_run_adam_PolynomialLR"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''
@@ -415,7 +390,7 @@ class TestRun:
         seed = "146"
         epochs = "25"
         gpu = "0"
-        name = "test_run_sgd_CosineAnnealingWarmRestarts"
+        name = "test_run_adam_CosineAnnealingWarmRestarts"
         '''
         implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
         '''

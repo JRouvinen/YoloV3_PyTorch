@@ -546,13 +546,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # Scheduler selector - V0.3.18
         # #################
         '''
-        05/11/2023 - Test - sgd
+        05/11/2023 - Test - sgd - adam
         'CosineAnnealingLR' -> OK
         'ChainedScheduler' -> OK
         'ExponentialLR' -> OK
         'ReduceLROnPlateau' -> OK
         'ConstantLR' -> OK
-          'CyclicLR' -> OK
+          'CyclicLR' -> OK - FAIL
           'OneCycleLR' -> OK
           'LambdaLR' -> OK
           'MultiplicativeLR' -> OK                         
@@ -584,7 +584,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     verbose=False)
             # ChainedScheduler
             elif req_scheduler == 'ChainedScheduler':
-                scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=int(hyp_config['warmup_epochs']),
+                scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=5,
                                         verbose=False)
                 scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
