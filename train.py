@@ -256,6 +256,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         iou_loss_array = np.array([])
         obj_loss_array = np.array([])
         cls_loss_array = np.array([])
+        batch_loss_array = np.array([])
         batches_array = np.array([])
         loss_array = np.array([])
         lr_array = np.array([])
@@ -774,7 +775,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 if req_scheduler != 'ReduceLROnPlateau':
                     scheduler.step()
                 else:
-                    scheduler.step(loss)
+                    scheduler.step(mloss)
                     if not warmup_run:
                         # Get learning rate
                         lr = float(optimizer.param_groups[0]['lr'])
@@ -805,6 +806,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         ("train/obj_loss", float(loss_items[1])),
                         ("train/class_loss", float(loss_items[2])),
                         ("train/loss", float(loss_items[3])),
+                        ("train/batch loss", float(to_cpu(mloss).item())),
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
@@ -865,8 +867,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_items[1])])))
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_items[2])])))
                     loss_array = np.concatenate((loss_array, np.array([float(loss_items[3].item())])))
+                    batch_loss_array = np.concatenate((batch_loss_array, np.array([float(to_cpu(mloss).item())])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
-                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,
+                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,batch_loss_array,
                                         batches_array,
                                         model_logs_path+'/'+model_name)
             # #############

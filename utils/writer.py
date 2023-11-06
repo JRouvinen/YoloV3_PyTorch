@@ -11,7 +11,7 @@ def csv_writer(data, filename, oper):
         table_writer.writerow(data)
     f.close()
 
-def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, iteration, filename):
+def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,iteration, filename):
     #header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']    # img_writer_data = global_step,x_loss,y_loss,w_loss,h_loss,conf_loss,cls_loss,loss,recall,precision
     #log_path = filename.replace("checkpoints", "")
     # Placing the plots in the plane
@@ -60,6 +60,11 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, iteration, filen
             pass
     ax_array[1, 1].set_xlabel('Iteration')
 
+    # Plot for loss
+    ax_array[1, 2].set_ylabel('Batch loss')
+    ax_array[1, 2].plot(x, batch_loss, marker='o')
+    ax_array[1, 2].grid(axis='y', linestyle='-')
+    ax_array[1, 2].set_xlabel('Iteration')
 
     fig.savefig(filename+'_training_metrics.png')
     # displaying the title
