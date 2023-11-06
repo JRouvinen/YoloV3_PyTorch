@@ -1,3 +1,10 @@
+#################################
+# utils.py
+# Author: Juha-Matti Rouvinen
+# Date: 2023-07-02
+# Version V3
+##################################
+
 from __future__ import division
 
 import math

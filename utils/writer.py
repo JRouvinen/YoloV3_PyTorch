@@ -1,3 +1,9 @@
+#################################
+# writer.py
+# Author: Juha-Matti Rouvinen
+# Date: 2023-07-02
+# Version V3
+##################################
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,36 +29,46 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
 
     # Plot for iou loss
     ax_array[0, 0].set_ylabel('IoU loss')
-    ax_array[0, 0].plot(x, iou_loss, marker = 'o')
-    ax_array[0, 0].grid(axis='y', linestyle='-')
+    #ax_array[0, 0].plot(x, iou_loss, marker = 'o')
+    ax_array[0, 0].plot(x, iou_loss)
+    #ax_array[0, 0].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[0, 0].set_xlabel('Iteration')
 
     # Plot for obj loss
     ax_array[0, 1].set_ylabel('Object loss')
-    ax_array[0, 1].plot(x, obj_loss, marker = 'o')
-    ax_array[0, 1].grid(axis='y', linestyle='-')
+    #ax_array[0, 1].plot(x, obj_loss, marker = 'o')
+    ax_array[0, 1].plot(x, obj_loss)
+    #ax_array[0, 1].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[0, 1].set_xlabel('Iteration')
 
     # Plot for cls loss
     ax_array[0, 2].set_ylabel('Class loss')
-    ax_array[0, 2].plot(x, cls_loss, marker = 'o')
-    ax_array[0, 2].grid(axis='y', linestyle='-')
+    #ax_array[0, 2].plot(x, cls_loss, marker = 'o')
+    ax_array[0, 2].plot(x, cls_loss)
+    #ax_array[0, 2].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[0, 2].set_xlabel('Iteration')
 
     # Plot for loss
     ax_array[1, 0].set_ylabel('Loss')
     ax_array[1, 0].plot(x, loss, marker = 'o')
-    ax_array[1, 0].grid(axis='y', linestyle='-')
+    ax_array[1, 0].plot(x, loss)
+    #ax_array[1, 0].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[1, 0].set_xlabel('Iteration')
 
     # Plot for learning rate
     ax_array[1, 1].set_ylabel('Learning rate')
-    ax_array[1, 1].plot(x, lr, marker = 'o')
+    #ax_array[1, 1].plot(x, lr, marker = 'o')
+    ax_array[1, 1].plot(x, lr)
     # https://stackoverflow.com/questions/21393802/how-to-specify-values-on-y-axis-of-a-matplotlib-plot
-    ax_array[1, 1].grid(axis='y', linestyle='-')
+    #ax_array[1, 1].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[1, 1].get_autoscaley_on()
-    #ax_array[1, 1].invert_yaxis()
-    if iteration.mean() >= 100:
+    ax_array[1, 1].invert_yaxis()
+    if np.mean(iteration) >= 500:
         try:
             ax_array[1, 1].set_yscale('log')
             ax_array[1, 1].grid(axis='y', linestyle=' ')
@@ -62,8 +78,10 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
 
     # Plot for loss
     ax_array[1, 2].set_ylabel('Batch loss')
-    ax_array[1, 2].plot(x, batch_loss, marker='o')
-    ax_array[1, 2].grid(axis='y', linestyle='-')
+    #ax_array[1, 2].plot(x, batch_loss, marker='o')
+    ax_array[1, 2].plot(x, batch_loss)
+    #ax_array[1, 2].grid(axis='y', linestyle='-')
+    ax_array[0, 0].grid(True)
     ax_array[1, 2].set_xlabel('Iteration')
 
     fig.savefig(filename+'_training_metrics.png')

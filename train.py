@@ -583,12 +583,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     min_lr=minimum_lr,
                     verbose=False)
             elif req_scheduler == 'ConstantLR':
-                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
+                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=int(args.epochs), verbose=False)
             elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                               base_lr=float(hyp_config['lr0'])/1000,
                                                               max_lr=float(hyp_config['lr0']), cycle_momentum=True,
-                                                              verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
+                                                              verbose=False, mode='triangular2')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
                 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lr0']),
                                                                 steps_per_epoch=len(dataloader),
@@ -601,13 +601,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
                 scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lf)
             elif req_scheduler == 'StepLR':
-                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50,gamma=0.1) #Step size -> epochs
+                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(args.epochs)/10,gamma=0.1) #Step size -> epochs
             elif req_scheduler == 'MultiStepLR':
                 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30,80],gamma=0.1) #milestones size -> epochs
             elif req_scheduler == 'LinearLR':
-                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5,total_iters=4) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5,total_iters=int(args.epochs)/2) #total_iters size -> epochs
             elif req_scheduler == 'PolynomialLR':
-                scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=4,power=1.0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),power=1.0) #total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(int(args.epochs)/10),eta_min=0) #total_iters size -> epochs
         else:
@@ -652,6 +652,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         model.nc = num_classes  # attach number of classes to model
         model.hyp = hyp_config  # attach hyperparameters to model
         model.gr = 1.0  # iou loss ratio (obj_loss = 1.0 or iou)
+        #model.gr = args.iou_thres
         model.class_weights = labels_to_class_weights(dataset.labels, num_classes).to(device)  # attach class weights
         model.names = class_names
 
@@ -668,7 +669,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         for epoch in range(1, args.epochs + 1):
             epoch_start = time.time()
             if epoch > 1:
-                print(f'- ⏳ - Estimate when all epochs are done: {round((exec_time * (args.epochs-epoch)) / 3600, 2)} hours ----')
+                print(f'- ⏳ - Estimate when all {args.epochs} epochs are done: {round((exec_time * (args.epochs-epoch)) / 3600, 2)} hours ----')
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
             if torch.cuda.is_available():
@@ -1130,7 +1131,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.0 - RC3"
+    ver = "0.4.0 - RC4"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
