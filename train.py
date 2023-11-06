@@ -452,10 +452,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 nesterov=True,
             )
             model.hyperparams['optimizer'] = 'sgd'
-
-        optimizer.add_param_group({'params': pg1, 'weight_decay': hyp_config['weight_decay']})  # add pg1 with weight_decay
-        optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
-        print(f'---- Optimizer groups: {len(pg2)} .bias, {len(pg1)} conv.weight, {len(pg0)} other ----')
+        if req_optimizer == 'sgd':
+            optimizer.add_param_group({'params': pg1, 'weight_decay': hyp_config['weight_decay']})  # add pg1 with weight_decay
+            optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+            print(f'---- Optimizer groups: {len(pg2)} .bias, {len(pg1)} conv.weight, {len(pg0)} other ----')
         del pg0, pg1, pg2
 
         # #################
@@ -545,23 +545,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         # Scheduler selector - V0.3.18
         # #################
-        '''
-        05/11/2023 - Test - sgd - adam
-        'CosineAnnealingLR' -> OK
-        'ChainedScheduler' -> OK
-        'ExponentialLR' -> OK
-        'ReduceLROnPlateau' -> OK
-        'ConstantLR' -> OK
-          'CyclicLR' -> OK - FAIL
-          'OneCycleLR' -> OK
-          'LambdaLR' -> OK
-          'MultiplicativeLR' -> OK                         
-          'StepLR' -> OK
-          'MultiStepLR' -> OK
-          'LinearLR' -> OK
-          'PolynomialLR' -> OK
-          'CosineAnnealingWarmRestarts' -> OK
-        '''
 
         if args.scheduler != None:
             req_scheduler = args.scheduler
@@ -580,7 +563,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
                     T_max=num_steps,
-                    eta_min=0.00001,
+                    eta_min=float(hyp_config['lr0']) / 1000,
                     verbose=False)
             # ChainedScheduler
             elif req_scheduler == 'ChainedScheduler':
@@ -602,11 +585,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=5, verbose=False)
             elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                              base_lr=float(model.hyperparams['learning_rate']),
-                                                              max_lr=0.1, cycle_momentum=True,
+                                                              base_lr=float(hyp_config['lr0'])/1000,
+                                                              max_lr=float(hyp_config['lr0']), cycle_momentum=True,
                                                               verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
-                scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=0.1,
+                scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lr0']),
                                                                 steps_per_epoch=len(dataloader),
                                                                 epochs=int(args.epochs))
             elif req_scheduler == 'LambdaLR':
@@ -675,7 +658,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
         print(
-            f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} ----")
+            f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
 
         torch.save(model, f'./checkpoints/{model_name}_init.pt')
@@ -684,7 +667,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         for epoch in range(1, args.epochs + 1):
             epoch_start = time.time()
             if epoch > 1:
-                print(f'- ⏳ - Estimated execution time: {round((exec_time * args.epochs) / 3600, 2)} hours ----')
+                print(f'- ⏳ - Estimate when all epochs are done: {round((exec_time * (args.epochs-epoch)) / 3600, 2)} hours ----')
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
             if torch.cuda.is_available():
@@ -697,6 +680,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
             for batch_i, (imgs, targets, paths, _) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
                 optimizer.zero_grad()
+                optimizer.step()
                 batches_done = len(dataloader) * epoch + batch_i
                 integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
