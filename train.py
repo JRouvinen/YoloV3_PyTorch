@@ -80,7 +80,7 @@ from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
 from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
-    check_amp, check_img_size, labels_to_image_weights, labels_to_class_weights
+    check_amp, check_img_size, labels_to_image_weights, labels_to_class_weights, tensor_to_np_array
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
 from utils.parse_config import parse_data_config, parse_model_weight_config, parse_hyp_config
@@ -738,7 +738,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     pred = model(imgs)  # forward
                     loss, loss_items = compute_loss(pred, targets.to(device), model)  # loss scaled by batch_size
                 mloss = (mloss * batch_i + loss_items) / (batch_i + 1)  # update mean losses
-
+                mloss_mean = np.mean(tensor_to_np_array(mloss))
                 # Apply gradient clipping
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
 
@@ -775,7 +775,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 if req_scheduler != 'ReduceLROnPlateau':
                     scheduler.step()
                 else:
-                    scheduler.step(mloss)
+                    scheduler.step(mloss_mean)
                     if not warmup_run:
                         # Get learning rate
                         lr = float(optimizer.param_groups[0]['lr'])
@@ -797,7 +797,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 ["Object loss", float(loss_items[1])],
                                 ["Class loss", float(loss_items[2])],
                                 ["Loss", float(loss_items[3])],
-                                ["Batch loss", to_cpu(mloss).item()],
+                                #["Batch loss", to_cpu(mloss).item()],
                             ]).table)
 
                     # Tensorboard logging
@@ -806,7 +806,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         ("train/obj_loss", float(loss_items[1])),
                         ("train/class_loss", float(loss_items[2])),
                         ("train/loss", float(loss_items[3])),
-                        ("train/batch loss", float(to_cpu(mloss).item())),
+                        #("train/batch loss", float(to_cpu(mloss).item())),
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
@@ -867,7 +867,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_items[1])])))
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_items[2])])))
                     loss_array = np.concatenate((loss_array, np.array([float(loss_items[3].item())])))
-                    batch_loss_array = np.concatenate((batch_loss_array, np.array([float(to_cpu(mloss).item())])))
+                    batch_loss_array = np.concatenate((batch_loss_array, np.array([mloss_mean])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
                     img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,batch_loss_array,
                                         batches_array,

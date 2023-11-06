@@ -46,6 +46,8 @@ def worker_seed_set(worker_id):
 def to_cpu(tensor):
     return tensor.detach().cpu()
 
+def tensor_to_np_array(tensor):
+    return tensor.detach().cpu().numpy()
 
 def load_classes(path):
     """
