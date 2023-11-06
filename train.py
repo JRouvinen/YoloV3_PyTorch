@@ -1003,7 +1003,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                           curr_fitness_array, train_fitness_array, eval_epoch_array,
                                           model_logs_path+'/'+model_name)
 
-                    if curr_fitness > best_fitness:
+                    if curr_fitness > best_fitness and epoch > int(args.evaluation_interval):
                         best_fitness = curr_fitness
                         checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
