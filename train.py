@@ -522,11 +522,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             warmup_epochs = 5.0
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
-            round(warmup_epochs * num_batches), 1000)  # number of warmup iterations, max(3 epochs, 50 iterations)
-        warmup_num = float(min(warmup_num, (warmup_epochs - start_epoch) / 2 * num_batches))  # limit warmup to < 1/2 of training
+            round(warmup_epochs * num_batches), 100)  # number of warmup iterations, max(5 epochs, 100 iterations)
+        if warmup_num > num_batches*args.epochs:
+            warmup_num = float(num_batches*args.epochs/2)  # limit warmup to < 1/2 of training
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
-        num_steps = len(dataloader) * args.epochs
+        num_steps = num_batches * args.epochs
 
         print(f"- ⚠ - Maximum number of iterations - {max_batches}")
         log_file_writer(f"Maximum batch size: {max_batches}", model_logfile_path)

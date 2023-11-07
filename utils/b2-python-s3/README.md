@@ -19,3 +19,7 @@ If you want to learn the ins-and-outs of Backblaze B2 cloud storage and how to i
 
 Upload instructions:
 [Upload files with the CLI][https://www.backblaze.com/docs/cloud-storage-upload-files-with-the-cli]
+
+```python
+b2 upload_file runpod-public C:\Users\Juha\Documents\AI\Models\Orion\Orion-tiny_v3.zip Orion-tiny_v3/Orion-tiny_v3.zip
+```
