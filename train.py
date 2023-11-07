@@ -580,7 +580,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     'min',
-                    patience=int(args.evaluation_interval),
+                    patience=int(args.epochs/10),
                     min_lr=minimum_lr,
                     verbose=False)
             elif req_scheduler == 'ConstantLR':
@@ -589,7 +589,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                               base_lr=float(hyp_config['lr0'])/1000,
                                                               max_lr=float(hyp_config['lr0']), cycle_momentum=True,
-                                                              verbose=False, mode='triangular2')  # mode (str): One of {triangular, triangular2, exp_range}.
+                                                              verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
                 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lrf']),
                                                                 steps_per_epoch=len(dataloader),
