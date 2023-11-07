@@ -564,7 +564,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
                     T_max=num_steps,
-                    eta_min=float(hyp_config['lr0']) / 1000,
+                    eta_min=float(hyp_config['lr0']) / 10000,
                     verbose=False)
             # ChainedScheduler
             elif req_scheduler == 'ChainedScheduler':
@@ -609,7 +609,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'PolynomialLR':
                 scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),power=1.0) #total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(int(args.epochs)/10),eta_min=0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(len(dataloader)*int(args.epochs)/10),eta_min=0) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
@@ -673,6 +673,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
             if torch.cuda.is_available():
+                mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
                 print(f'---- GPU Memory usage: {mem} ----')
             model.train()  # Set model to training mode
             mloss = torch.zeros(4, device=device)  # mean losses
@@ -756,11 +757,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     scaler.step(optimizer)  # optimizer.step
                     scaler.update()
                     optimizer.zero_grad()
+                    model.zero_grad() # Test
                     if ema:
                         ema.update(model)
 
-                if torch.cuda.is_available():
-                    mem = '%.3gG' % (torch.cuda.memory_reserved() / 1E9 if torch.cuda.is_available() else 0)  # (GB)
+
 
 
                 # Plot

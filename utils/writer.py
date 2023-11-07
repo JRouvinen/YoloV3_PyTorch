@@ -53,7 +53,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
 
     # Plot for loss
     ax_array[1, 0].set_ylabel('Loss')
-    ax_array[1, 0].plot(x, loss, marker = 'o')
+    #ax_array[1, 0].plot(x, loss, marker = 'o')
     ax_array[1, 0].plot(x, loss)
     #ax_array[1, 0].grid(axis='y', linestyle='-')
     ax_array[0, 0].grid(True)
