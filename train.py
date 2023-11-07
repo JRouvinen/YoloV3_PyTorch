@@ -591,7 +591,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                                               max_lr=float(hyp_config['lr0']), cycle_momentum=True,
                                                               verbose=False, mode='triangular2')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
-                scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lr0']),
+                scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lrf']),
                                                                 steps_per_epoch=len(dataloader),
                                                                 epochs=int(args.epochs))
             elif req_scheduler == 'LambdaLR':
