@@ -563,7 +563,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             if req_scheduler == 'CosineAnnealingLR':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
-                    T_max=num_steps,
+                    T_max=int(num_steps/10),
                     eta_min=float(hyp_config['lr0']) / 10000,
                     verbose=False)
             # ChainedScheduler
@@ -609,7 +609,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'PolynomialLR':
                 scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),power=1.0) #total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(len(dataloader)*int(args.epochs)/10),eta_min=0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(num_steps/10),eta_min=0) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
@@ -1132,7 +1132,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.0 - RC4"
+    ver = "0.4.0 - RC5"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
