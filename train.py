@@ -599,7 +599,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                                               lr_lambda=lf,
                                                               verbose=False)  # plot_lr_scheduler(optimizer, scheduler, epochs)
             elif req_scheduler == 'MultiplicativeLR':
-                lf = one_cycle(1, float(model.hyperparams['lrf']), args.epochs)  # cosine 1->hyp['lrf']
+                lf = one_cycle(1, float(hyp_config['lrf']), args.epochs)  # cosine 1->hyp['lrf']
                 scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lf)
             elif req_scheduler == 'StepLR':
                 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(args.epochs)/10,gamma=0.1) #Step size -> epochs
