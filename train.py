@@ -584,7 +584,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     min_lr=minimum_lr,
                     verbose=False)
             elif req_scheduler == 'ConstantLR':
-                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=int(args.epochs), verbose=False)
+                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=int(args.evaluation_interval), verbose=False)
             elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                               base_lr=float(hyp_config['lr0'])/1000,
@@ -986,11 +986,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                  w)  # weighted combination of [P, R, mAP@0.5, f1]
                     curr_fitness = float(fi[0])
                     curr_fitness_array = np.concatenate((curr_fitness_array, np.array([curr_fitness])))
-                    logger.scalar_summary("fitness/model", round(best_fitness, 4), epoch)
+                    logger.scalar_summary("fitness/model", curr_fitness, epoch)
                     train_fitness_array = np.concatenate((train_fitness_array, np.array([train_fitness])))
                     # logger.scalar_summary("fitness/training", float(fi_train), epoch)
                     print(
-                        f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 4)}' (Current best fitness: {round(best_fitness, 4)}) ----")
+                        f"- ➡ - Checkpoint fitness: '{round(curr_fitness, 6)}' (Current best fitness: {round(best_fitness, 6)}) ----")
 
                     if clearml_run:
                         # ############
