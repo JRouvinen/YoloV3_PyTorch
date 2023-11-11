@@ -502,7 +502,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         imgsize, imgsize_test = [check_img_size(x, gs) for x in image_dims]  # verify imgsz are gs-multiples
         workers = int(args.n_cpu)
         # Trainloader
-        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,
+        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,class_names,
                                                 hyp=hyp_config, augment=True, cache=False, rect=False,
                                                 rank=-1, world_size=1, workers=int(args.n_cpu))
 
@@ -766,12 +766,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
                 # Plot
-                if args.evaluation_interval % epoch == 0 and args.verbose:
-                    f = f'{model_logs_path}/images/train_batch{integ_batch_num}.jpg'  # filename
-                    plot_images(images=imgs, targets=targets, paths=model_logs_path, fname=f)
-                    # if tb_writer:
-                    #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
-                    #     tb_writer.add_graph(model, imgs)  # add model to tensorboard
+                #if args.evaluation_interval % epoch == 0 and args.verbose:
+                #    f = f'{model_logs_path}/images/train_batch{integ_batch_num}.jpg'  # filename
+                #    plot_images(images=imgs, targets=targets, paths=model_logs_path, fname=f)
+                #    # if tb_writer:
+                #    #     tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
+                #    #     tb_writer.add_graph(model, imgs)  # add model to tensorboard
 
                 # Scheduler
                 # scheduler.get_last_lr()
@@ -1133,7 +1133,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.0 - RC5"
+    ver = "0.4.1 - data_sampler"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

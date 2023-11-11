@@ -89,6 +89,22 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     plt.title(filename)
     plt.close()
 
+def img_writer_class_dist(classes,values, header,filename):
+    fig = plt.figure(layout="constrained", figsize=(20, 10))
+    # fig.set_dpi(1240)
+    # Using Numpy to create an array x
+
+    x = values  # classes
+    y = classes  # AP values
+
+    plt.bar(x, y)
+    plt.ylabel('Value')
+    plt.xlabel('Classes')
+    # displaying the title
+    plt.title(header)
+    fig.savefig(f'C:/Users/Juha/PycharmProjects/YoloV3_PyTorch/logs/{header}_for_dataset.png')
+    plt.close()
+
 def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness,epoch, filename):
     #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array, curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
     # Placing the plots in the plane

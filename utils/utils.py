@@ -1,13 +1,14 @@
 #################################
 # utils.py
 # Author: Juha-Matti Rouvinen
-# Date: 2023-07-02
-# Version V3
+# Date: 2023-11-10
+# Version V4
 ##################################
 
 from __future__ import division
 
 import math
+import os
 import time
 import platform
 from copy import deepcopy
@@ -20,8 +21,11 @@ import numpy as np
 import subprocess
 import random
 import imgaug as ia
-from utils.writer import log_file_writer
+from utils.writer import log_file_writer, img_writer_class_dist
 
+
+def get_local_path():
+    return os.getcwd()
 
 def provide_determinism(seed=42):
     random.seed(seed)
@@ -465,3 +469,66 @@ def labels_to_class_weights(labels, nc=80):
     weights = 1 / weights  # number of targets per class
     weights /= weights.sum()  # normalize
     return torch.from_numpy(weights)
+
+
+def get_class_distribution_loaders(dataloader_obj, dataset_obj):
+    count_dict = {k: 0 for k, v in dataset_obj.class_to_idx.items()}
+
+    for _, j in dataloader_obj:
+        y_idx = j.item()
+        y_lbl = idx2class[y_idx]
+        count_dict[str(y_lbl)] += 1
+
+    return count_dict
+
+def idx2class(class2idx):
+    return {v: k for k, v in class2idx.items()}
+
+
+
+def get_class_distribution(dataset_obj, class_names, type):
+    if type == 'orig':
+        count_dict = {}
+        for x in class_names:
+            count_dict[x] = 0
+
+        #count_dict = {k: 0 for k, v in dataset_obj.class_to_idx.items()}
+        for element in dataset_obj.labels:
+            y_lbl = int(element[0][0])
+            label = class_names[y_lbl]
+            #y_lbl = idx2class[y_lbl]
+            count_dict[label] += 1
+
+        return count_dict
+    else:
+        count_dict = {}
+        for x in class_names:
+            count_dict[x] = 0
+        for element in dataset_obj.dataset.labels:
+            y_lbl = int(element[0][0])
+            label = class_names[y_lbl]
+            # y_lbl = idx2class[y_lbl]
+            count_dict[label] += 1
+        return count_dict
+def get_class_weights(dataset, class_names, type):
+    if type == 'orig':
+        #class_names_2indx =
+        #target_list = torch.tensor(dataset.targets)
+        #get_class_distribution(dataset, class_names)
+        class_count = [i for i in get_class_distribution(dataset, class_names, type).values()]
+        #check fot inf values
+        indx = 0
+        for i in class_count:
+            if i == 0:
+                class_count[indx] = 0.1
+            indx += 1
+        save_path = get_local_path()+"/logs/"
+        img_writer_class_dist(class_count, class_names,"Class Distribution",save_path)
+        class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
+        return class_weights
+    else:
+        class_count = [i for i in get_class_distribution(dataset, class_names, type).values()]
+        save_path = get_local_path() + "/logs/"
+        img_writer_class_dist(class_count, class_names, "Class Distribution Weighted", save_path)
+        class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
+        return class_weights

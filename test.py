@@ -130,14 +130,14 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
     else:
         Tensor = torch.FloatTensor
 
-    plots = True
-    save_txt = True
+    #plots = True
+    #save_txt = True
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
-    jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
-    names = model.names if hasattr(model, 'names') else model.module.names
-    num_classes = len(class_names)
-    batch_size = 16
+    #jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
+    #names = model.names if hasattr(model, 'names') else model.module.names
+    #num_classes = len(class_names)
+    #batch_size = 16
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
@@ -188,7 +188,6 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
     else:
         nt = torch.zeros(1)
     '''
-    seen = 0
 
     # Concatenate sample statistics
     true_positives, pred_scores, pred_labels = [

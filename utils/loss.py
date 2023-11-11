@@ -110,7 +110,6 @@ class FocalLoss(nn.Module):
             return loss
 
 def compute_loss(predictions, targets, model): # YoloV4 implementation - "0.4.0 - RC3"
-    pass
     device = targets.device
     # print(device)
     lcls, lbox, lobj = torch.zeros(1, device=device), torch.zeros(1, device=device), torch.zeros(1, device=device)
