@@ -102,7 +102,7 @@ def img_writer_class_dist(classes,values, header,filename):
     plt.xlabel('Classes')
     # displaying the title
     plt.title(header)
-    fig.savefig(f'C:/Users/Juha/PycharmProjects/YoloV3_PyTorch/logs/{header}_for_dataset.png')
+    fig.savefig(f'{filename}/{header}_for_dataset.png')
     plt.close()
 
 def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness,epoch, filename):
