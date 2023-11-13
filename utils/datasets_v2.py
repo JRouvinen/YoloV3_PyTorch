@@ -91,7 +91,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
                                   augment=augment,  # augment images
                                   hyp=hyp,  # augmentation hyperparameters
                                   rect=rect,# rectangular training
-                                  image_weights=True,
+                                  image_weights=False,
                                   cache_images=cache,
                                   single_cls=False,
                                   stride=int(stride),
@@ -101,18 +101,21 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
 
     batch_size = min(batch_size, len(dataset))
     nw = min([os.cpu_count() // world_size, batch_size if batch_size > 1 else 0, workers])  # number of workers
-    sampler = torch.utils.data.distributed.DistributedSampler(dataset) if rank != -1 else None
-    # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
-    class_weights_all = get_class_weights(dataset, class_names, "orig")
-    weighted_sampler = WeightedRandomSampler(
-    weights=class_weights_all,
-    num_samples=len(class_weights_all),
-    replacement=True
-)
+    image_weights = True
+    if image_weights is True:
+        # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
+        class_weights_all = get_class_weights(dataset, class_names, "orig")
+        sampler = WeightedRandomSampler(
+            weights=class_weights_all,
+            num_samples=len(class_weights_all),
+            replacement=True
+        )
+    else:
+        sampler = torch.utils.data.distributed.DistributedSampler(dataset) if rank != -1 else None
     dataloader = InfiniteDataLoader(dataset,
                                     batch_size=batch_size,
                                     num_workers=nw,
-                                    sampler=weighted_sampler,
+                                    sampler=sampler,
                                     pin_memory=True,
                                     collate_fn=LoadImagesAndLabels.collate_fn)  # torch.utils.data.DataLoader()
     class_weights_weighted = get_class_weights(dataloader, class_names, "weight")

@@ -525,12 +525,12 @@ def get_class_weights(dataset, class_names, type):
         #save_path = get_local_path()+"/logs/"
         #img_writer_class_dist(class_count, class_names,"Class Distribution",save_path)
         #class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-        class_weights = [1/class_count[i] for i in class_count]
+        class_weights = [1/i for i in class_count]
         return class_weights
     else:
         class_count = [i for i in get_class_distribution(dataset, class_names, type).values()]
         #save_path = get_local_path() + "/logs/"
         #img_writer_class_dist(class_count, class_names, "Class Distribution Weighted", save_path)
         #class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
-        class_weights = [1/class_count[i] for i in class_count]
+        class_weights = [1/i for i in class_count]
         return class_weights

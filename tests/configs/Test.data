@@ -1,6 +1,6 @@
 classes=2
-train=tests/test_set_v4.1/train.txt
-valid=tests/test_set_v4.1/val.txt
+train=tests/Test_set_v4.1/train.txt
+valid=tests/Test_set_v4.1/val.txt
 names=tests/configs/Test.names
 backup=backup/
 model_name=Test-tiny
