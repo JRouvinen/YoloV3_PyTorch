@@ -494,10 +494,12 @@ def get_class_distribution(dataset_obj, class_names, type):
 
         #count_dict = {k: 0 for k, v in dataset_obj.class_to_idx.items()}
         for element in dataset_obj.labels:
-            y_lbl = int(element[0][0])
-            label = class_names[y_lbl]
-            #y_lbl = idx2class[y_lbl]
-            count_dict[label] += 1
+            if len(element) != 0: # fix for IndexError: index 0 is out of bounds for axis 0 with size 0
+                y_lbl = int(element[0][0])
+                label = class_names[y_lbl]
+                #y_lbl = idx2class[y_lbl]
+                count_dict[label] += 1
+
 
         return count_dict
     else:
@@ -505,10 +507,11 @@ def get_class_distribution(dataset_obj, class_names, type):
         for x in class_names:
             count_dict[x] = 0
         for element in dataset_obj.dataset.labels:
-            y_lbl = int(element[0][0])
-            label = class_names[y_lbl]
-            # y_lbl = idx2class[y_lbl]
-            count_dict[label] += 1
+            if len(element) != 0: # fix for IndexError: index 0 is out of bounds for axis 0 with size 0
+                y_lbl = int(element[0][0])
+                label = class_names[y_lbl]
+                # y_lbl = idx2class[y_lbl]
+                count_dict[label] += 1
         return count_dict
 def get_class_weights(dataset, class_names, type):
     if type == 'orig':

@@ -209,8 +209,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             log_file_writer(f"Class names: {class_names}", model_logfile_path)
         print_environment_info(ver, model_logfile_path)
         logger = Logger(model_logs_path)  # Tensorboard logger
-        print(
-            f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
+        #print(f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
         run_tensorboard(model_logs_path)
         debug = False
         gpu = args.gpu
@@ -1130,7 +1129,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.2"
+    ver = "0.4.2A"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

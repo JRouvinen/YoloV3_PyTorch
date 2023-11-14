@@ -105,6 +105,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
     if image_weights is True:
         # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
         class_weights_all = get_class_weights(dataset, class_names, "orig")
+
         sampler = WeightedRandomSampler(
             weights=class_weights_all,
             num_samples=len(class_weights_all),
@@ -118,7 +119,8 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
                                     sampler=sampler,
                                     pin_memory=True,
                                     collate_fn=LoadImagesAndLabels.collate_fn)  # torch.utils.data.DataLoader()
-    class_weights_weighted = get_class_weights(dataloader, class_names, "weight")
+    if image_weights is True:
+        class_weights_weighted = get_class_weights(dataloader, class_names, "weight")
     return dataloader, dataset
 
 
@@ -528,10 +530,10 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
                 # os.system("rm '%s' '%s'" % (self.img_files[i], self.label_files[i]))  # remove
 
             if rank in [-1, 0]:
-                pbar.desc = 'Scanning labels %s (%g found, %g missing, %g empty, %g duplicate, for %g images)' % (
+                pbar.desc = '---- Scanning labels %s (%g found, %g missing, %g empty, %g duplicate, for %g images) ----' % (
                     cache_path, nf, nm, ne, nd, n)
         if nf == 0:
-            s = 'WARNING: No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
+            s = '---- WARNING: No labels found in %s. See %s' % (os.path.dirname(file) + os.sep, help_url)
             print(s)
             assert not augment, '%s. Can not train without labels.' % s
 
