@@ -462,6 +462,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         pretrained = args.pretrained_weights.endswith('.pt')
         if pretrained:
             resume = True
+            warmup_run = False
+            lr_restart = True
             results_file = 'results.txt'
             ckpt = torch.load(args.weights, map_location=device)  # load checkpoint
             state_dict = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
@@ -488,7 +490,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ckpt_epoch = ckpt['epoch']
                 print(f'---- Model {args.weights} has been trained for {ckpt_epoch}. Fine-tuning for {args.epochs} additional epochs. ---- ')
                 args.epochs += ckpt['epoch']  # finetune additional epochs
-            warmup_run = False
             del ckpt, state_dict
         # #################
         # Create Dataloader - V0.4
@@ -690,26 +691,26 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ###########
                 # Warmup - 0.4
                 ###########
-                if integ_batch_num <= warmup_num and warmup_run:
-                    #scaler.step(optimizer)ät
-                    x_interp = [0, warmup_num]
-                    #accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
-                    # Simplified version
-                    accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
-                    for j, x in enumerate(optimizer.param_groups):
-                        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                        if req_scheduler == "ReduceLROnPlateau":
-                            # Burn in
-                            x['lr'] *= (batches_done / warmup_num)
-                        else:
-                            #x['lr'] = np.interp(integ_batch_num, x_interp,[hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
-                            conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
-                            choices = [0.0, x['initial_lr'] * epoch]  # ReduceLROnPlateau -> KeyError: 'initial_lr'
-                            x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
+                if warmup_run:
+                    if integ_batch_num <= warmup_num:
+                        #scaler.step(optimizer)ät
+                        x_interp = [0, warmup_num]
+                        #accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
+                        # Simplified version
+                        accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
+                        for j, x in enumerate(optimizer.param_groups):
+                            # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+                            if req_scheduler == "ReduceLROnPlateau":
+                                # Burn in
+                                x['lr'] *= (batches_done / warmup_num)
+                            else:
+                                #x['lr'] = np.interp(integ_batch_num, x_interp,[hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                                conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
+                                choices = [0.0, x['initial_lr'] * epoch]  # ReduceLROnPlateau -> KeyError: 'initial_lr'
+                                x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
 
-                        if 'momentum' in x:
-                            x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
-
+                            if 'momentum' in x:
+                                x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
 
                 else:
                     warmup_run = False
@@ -757,9 +758,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     model.zero_grad() # Test
                     if ema:
                         ema.update(model)
-
-
-
 
                 # Plot
                 #if args.evaluation_interval % epoch == 0 and args.verbose:
@@ -1129,7 +1127,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.2A"
+    ver = "0.4.2B"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
