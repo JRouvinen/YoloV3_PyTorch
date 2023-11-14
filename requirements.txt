@@ -15,3 +15,4 @@ pytest
 scikit-image
 scipy
 profilehooks
+thread_decorator

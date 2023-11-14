@@ -50,19 +50,13 @@ import datetime
 import sys
 import time
 import traceback
-
 import tqdm
-#import subprocess as sp
 import torch
-#from torch.cuda.amp import GradScaler, autocast
+from thread_decorator import threaded
 from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 import torch.optim as optim
-
-import test
-from utils.plots import plot_images
 from utils.torch_utils import ModelEMA
-#from torch.optim import lr_scheduler
 #Profilers
 #from profilehooks import profile
 #from line_profiler import profile
@@ -72,10 +66,6 @@ import numpy as np
 # Added on V0.3.0
 import configparser
 
-# Added on V0.3.1
-#import utils.pytorch_warmup as warmup
-
-# import utils.writer
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
@@ -91,7 +81,7 @@ from terminaltables import AsciiTable
 from torchsummary import summary
 from utils.datasets_v2 import create_dataloader
 from torch.cuda import amp
-from statistics import mean
+from tensorboard import program
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
@@ -160,6 +150,12 @@ def check_folders():
     output_path_there = os.path.exists(local_path + "/output/")
     if not output_path_there:
         os.mkdir(local_path + "/output/")
+@threaded()
+def run_tensorboard(tracking_address):
+    tb = program.TensorBoard()
+    tb.configure(argv=[None, '--logdir', tracking_address,'--bind_all'])
+    url = tb.launch()
+    print(f"-🎦- Tensorflow monitoring active on {url} ----")
 
 def run(args,data_config,hyp_config,ver,clearml=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -213,7 +209,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             log_file_writer(f"Class names: {class_names}", model_logfile_path)
         print_environment_info(ver, model_logfile_path)
         logger = Logger(model_logs_path)  # Tensorboard logger
-
+        print(
+            f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
+        run_tensorboard(model_logs_path)
         debug = False
         gpu = args.gpu
         auto_eval = True
@@ -488,8 +486,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             if resume:
                 assert start_epoch > 0, '%s training to %g epochs is finished, nothing to resume.' % (args.weights, args.epochs)
             if args.epochs < start_epoch:
-                print('%s has been trained for %g epochs. Fine-tuning for %g additional epochs.' %
-                            (args.weights, ckpt['epoch'], args.epochs))
+                ckpt_epoch = ckpt['epoch']
+                print(f'---- Model {args.weights} has been trained for {ckpt_epoch}. Fine-tuning for {args.epochs} additional epochs. ---- ')
                 args.epochs += ckpt['epoch']  # finetune additional epochs
             warmup_run = False
             del ckpt, state_dict
@@ -660,8 +658,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
-        print(
-            f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
+
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
 
         torch.save(model, f'./checkpoints/{model_name}_init.pt')
@@ -1133,7 +1130,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.1"
+    ver = "0.4.2"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
