@@ -459,7 +459,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         # Smart resume - V0.4
         # #################
-        pretrained = args.pretrained_weights.endswith('.pt')
+        pretrained = args.pretrained_weights.endswith('.pth')
         if pretrained:
             resume = True
             warmup_run = False
