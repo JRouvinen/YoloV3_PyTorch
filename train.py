@@ -470,9 +470,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 g['lr'] = lr
             results_file = 'results.txt'
             ckpt = torch.load(args.pretrained_weights, map_location=device)  # load checkpoint
-            state_dict = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
+            #state_dict = {k: v for k, v in ckpt.items() if model.state_dict()[k].numel() == v.numel()}
             # Optimizer
-            if ckpt['optimizer'] is not None:
+            '''
+            if model.hyperparams['optimizer'] is not None:
                 optimizer.load_state_dict(ckpt['optimizer'])
                 best_fitness = ckpt['best_fitness']
                 best_fitness_p = ckpt['best_fitness_p']
@@ -480,7 +481,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 best_fitness_ap50 = ckpt['best_fitness_ap50']
                 best_fitness_ap = ckpt['best_fitness_ap']
                 best_fitness_f = ckpt['best_fitness_f']
-
+            
             # Results
             if ckpt.get('training_results') is not None:
                 with open(results_file, 'w') as file:
@@ -494,7 +495,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ckpt_epoch = ckpt['epoch']
                 print(f'---- Model {args.weights} has been trained for {ckpt_epoch}. Fine-tuning for {args.epochs} additional epochs. ---- ')
                 args.epochs += ckpt['epoch']  # finetune additional epochs
-            del ckpt, state_dict
+            '''
+            del ckpt#, state_dict
         # #################
         # Create Dataloader - V0.4
         # #################
