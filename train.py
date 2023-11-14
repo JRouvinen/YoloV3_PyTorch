@@ -469,7 +469,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             for g in optimizer.param_groups:
                 g['lr'] = lr
             results_file = 'results.txt'
-            ckpt = torch.load(args.weights, map_location=device)  # load checkpoint
+            ckpt = torch.load(args.pretrained_weights, map_location=device)  # load checkpoint
             state_dict = {k: v for k, v in ckpt['model'].items() if model.state_dict()[k].numel() == v.numel()}
             # Optimizer
             if ckpt['optimizer'] is not None:
