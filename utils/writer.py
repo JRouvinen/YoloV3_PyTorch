@@ -2,7 +2,7 @@
 # writer.py
 # Author: Juha-Matti Rouvinen
 # Date: 2023-07-02
-# Version V3
+# Version V3.1
 ##################################
 import csv
 import matplotlib.pyplot as plt
@@ -116,7 +116,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
 
     # Plot for precision
     ax_array[0, 0].set_ylabel('Precision')
-    ax_array[0, 0].plot(x, precision, marker = 'o')
+    ax_array[0, 0].plot(x, precision)
     ax_array[0, 0].grid(axis='y', linestyle='-')
     #ax_array[0, 0].invert_yaxis()
     ax_array[0, 0].set_xlabel('Epoch')
@@ -125,7 +125,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
 
     # Plot for recall
     ax_array[0, 1].set_ylabel('Recall')
-    ax_array[0, 1].plot(x, recall, marker = 'o')
+    ax_array[0, 1].plot(x, recall)
     ax_array[0, 1].grid(axis='y', linestyle='-')
     ax_array[0, 1].set_xlabel('Epoch')
     #ax_array[0, 1].set_ybound([0, 1])
@@ -133,7 +133,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
 
     # Plot for mAP
     ax_array[0, 2].set_ylabel('mAP')
-    ax_array[0, 2].plot(x, mAP, marker = 'o')
+    ax_array[0, 2].plot(x, mAP)
     ax_array[0, 2].grid(axis='y', linestyle='-')
     ax_array[0, 2].set_xlabel('Epoch')
     #ax_array[0, 2].set_ybound([0, 1])
@@ -141,7 +141,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
 
     # Plot for f1
     ax_array[1, 0].set_ylabel('F1')
-    ax_array[1, 0].plot(x, f1, marker = 'o')
+    ax_array[1, 0].plot(x, f1)
     ax_array[1, 0].grid(axis='y', linestyle='-')
     ax_array[1, 0].set_xlabel('Epoch')
     #ax_array[1, 0].set_ybound([0, 1])
@@ -150,14 +150,14 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
 
     # Plot for train fitness
     ax_array[1, 1].set_ylabel('Train FITNESS')
-    ax_array[1, 1].plot(x, train_fitness, marker='o')
+    ax_array[1, 1].plot(x, train_fitness)
     ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[1, 1].set_xlabel('Epoch')
     #ax_array[1, 1].set_ybound([-1, ])
 
     # Plot for ckpt fitness
     ax_array[1, 2].set_ylabel('CKPT FITNESS')
-    ax_array[1, 2].plot(x, ckpt_fitness, marker='o')
+    ax_array[1, 2].plot(x, ckpt_fitness)
     ax_array[1, 2].grid(axis='y', linestyle='-')
     ax_array[1, 2].set_xlabel('Epoch')
     #ax_array[1, 2].set_ybound([0, 10])

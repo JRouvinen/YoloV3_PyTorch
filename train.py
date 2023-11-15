@@ -578,7 +578,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
             elif req_scheduler == 'ExponentialLR':
-                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9, verbose=False)
+                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']), verbose=False)
             elif req_scheduler == 'ReduceLROnPlateau':
                 minimum_lr = float(hyp_config['lr0']) / 1000
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -1133,7 +1133,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.2B"
+    ver = "0.4.2C"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
