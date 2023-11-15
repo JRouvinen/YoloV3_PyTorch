@@ -575,12 +575,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'ChainedScheduler':
                 scheduler1 = ConstantLR(optimizer, factor=0.5, total_iters=5,
                                         verbose=False)
-                scheduler2 = ExponentialLR(optimizer, gamma=0.9, verbose=False)
+                scheduler2 = ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']), verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
             elif req_scheduler == 'ExponentialLR':
                 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']), verbose=False)
             elif req_scheduler == 'ReduceLROnPlateau':
-                minimum_lr = float(hyp_config['lr0']) / 1000
+                minimum_lr = float(hyp_config['lr0'])/float(hyp_config['lrf'])
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     'min',
@@ -591,7 +591,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=int(args.evaluation_interval), verbose=False)
             elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                              base_lr=float(hyp_config['lr0'])/1000,
+                                                              base_lr=float(hyp_config['lr0'])/float(hyp_config['lrf']),
                                                               max_lr=float(hyp_config['lr0']), cycle_momentum=True,
                                                               verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
@@ -614,7 +614,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             elif req_scheduler == 'PolynomialLR':
                 scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),power=1.0) #total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(num_steps/10),eta_min=0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(num_steps/10),eta_min=float(hyp_config['lr0'])/float(hyp_config['lrf'])) #total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
@@ -630,7 +630,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR','StepLR', 'MultiStepLR','LinearLR','PolynomialLR', 'ReduceLROnPlateau']
         if req_scheduler in decay_schedulers:
             # Set learning rate for decaying schedulers
-            lr = float(hyp_config['init_lr'])
+            lr = float(hyp_config['lr0'])
             for g in optimizer.param_groups:
                 g['lr'] = lr
 
