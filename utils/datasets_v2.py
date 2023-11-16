@@ -105,10 +105,10 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
     if image_weights is True:
         # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
         class_weights_all = get_class_weights(dataset, class_names, "orig")
-
+        calc_num_smples = len(class_weights_all) * int(batch_size/len(class_weights_all))
         sampler = WeightedRandomSampler(
             weights=class_weights_all,
-            num_samples=len(class_weights_all),
+            num_samples=calc_num_smples,
             replacement=True
         )
     else:

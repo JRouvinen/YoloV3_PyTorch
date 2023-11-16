@@ -1133,7 +1133,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.2C"
+    ver = "0.4.3"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
@@ -1164,6 +1164,8 @@ if __name__ == "__main__":
                         help="Set type of scheduler")
     parser.add_argument("--optimizer", type=str, default=None,
                         help="Set type of optimizer")
+    parser.add_argument("--sampler", type=int, default=0,
+                        help="Set type of sampler [0 = None, 1 = SequentialSampler, 2 = RandomSampler, 3 = SubsetRandomSampler, 4 = WeightedRandomSampler, 5 = BatchSampler]")
     parser.add_argument("--logdir", type=str, default="logs",
                         help="Directory for training log files (e.g. for TensorBoard)")
     parser.add_argument("--name", type=str, default=None,
