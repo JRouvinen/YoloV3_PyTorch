@@ -23,7 +23,8 @@ def parse_model_config_and_hyperparams(path,hyp):
             key, value = line.split("=")
             value = value.strip()
             module_defs[-1][key.rstrip()] = value.strip()
-    module_defs[0].update(hyp)
+    if hyp != None:
+        module_defs[0].update(hyp)
     return module_defs
 
 def parse_model_config(path):

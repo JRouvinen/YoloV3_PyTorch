@@ -87,7 +87,7 @@ def print_eval_stats(metrics_output, class_names, verbose):
         print("---- mAP not measured (no detections found by model) ----")
 
 
-def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, nms_thres, verbose, device):
+def _evaluate(model, dataloader, class_names,conf_mat, img_size, iou_thres, conf_thres, nms_thres, verbose, device,):
     """Evaluate model on validation dataset.
 
     :param model: Model to evaluate
@@ -162,7 +162,9 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
         sample_metrics.extend(
             get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
         )
-
+        # Confusion matrix
+        if conf_mat != None:
+            matrix = conf_mat.process_batch(outputs, targets)
         # Plot images
         '''
         if plots:
@@ -197,7 +199,7 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
     # Print speeds
     #t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (img_size, img_size, batch_size)  # tuple
     #print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
-    return metrics_output
+    return metrics_output, matrix
 
 
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):

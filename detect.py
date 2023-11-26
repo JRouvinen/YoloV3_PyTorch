@@ -24,6 +24,7 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
 from models import load_model
+from utils.parse_config import parse_hyp_config
 from utils.utils import load_classes, rescale_boxes, non_max_suppression, print_environment_info
 from utils.datasets import ImageFolder, ListDataset
 from utils.transforms import Resize, DEFAULT_TRANSFORMS
@@ -36,7 +37,7 @@ from utils.writer import log_file_writer
 from profilehooks import profile
 
 
-def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,
+def detect_directory(model_path, weights_path, img_path, classes, output_path, gpu, date,hyp,
                      batch_size=8,img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5,draw=0):
     """Detects objects on all images in specified directory and saves output images with drawn detections.
 
@@ -63,7 +64,7 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path, g
     """
     #draw=0
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
-    model = load_model(model_path, gpu, weights_path)
+    model = load_model(model_path, hyp,gpu, weights_path)
     img_detections, imgs = detect(
         model,
         dataloader,
@@ -407,6 +408,8 @@ def run():
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
     parser.add_argument("-i", "--images", type=str, default="data/samples", help="Path to directory with images to inference")
     parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
+    parser.add_argument("--hyp", type=str, default="config/hyp.cfg",
+                        help="Path to hyperparameters config file (.cfg)")
     parser.add_argument("-o", "--output", type=str, default="output", help="Path to output directory")
     parser.add_argument("-b", "--batch_size", type=int, default=4, help="Size of each image batch")
     parser.add_argument("-d", "--draw", type=int, default=0, help="Draw detection boxes into images")
@@ -425,14 +428,17 @@ def run():
 
     # Extract class names from file
     classes = load_classes(args.classes)  # List of class names
-
+    # Get hyperparameters configuration
+    hyp_config = parse_hyp_config(args.hyp)
     detect_directory(
         args.model,
         args.weights,
         args.images,
         classes,
         args.output,
-        args.gpu,date,
+        args.gpu,
+        date,
+        hyp_config,
         batch_size=args.batch_size,
         img_size=args.img_size,
         n_cpu=args.n_cpu,
