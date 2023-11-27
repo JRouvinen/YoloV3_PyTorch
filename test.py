@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 
 from models import load_model
+from utils.confusion_matrix import ConfusionMatrix
 from utils.plots import plot_images, output_to_target
 from utils.torch_utils import select_device, time_synchronized
 from utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, xywh2xyxy, print_environment_info
@@ -86,8 +87,33 @@ def print_eval_stats(metrics_output, class_names, verbose):
     else:
         print("---- mAP not measured (no detections found by model) ----")
 
+def clip_boxes(boxes, shape):
+    # Clip boxes (xyxy) to image shape (height, width)
+    if isinstance(boxes, torch.Tensor):  # faster individually
+        boxes[..., 0].clamp_(0, shape[1])  # x1
+        boxes[..., 1].clamp_(0, shape[0])  # y1
+        boxes[..., 2].clamp_(0, shape[1])  # x2
+        boxes[..., 3].clamp_(0, shape[0])  # y2
+    else:  # np.array (faster grouped)
+        boxes[..., [0, 2]] = boxes[..., [0, 2]].clip(0, shape[1])  # x1, x2
+        boxes[..., [1, 3]] = boxes[..., [1, 3]].clip(0, shape[0])  # y1, y2
 
-def _evaluate(model, dataloader, class_names,conf_mat, img_size, iou_thres, conf_thres, nms_thres, verbose, device,):
+def scale_boxes(img1_shape, boxes, img0_shape, ratio_pad=None):
+    # Rescale boxes (xyxy) from img1_shape to img0_shape
+    if ratio_pad is None:  # calculate from img0_shape
+        gain = min(img1_shape[0] / img0_shape[0], img1_shape[1] / img0_shape[1])  # gain  = old / new
+        pad = (img1_shape[1] - img0_shape[1] * gain) / 2, (img1_shape[0] - img0_shape[0] * gain) / 2  # wh padding
+    else:
+        gain = ratio_pad[0][0]
+        pad = ratio_pad[1]
+
+    boxes[..., [0, 2]] -= pad[0]  # x padding
+    boxes[..., [1, 3]] -= pad[1]  # y padding
+    boxes[..., :4] /= gain
+    clip_boxes(boxes, img0_shape)
+    return boxes
+
+def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, conf_thres, nms_thres, verbose, device,):
     """Evaluate model on validation dataset.
 
     :param model: Model to evaluate
@@ -138,10 +164,12 @@ def _evaluate(model, dataloader, class_names,conf_mat, img_size, iou_thres, conf
     #names = model.names if hasattr(model, 'names') else model.module.names
     #num_classes = len(class_names)
     #batch_size = 16
+    confusion_matrix = ConfusionMatrix(nc=len(class_names))
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
     #for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+        print('targets:',targets)
         # Extract labels
         labels += targets[:, 1].tolist()
         # Rescale target
@@ -163,8 +191,20 @@ def _evaluate(model, dataloader, class_names,conf_mat, img_size, iou_thres, conf
             get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
         )
         # Confusion matrix
-        if conf_mat != None:
-            matrix = conf_mat.process_batch(outputs, targets)
+        for si, pred in enumerate(outputs):
+            out_labels = targets[targets[:, 0] == si, 1:]
+            nl, npr = out_labels.shape[0], pred.shape[0]  # number of labels, predictions
+            predn = pred.clone()
+            #scale_boxes(_[si].shape[1:], predn[:, :4], shape, shapes[si][1])  # native-space pred
+            # Evaluate
+            if nl:
+                print('labels:',out_labels)
+                tbox = xywh2xyxy(out_labels[:, 1:5])  # target boxes
+                #scale_boxes(_[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
+                labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
+                #correct = process_batch(predn, labelsn, iouv)
+                confusion_matrix.process_batch(predn, labelsn)
+        confusion_matrix.plot(True,img_log_path,class_names)
         # Plot images
         '''
         if plots:
@@ -199,7 +239,7 @@ def _evaluate(model, dataloader, class_names,conf_mat, img_size, iou_thres, conf
     # Print speeds
     #t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (img_size, img_size, batch_size)  # tuple
     #print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
-    return metrics_output, matrix
+    return metrics_output
 
 
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):

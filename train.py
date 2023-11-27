@@ -668,7 +668,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         # Confusion matrix - V0.4.4
         # #################
-        conf_mat = ConfusionMatrix(num_classes=num_classes, CONF_THRESHOLD=float(args.conf_thres), IOU_THRESHOLD=float(args.iou_thres))
+        #conf_mat = ConfusionMatrix(num_classes=num_classes, CONF_THRESHOLD=float(args.conf_thres), IOU_THRESHOLD=float(args.iou_thres))
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
@@ -808,7 +808,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 ["Object loss", float(loss_items[1])],
                                 ["Class loss", float(loss_items[2])],
                                 ["Loss", float(loss_items[3])],
-                                ["Batch Loss", float(mloss)],
+                                ["Batch Loss", float(mloss_mean)],
                                 #["Batch loss", to_cpu(mloss).item()],
                             ]).table)
 
@@ -818,7 +818,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         ("train/obj_loss", float(loss_items[1])),
                         ("train/class_loss", float(loss_items[2])),
                         ("train/loss", float(loss_items[3])),
-                        ("train/batch loss", float(mloss)),
+                        ("train/batch loss", float(mloss_mean)),
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
@@ -856,7 +856,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                             float(loss_items[1]),  # Object Loss
                             float(loss_items[2]),  # Class Loss
                             float(loss_items[3]),  # Loss
-                            float(mloss),  # Batch Loss
                             float(mloss_mean),  # Mean Loss
                             (lr_float)  # Learning rate
                             ]
@@ -882,7 +881,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_items[1])])))
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_items[2])])))
                     loss_array = np.concatenate((loss_array, np.array([float(loss_items[3].item())])))
-                    batch_loss_array = np.concatenate((batch_loss_array, np.array([mloss])))
+                    batch_loss_array = np.concatenate((batch_loss_array, np.array([mloss_mean])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
                     img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,batch_loss_array,
                                         batches_array,
@@ -948,11 +947,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 # Do evaluation on every epoch for better logging
                 print("\n- 🔄 - Evaluating Model ----")
                 # Evaluate the model on the validation set
-                metrics_output,conf_matrix = _evaluate(
+                metrics_output = _evaluate(
                     model,
                     validation_dataloader,
                     class_names,
-                    conf_mat,
+                    model_imgs_logs_path,
                     img_size=model.hyperparams['height'],
                     iou_thres=args.iou_thres,
                     conf_thres=args.conf_thres,
@@ -960,7 +959,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     verbose=args.verbose,
                     device=device,
                 )
-                print("Confusion matrix",conf_matrix)
+
                 if metrics_output is not None:
                     precision, recall, AP, f1, ap_class = metrics_output
                     evaluation_metrics = [
@@ -1146,7 +1145,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.4"
+    ver = "0.4.5"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
