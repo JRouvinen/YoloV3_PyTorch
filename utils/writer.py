@@ -7,6 +7,9 @@
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
+from utils import threaded
+
+
 def csv_writer(data, filename, oper):
     #header = ['Iterations','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']
     #header = ['Epoch', 'Epochs', 'Precision', 'Recall', 'mAP', 'F1']
@@ -68,12 +71,10 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     ax_array[0, 0].grid(True)
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    if np.mean(iteration) >= 500:
-        try:
-            ax_array[1, 1].set_yscale('log')
-            ax_array[1, 1].grid(axis='y', linestyle=' ')
-        except UserWarning:
-            pass
+    percentage_threshold = 0.05  # Set the percentage threshold (e.g., 50%)
+    if np.mean(iteration) >= percentage_threshold * np.max(iteration):
+        ax_array[1, 1].set_yscale('log')
+        ax_array[1, 1].grid(axis='y', linestyle=' ')
     ax_array[1, 1].set_xlabel('Iteration')
 
     # Plot for loss
@@ -185,6 +186,24 @@ def img_writer_eval_stats(classes,ap,filename):
     plt.title(filename)
     plt.close()
 
+def img_writer_losses(train_loss, eval_loss, epoch, filename):
+    #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array, curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
+    # Placing the plots in the plane
+    fig = plt.figure(layout="constrained", figsize=(20, 20))
+    fig.set_dpi(1240)
+    #ax_array = fig.subplots(2, 3, squeeze=False)
+    # Using Numpy to create an array x
+    x = epoch
+
+    # Plots for losses
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.title('train_eval_losses')
+    plt.plot(x, train_loss)
+    plt.plot(x, eval_loss)
+
+    fig.savefig(filename + '_train_eval_losses.png')
+    plt.close()
 
 def log_file_writer(data, filename):
     #log_path = filename.replace("checkpoints", "")

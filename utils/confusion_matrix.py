@@ -47,14 +47,20 @@ class ConfusionMatrix:
         for i, gc in enumerate(gt_classes):
             j = m0 == i
             if n and sum(j) == 1:
-                self.matrix[detection_classes[m1[j]], gc] += 1  # correct
+                try:
+                    self.matrix[detection_classes[m1[j]], gc] += 1  # correct
+                except IndexError:
+                    self.matrix[self.nc, gc] += 1  # true background
             else:
                 self.matrix[self.nc, gc] += 1  # true background
 
         if n:
             for i, dc in enumerate(detection_classes):
                 if not any(m1 == i):
-                    self.matrix[dc, self.nc] += 1  # predicted background
+                    try:
+                        self.matrix[dc, self.nc] += 1  # predicted background
+                    except IndexError:
+                        pass
 
     def tp_fp(self):
         tp = self.matrix.diagonal()  # true positives

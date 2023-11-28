@@ -21,6 +21,8 @@ import numpy as np
 import subprocess
 import random
 import imgaug as ia
+
+from utils.loss import compute_loss
 from utils.writer import log_file_writer, img_writer_class_dist
 
 

@@ -17,6 +17,7 @@ from torch.autograd import Variable
 
 from models import load_model
 from utils.confusion_matrix import ConfusionMatrix
+from utils.loss import compute_loss, compute_eval_loss
 from utils.plots import plot_images, output_to_target
 from utils.torch_utils import select_device, time_synchronized
 from utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, xywh2xyxy, print_environment_info
@@ -141,7 +142,7 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     
     if not isinstance(model, torch.nn.Module):
         raise ValueError("model must be an instance of torch.nn.Module")
-    
+
     if not isinstance(dataloader, torch.utils.data.DataLoader):
         raise ValueError("dataloader must be an instance of torch.utils.data.DataLoader")
     
@@ -164,6 +165,8 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     #names = model.names if hasattr(model, 'names') else model.module.names
     #num_classes = len(class_names)
     #batch_size = 16
+    outputs_list = []
+    targets_list = []
     confusion_matrix = ConfusionMatrix(nc=len(class_names))
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
@@ -178,6 +181,7 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
         with torch.no_grad():
             t = time_synchronized()
             outputs = model(imgs)
+
             t0 += time_synchronized() - t
             t = time_synchronized()
 
@@ -189,6 +193,7 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
         sample_metrics.extend(
             get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
         )
+
         # Confusion matrix
         for si, pred in enumerate(outputs):
             out_labels = targets[targets[:, 0] == si, 1:]
@@ -207,7 +212,6 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     if len(sample_metrics) == 0:  # No detections over whole validation set.
         print("---- No detections over whole validation set ----")
         return None
-
 
 
     # Compute statistics

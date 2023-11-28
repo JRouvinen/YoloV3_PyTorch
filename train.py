@@ -52,10 +52,10 @@ import time
 import traceback
 import tqdm
 import torch
-from thread_decorator import threaded
 from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlateau
 from torch.utils.data import DataLoader
 import torch.optim as optim
+from utils import threaded
 
 from utils.confusion_matrix import ConfusionMatrix
 from utils.torch_utils import ModelEMA
@@ -78,7 +78,8 @@ from utils.augmentations import AUGMENTATION_TRANSFORMS
 from utils.parse_config import parse_data_config, parse_model_weight_config, parse_hyp_config
 from utils.loss import compute_loss, fitness, training_fitness
 from test import _evaluate, _create_validation_data_loader
-from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats
+from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats, \
+    img_writer_losses
 from terminaltables import AsciiTable
 from torchsummary import summary
 from utils.datasets_v2 import create_dataloader
@@ -199,6 +200,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         if not logs_img_path_there:
             os.mkdir(model_logs_path+model_imgs_logs_path)
             model_imgs_logs_path = model_logs_path+model_imgs_logs_path
+        model_ckpt_path = '/checkpoints/'
+        model_ckpt_path_there = os.path.exists(model_logs_path + model_ckpt_path)
+        if not model_ckpt_path_there:
+            os.mkdir(model_logs_path + model_ckpt_path)
+            model_ckpt_logs_path = model_logs_path + model_ckpt_path
         #Create and write model log files
         model_logfile_path = model_logs_path +'/'+ model_name +"_logfile" + ".txt"
         # Create new log file
@@ -257,7 +263,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         cls_loss_array = np.array([])
         batch_loss_array = np.array([])
         batches_array = np.array([])
-        loss_array = np.array([])
+        train_loss_array = np.array([])
+        train_loss_array_epoch = np.array([])
+        eval_loss_array = np.array([])
         lr_array = np.array([])
         epoch_array = np.array([])
         eval_epoch_array = np.array([])
@@ -515,8 +523,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                                 rank=-1, world_size=1, workers=int(args.n_cpu))
 
         '''
-        validation_dataloader = create_dataloader(valid_path, imgsize, batch_size*2, gs, args,
-                                       hyp=hyp_config, cache=False, rect=True,
+        validation_dataloader = create_dataloader(valid_path, imgsize, batch_size, gs, args, class_names, model_imgs_logs_path,
+                                       hyp=hyp_config, augment=True,cache=False, rect=True,
                                        rank=-1, world_size=1, workers=int(args.n_cpu))  # testloader
         '''
         validation_dataloader = _create_validation_data_loader(
@@ -671,7 +679,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
 
-        torch.save(model, f'./{model_logs_path}/{model_name}_init.pt')
+        torch.save(model, f'{model_ckpt_logs_path}/{model_name}_init.pt')
         # Modded on V0.4
 
         for epoch in range(1, args.epochs + 1):
@@ -804,7 +812,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 ["Object loss", float(loss_items[1])],
                                 ["Class loss", float(loss_items[2])],
                                 ["Loss", float(loss_items[3])],
-                                ["Batch Loss", float(mloss_mean)],
+                                ["Batch Loss", float(loss.item())],
                                 #["Batch loss", to_cpu(mloss).item()],
                             ]).table)
 
@@ -814,7 +822,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         ("train/obj_loss", float(loss_items[1])),
                         ("train/class_loss", float(loss_items[2])),
                         ("train/loss", float(loss_items[3])),
-                        ("train/batch loss", float(mloss_mean)),
+                        ("train/batch loss", float(loss.item())),
 
                     ]
                     logger.list_of_scalars_summary(tensorboard_log, batches_done)
@@ -836,7 +844,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         task.logger.report_scalar(title="Train/Losses", series="Loss", iteration=batches_done,
                                                   value=float(loss_items[3]))
                         task.logger.report_scalar(title="Train/Losses", series="Batch loss", iteration=batches_done,
-                                                  value=mloss)
+                                                  value=loss.item())
                         task.logger.report_scalar(title="Train/Lr", series="Learning rate", iteration=batches_done,
                                                   value=np.mean(lr))
 
@@ -852,6 +860,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                             float(loss_items[1]),  # Object Loss
                             float(loss_items[2]),  # Class Loss
                             float(loss_items[3]),  # Loss
+                            float(loss.item()), # Batch loss
                             float(mloss_mean),  # Mean Loss
                             (lr_float)  # Learning rate
                             ]
@@ -876,10 +885,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     iou_loss_array = np.concatenate((iou_loss_array, np.array([float(loss_items[0])])))
                     obj_loss_array = np.concatenate((obj_loss_array, np.array([float(loss_items[1])])))
                     cls_loss_array = np.concatenate((cls_loss_array, np.array([float(loss_items[2])])))
-                    loss_array = np.concatenate((loss_array, np.array([float(loss_items[3].item())])))
-                    batch_loss_array = np.concatenate((batch_loss_array, np.array([mloss_mean])))
+                    train_loss_array = np.concatenate((train_loss_array, np.array([float(loss_items[3].item())])))
+                    batch_loss_array = np.concatenate((batch_loss_array, np.array([float(loss.item())])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
-                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, loss_array, lr_array,batch_loss_array,
+                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, train_loss_array, lr_array,batch_loss_array,
                                         batches_array,
                                         model_logs_path+'/'+model_name)
             # #############
@@ -891,7 +900,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 # Save last model to checkpoint file
 
                 # Updated on version 0.3.0 to save only last
-                checkpoint_path = f"{model_logs_path}/{model_name}_ckpt_last.pth"
+                checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_last.pth"
                 print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
                 torch.save(model.state_dict(), checkpoint_path)
                 checkpoints_saved += 1
@@ -900,7 +909,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 # ClearML last model update - V 0.3.7 -> changed on version 0.3.11F to save every eval epoch
                 ############################
                 if clearml_run and clearml_save_last:
-                    task.update_output_model(model_path=f"checkpoints/{model_name}_ckpt_last.pth")
+                    task.update_output_model(model_path=f"{model_ckpt_logs_path}/{model_name}_ckpt_last.pth")
 
             if auto_eval is True and loss_items.dim() > 0:
                 # #############
@@ -1019,14 +1028,14 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                     if curr_fitness > best_fitness and epoch > int(args.evaluation_interval):
                         best_fitness = curr_fitness
-                        checkpoint_path = f"{model_logs_path}/best/{model_name}_ckpt_best.pth"
+                        checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                         torch.save(model.state_dict(), checkpoint_path)
                         ############################
                         # ClearML model update - V 3.0.0
                         ############################
                         if clearml_run:
-                            task.update_output_model(model_path=f"{model_logs_path}/best/{model_name}_ckpt_best.pth")
+                            task.update_output_model(model_path=f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth")
 
                         ############################
                         # Save best checkpoint evaluation stats into csv - V0.3.8
@@ -1125,8 +1134,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             # Delete the file
             os.remove(file_path)
             print("- ❌ - The old INTERRUPTED.pth has been deleted... -----")
-        torch.save(model.state_dict(), 'INTERRUPTED.pth')
-        print('- 💾 - Current weights are saved into INTERRUPTED.pth ----')
+        torch.save(model.state_dict(), f'{model_ckpt_logs_path}/INTERRUPTED.pth')
+        print(f'- 💾 - Current weights are saved into {model_ckpt_logs_path}/INTERRUPTED.pth ----')
         try:
             sys.exit(0)
         except SystemExit:
@@ -1141,7 +1150,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.5A"
+    ver = "0.4.5B"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
