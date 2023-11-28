@@ -84,7 +84,7 @@ def exif_size(img):
     return s
 
 
-def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=None, augment=False, cache=False, pad=0.0, rect=False,
+def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log_path,hyp=None, augment=False, cache=False, pad=0.0, rect=False,
                       rank=-1, world_size=1, workers=8):
     # Make sure only the first process in DDP process the dataset first, and the following others can use the cache
     #with torch_distributed_zero_first(rank):
@@ -121,7 +121,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
         )
     if opt.sampler == 4:
         # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
-        class_weights_all = get_class_weights(dataset, class_names, "orig")
+        class_weights_all = get_class_weights(dataset, class_names, "orig", img_log_path)
         calc_num_smples = len(class_weights_all) * int(batch_size/len(class_weights_all))
         sampler = WeightedRandomSampler(
             weights=class_weights_all,
@@ -142,7 +142,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, hyp=Non
                                     sampler=sampler,
                                     pin_memory=True,
                                     collate_fn=LoadImagesAndLabels.collate_fn)  # torch.utils.data.DataLoader()
-    class_weights_weighted = get_class_weights(dataloader, class_names, "weight")
+    class_weights_weighted = get_class_weights(dataloader, class_names, "weight",img_log_path)
     return dataloader, dataset
 
 

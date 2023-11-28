@@ -169,7 +169,6 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
     #for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
-        print('targets:',targets)
         # Extract labels
         labels += targets[:, 1].tolist()
         # Rescale target
@@ -195,24 +194,16 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
             out_labels = targets[targets[:, 0] == si, 1:]
             nl, npr = out_labels.shape[0], pred.shape[0]  # number of labels, predictions
             predn = pred.clone()
-            #scale_boxes(_[si].shape[1:], predn[:, :4], shape, shapes[si][1])  # native-space pred
             # Evaluate
             if nl:
-                print('labels:',out_labels)
+
                 tbox = xywh2xyxy(out_labels[:, 1:5])  # target boxes
                 #scale_boxes(_[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
                 labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
                 #correct = process_batch(predn, labelsn, iouv)
                 confusion_matrix.process_batch(predn, labelsn)
         confusion_matrix.plot(True,img_log_path,class_names)
-        # Plot images
-        '''
-        if plots:
-            f = f'logs/test_batch{_}_labels.jpg'  # filename
-            plot_images(outputs, targets, f, names)  # labels
-            f = f'logs/test_batch{_}_pred.jpg'
-            plot_images(_, output_to_target(outputs, img_size, img_size), f, names)  # predictions
-    '''
+
     if len(sample_metrics) == 0:  # No detections over whole validation set.
         print("---- No detections over whole validation set ----")
         return None

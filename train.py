@@ -280,7 +280,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         # Create training csv file
         #header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
-        header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Batch loss', 'Mean loss',
+        header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Mean loss',
                   'Learning Rate']
         csv_writer(header, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
@@ -510,7 +510,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         imgsize, imgsize_test = [check_img_size(x, gs) for x in image_dims]  # verify imgsz are gs-multiples
         workers = int(args.n_cpu)
         # Trainloader
-        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,class_names,
+        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,class_names, model_imgs_logs_path,
                                                 hyp=hyp_config, augment=True, cache=False, rect=False,
                                                 rank=-1, world_size=1, workers=int(args.n_cpu))
 
@@ -665,17 +665,13 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         model.class_weights = labels_to_class_weights(dataset.labels, num_classes).to(device)  # attach class weights
         model.names = class_names
 
-        # #################
-        # Confusion matrix - V0.4.4
-        # #################
-        #conf_mat = ConfusionMatrix(num_classes=num_classes, CONF_THRESHOLD=float(args.conf_thres), IOU_THRESHOLD=float(args.iou_thres))
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
 
         print(f"\n- 🔛 - Starting Model {model_name} training... ----")
 
-        torch.save(model, f'./checkpoints/{model_name}_init.pt')
+        torch.save(model, f'./{model_logs_path}/{model_name}_init.pt')
         # Modded on V0.4
 
         for epoch in range(1, args.epochs + 1):
@@ -895,7 +891,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 # Save last model to checkpoint file
 
                 # Updated on version 0.3.0 to save only last
-                checkpoint_path = f"checkpoints/{model_name}_ckpt_last.pth"
+                checkpoint_path = f"{model_logs_path}/{model_name}_ckpt_last.pth"
                 print(f"- ⏺ - Saving last checkpoint to: '{checkpoint_path}' ----")
                 torch.save(model.state_dict(), checkpoint_path)
                 checkpoints_saved += 1
@@ -1023,14 +1019,14 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                     if curr_fitness > best_fitness and epoch > int(args.evaluation_interval):
                         best_fitness = curr_fitness
-                        checkpoint_path = f"checkpoints/best/{model_name}_ckpt_best.pth"
+                        checkpoint_path = f"{model_logs_path}/best/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                         torch.save(model.state_dict(), checkpoint_path)
                         ############################
                         # ClearML model update - V 3.0.0
                         ############################
                         if clearml_run:
-                            task.update_output_model(model_path=f"checkpoints/best/{model_name}_ckpt_best.pth")
+                            task.update_output_model(model_path=f"{model_logs_path}/best/{model_name}_ckpt_best.pth")
 
                         ############################
                         # Save best checkpoint evaluation stats into csv - V0.3.8
@@ -1041,7 +1037,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         #print('ap cls',ap_class)
                         #print('AP',AP)
                         #print(class_names)
-                        csv_writer("", f"checkpoints/best/{model_name}_eval_stats.csv", 'w')
+                        csv_writer("", f"{model_logs_path}/{model_name}_eval_stats.csv", 'w')
                         eval_stats_class_array = np.array([])
                         eval_stats_ap_array = np.array([])
 
@@ -1054,21 +1050,21 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                             eval_stats_ap_array = np.concatenate((eval_stats_ap_array, np.array([AP[i]])))
 
                             logger.scalar_summary(f"validation/class/{class_names[i]}", round(float(AP[i]), 5), epoch)
-                            csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
+                            csv_writer(data, f"{model_logs_path}/{model_name}_eval_stats.csv", 'a')
 
                         # Write mAP value as last line
                         data = ["--",  #
                                 'mAP',  #
                                 str(round(AP.mean(), 5)),
                                 ]
-                        csv_writer(data, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
+                        csv_writer(data, f"{model_logs_path}/{model_name}_eval_stats.csv", 'a')
                         img_writer_eval_stats(eval_stats_class_array,eval_stats_ap_array,f"checkpoints/best/{model_name}")
                         # ############
                         # ClearML csv reporter logger - V0.3.8
                         # ############
                         if clearml_run:
                             # Report table - CSV from path
-                            csv_url = f"checkpoints/best/{model_name}_eval_stats.csv"
+                            csv_url = f"{model_logs_path}/{model_name}_eval_stats.csv"
                             task.logger.report_table(
                                 "Model evaluation stats",
                                 f"{model_name}_eval_stats.csv",
@@ -1145,7 +1141,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.5"
+    ver = "0.4.5A"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")
