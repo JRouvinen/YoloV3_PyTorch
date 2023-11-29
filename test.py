@@ -4,27 +4,21 @@ from __future__ import division
 
 import argparse
 import datetime
-from pathlib import Path
 
 import tqdm
-import numpy as np
-
 from terminaltables import AsciiTable
-
-import torch
-from torch.utils.data import DataLoader
 from torch.autograd import Variable
+from torch.utils.data import DataLoader
 
-from models import load_model
-from utils.confusion_matrix import ConfusionMatrix
-from utils.loss import compute_loss, compute_eval_loss
-from utils.plots import plot_images, output_to_target
-from utils.torch_utils import select_device, time_synchronized
-from utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, xywh2xyxy, print_environment_info
-from utils.datasets import ListDataset
-from utils.transforms import DEFAULT_TRANSFORMS
-from utils.parse_config import parse_data_config
 from models import *
+from utils.confusion_matrix import ConfusionMatrix
+from utils.datasets import ListDataset
+from utils.parse_config import parse_data_config
+from utils.torch_utils import time_synchronized
+from utils.transforms import DEFAULT_TRANSFORMS
+from utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, xywh2xyxy, \
+    print_environment_info
+
 
 def evaluate_model_file(model_path, weights_path, img_path, class_names, batch_size, img_size,
                         n_cpu, iou_thres, conf_thres, nms_thres, verbose, device):

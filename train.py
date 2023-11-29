@@ -5,36 +5,47 @@
 # Date: 2023-07-01
 ##################################
 '''
-The  train.py  script is used to train the YOLO (You Only Look Once) object detection model.
-It takes command line arguments to specify the model definition file, data configuration file, number of epochs,
+The  train.py  script is used to train the YOLO (You Only Look Once)
+object detection model.
+It takes command line arguments to specify the model definition file,
+data configuration file, number of epochs,
 verbosity level, GPU usage, and other parameters.
 
-The script starts by creating necessary folders for logs, checkpoints, and output.
-It then parses the command line arguments and loads the model, data configuration, and class names.
+The script starts by creating necessary folders for logs,
+checkpoints, and output.
+It then parses the command line arguments and loads the model,
+data configuration, and class names.
 The model is loaded with the specified pretrained weights if provided.
 
 Next, the script creates a DataLoader for training and validation data.
-It also creates an optimizer for the model based on the specified optimizer in the model's hyperparameters.
-The learning rate is adjusted based on the number of warmup iterations or the scheduler.
+It also creates an optimizer for the model based on the specified
+optimizer in the model's hyperparameters.
+The learning rate is adjusted based on the number
+of warmup iterations or the scheduler.
 
 The script then trains the model for the specified number of epochs.
-In each epoch, it iterates over the training data, performs forward and backward passes, and updates the model's parameters.
+In each epoch, it iterates over the training data,
+performs forward and backward passes, and updates the model's parameters.
 It logs the training progress and saves checkpoints at specified intervals.
 
 After each epoch, the script evaluates the model on the validation set.
 It calculates precision, recall, average precision (AP), and F1 score.
-It also calculates a fitness score based on these metrics. The best model based on the fitness score is saved as
+It also calculates a fitness score based on these metrics.
+The best model based on the fitness score is saved as
 the best checkpoint.
 
 The script logs the training and evaluation progress to TensorBoard and ClearML, if enabled.
 It also saves training and evaluation metrics to CSV files for further analysis.
 
-Finally, the script prints the execution time and provides a command to monitor training progress with TensorBoard.
+Finally, the script prints the execution time and provides a command to
+monitor training progress with TensorBoard.
 
-To run the script, you need to provide the necessary command line arguments, such as the model definition file,
-data configuration file, and pretrained weights. For example:
+To run the script, you need to provide the necessary command line arguments,
+such as the model definition file,data configuration file, and pretrained weights.
+For example:
 
-python train.py -m config/yolov3.cfg -d config/coco.data -e 300 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 5 --evaluation_interval 5
+python train.py -m config/yolov3.cfg -d config/coco.data -e 300 -v
+--pretrained_weights weights/yolov3.weights --checkpoint_interval 5 --evaluation_interval 5
 
 This will train the YOLO model for 300 epochs using the COCO dataset, with verbosity and save checkpoints and
 perform evaluations every 5 epochs. The pretrained weights from  weights/yolov3.weights  will be used to initialize the model.
@@ -50,41 +61,42 @@ import datetime
 import sys
 import time
 import traceback
+import configparser
+from test import _evaluate, _create_validation_data_loader
 import tqdm
 import torch
-from torch.optim.lr_scheduler import ConstantLR, ExponentialLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import ConstantLR, ExponentialLR
 from torch.utils.data import DataLoader
 import torch.optim as optim
+import numpy as np
+from torchsummary import summary
+from tensorboard import program
+from terminaltables import AsciiTable
+from torch.cuda import amp
 from utils import threaded
 
-from utils.confusion_matrix import ConfusionMatrix
 from utils.torch_utils import ModelEMA
-#Profilers
-#from profilehooks import profile
-#from line_profiler import profile
-#from memory_profiler import profile
+# Profilers
+# from profilehooks import profile
+# from line_profiler import profile
+# from memory_profiler import profile
 
-import numpy as np
 # Added on V0.3.0
-import configparser
 
 from models import load_model
 from utils.autobatcher import check_train_batch_size
 from utils.logger import Logger
-from utils.utils import to_cpu, load_classes, print_environment_info, provide_determinism, worker_seed_set, one_cycle, \
-    check_amp, check_img_size, labels_to_image_weights, labels_to_class_weights, tensor_to_np_array
+from utils.utils import (to_cpu, load_classes, print_environment_info, provide_determinism,
+                         worker_seed_set, one_cycle, check_img_size,
+                         labels_to_image_weights, labels_to_class_weights, tensor_to_np_array)
 from utils.datasets import ListDataset
 from utils.augmentations import AUGMENTATION_TRANSFORMS
-from utils.parse_config import parse_data_config, parse_model_weight_config, parse_hyp_config
+from utils.parse_config import parse_data_config, parse_hyp_config
 from utils.loss import compute_loss, fitness, training_fitness
-from test import _evaluate, _create_validation_data_loader
-from utils.writer import csv_writer, img_writer_training, img_writer_evaluation, log_file_writer, img_writer_eval_stats, \
-    img_writer_losses
-from terminaltables import AsciiTable
-from torchsummary import summary
+from utils.writer import (csv_writer, img_writer_training, img_writer_evaluation,
+                          log_file_writer, img_writer_eval_stats)
 from utils.datasets_v2 import create_dataloader
-from torch.cuda import amp
-from tensorboard import program
+
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
@@ -117,12 +129,13 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
         worker_init_fn=worker_seed_set)
     return dataloader
 
+
 def find_and_del_last_ckpt():
     is_pth_file = False
     list_of_files = os.listdir('checkpoints/')
     full_path = ["checkpoints/{0}".format(x) for x in list_of_files]
     oldest_file = min(full_path, key=os.path.getctime)
-    while is_pth_file == False:
+    while not is_pth_file:
         if oldest_file.endswith('.pth'):
             is_pth_file = True
         else:
@@ -153,14 +166,17 @@ def check_folders():
     output_path_there = os.path.exists(local_path + "/output/")
     if not output_path_there:
         os.mkdir(local_path + "/output/")
+
+
 @threaded()
 def run_tensorboard(tracking_address):
     tb = program.TensorBoard()
-    tb.configure(argv=[None, '--logdir', tracking_address,'--bind_all'])
+    tb.configure(argv=[None, '--logdir', tracking_address, '--bind_all'])
     url = tb.launch()
     print(f"-🎦- Tensorflow monitoring active on {url} ----")
 
-def run(args,data_config,hyp_config,ver,clearml=None):
+
+def run(args, data_config, hyp_config, ver, clearml=None):
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     if args.test_cycle is True:
         # Check folders
@@ -188,25 +204,25 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             else:
                 model_name = model_name + '_' + str(date)
         local_path = os.getcwd()
-        model_logs_path = os.path.join(local_path,args.logdir, model_name)
-        #Create model named log folder in logs folder
+        model_logs_path = os.path.join(local_path, args.logdir, model_name)
+        # Create model named log folder in logs folder
 
         # Check if logs folder exists
         logs_path_there = os.path.exists(model_logs_path)
         if not logs_path_there:
-            os.mkdir(model_logs_path+'/')
+            os.mkdir(model_logs_path + '/')
         model_imgs_logs_path = '/images/'
-        logs_img_path_there = os.path.exists(model_logs_path+model_imgs_logs_path)
+        logs_img_path_there = os.path.exists(model_logs_path + model_imgs_logs_path)
         if not logs_img_path_there:
-            os.mkdir(model_logs_path+model_imgs_logs_path)
-            model_imgs_logs_path = model_logs_path+model_imgs_logs_path
+            os.mkdir(model_logs_path + model_imgs_logs_path)
+            model_imgs_logs_path = model_logs_path + model_imgs_logs_path
         model_ckpt_path = '/checkpoints/'
         model_ckpt_path_there = os.path.exists(model_logs_path + model_ckpt_path)
         if not model_ckpt_path_there:
             os.mkdir(model_logs_path + model_ckpt_path)
             model_ckpt_logs_path = model_logs_path + model_ckpt_path
-        #Create and write model log files
-        model_logfile_path = model_logs_path +'/'+ model_name +"_logfile" + ".txt"
+        # Create and write model log files
+        model_logfile_path = model_logs_path + '/' + model_name + "_logfile" + ".txt"
         # Create new log file
         f = open(model_logfile_path, "w")
         f.close()
@@ -217,9 +233,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             log_file_writer(f"Class names: {class_names}", model_logfile_path)
         print_environment_info(ver, model_logfile_path)
         logger = Logger(model_logs_path)  # Tensorboard logger
-        #print(f"- 🎦 - You can monitor training with tensorboard by typing this command into console: tensorboard --logdir {args.logdir} --bind_all  ----")
         run_tensorboard(model_logs_path)
-        debug = False
         gpu = args.gpu
         auto_eval = True
         best_training_fitness = 999999
@@ -228,23 +242,18 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         device = torch.device("cpu")
         cuda_available = False
         mem = 0.0
-        #epoch_start = ""
-        #epoch_end = ""
         exec_time = 0
         do_auto_eval = False
-        #use_smart_optimizer = False
         if args.warmup:
             warmup_run = True
         else:
             warmup_run = False
-        start_epoch, train_fitness = 0,0
+        start_epoch, train_fitness = 0, 0
         clearml_run = False
-        #fi_train = 0
         # Get model weight eval parameters
         # Access the parameters from the config file
         w_train = []
         w = []
-
         w_train_str = hyp_config['w_train'].strip('][').split(', ')
         w_str = hyp_config['w'].strip('][').split(', ')
         lr_restart = False
@@ -264,21 +273,18 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         batch_loss_array = np.array([])
         batches_array = np.array([])
         train_loss_array = np.array([])
-        train_loss_array_epoch = np.array([])
-        eval_loss_array = np.array([])
         lr_array = np.array([])
-        epoch_array = np.array([])
         eval_epoch_array = np.array([])
         precision_array = np.array([])
         recall_array = np.array([])
-        mAP_array = np.array([])
+        m_ap_array = np.array([])
         f1_array = np.array([])
 
         # ap_cls_array = np.array([])
         curr_fitness_array = np.array([])
         train_fitness_array = np.array([])
 
-        last_opt_step = -1
+        # last_opt_step = -1
         # Define the maximum gradient norm for clipping
         max_grad_norm = 1.0
 
@@ -287,7 +293,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         ################
 
         # Create training csv file
-        #header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
+        # header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Learning Rate']
         header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Mean loss',
                   'Learning Rate']
         csv_writer(header, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
@@ -304,7 +310,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # Create ClearML task - version 0.3.0
         ################
 
-        if clearml != None:
+        if clearml is not None:
             # Access the parameters from the config file
             proj_name = clearml.get('clearml', 'proj_name')
             # task_name = config.get('clearml', 'task_name')
@@ -335,12 +341,6 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 # Instantiate an OutputModel with a task object argument
                 clearml.OutputModel(task=task, framework="PyTorch")
 
-        # ############
-        # GPU memory check and batch setting DONE: Needs more calculations based on parameters -> implemented on 'check_train_batch_size'
-        # ############
-
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # DONE:Needs checkup on available gpu memory
         if gpu != -1:
             if torch.cuda.is_available() is True:
                 device = torch.device("cuda")
@@ -354,7 +354,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # ############
         # Create model - Updated on V0.4.0
         # ############
-        model = load_model(args.model, hyp_config,gpu, args.pretrained_weights)
+        model = load_model(args.model, hyp_config, gpu, args.pretrained_weights)
 
         # ############
         # Freeze model layers
@@ -387,7 +387,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         mini_batch_size = batch_size // sub_div
         nbs = 64  # nominal batch size
         accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
-        hyp_config['weight_decay'] = float(hyp_config['weight_decay'])*batch_size * accumulate / nbs  # scale weight_decay
+        hyp_config['weight_decay'] = float(
+            hyp_config['weight_decay']) * batch_size * accumulate / nbs  # scale weight_decay
 
         # ################
         # Create optimizer - V0.4
@@ -411,7 +412,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         else:
             req_optimizer = hyp_config['optimizer']
         params = [p for p in model.parameters() if p.requires_grad]
-        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax","adam"]
+        implemented_optimizers = ["adamw", 'sgd', "rmsprop", "adadelta", "adamax", "adam"]
         if req_optimizer in implemented_optimizers:
             if req_optimizer == "adamw":
                 optimizer = optim.AdamW(
@@ -463,7 +464,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             )
             model.hyperparams['optimizer'] = 'sgd'
         if req_optimizer == 'sgd':
-            optimizer.add_param_group({'params': pg1, 'weight_decay': hyp_config['weight_decay']})  # add pg1 with weight_decay
+            optimizer.add_param_group(
+                {'params': pg1, 'weight_decay': hyp_config['weight_decay']})  # add pg1 with weight_decay
             optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
             print(f'---- Optimizer groups: {len(pg2)} .bias, {len(pg1)} conv.weight, {len(pg0)} other ----')
         del pg0, pg1, pg2
@@ -473,52 +475,28 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         # #################
         pretrained = args.pretrained_weights.endswith('.pth')
         if pretrained:
-            resume = True
+            #resume = True
             warmup_run = False
             lr_restart = True
             lr = float(optimizer.param_groups[0]['lr'])
             # Set learning rate
             for g in optimizer.param_groups:
                 g['lr'] = lr
-            results_file = 'results.txt'
             ckpt = torch.load(args.pretrained_weights, map_location=device)  # load checkpoint
-            #state_dict = {k: v for k, v in ckpt.items() if model.state_dict()[k].numel() == v.numel()}
+            # state_dict = {k: v for k, v in ckpt.items() if model.state_dict()[k].numel() == v.numel()}
             # Optimizer
-            '''
-            if model.hyperparams['optimizer'] is not None:
-                optimizer.load_state_dict(ckpt['optimizer'])
-                best_fitness = ckpt['best_fitness']
-                best_fitness_p = ckpt['best_fitness_p']
-                best_fitness_r = ckpt['best_fitness_r']
-                best_fitness_ap50 = ckpt['best_fitness_ap50']
-                best_fitness_ap = ckpt['best_fitness_ap']
-                best_fitness_f = ckpt['best_fitness_f']
-            
-            # Results
-            if ckpt.get('training_results') is not None:
-                with open(results_file, 'w') as file:
-                    file.write(ckpt['training_results'])  # write results.txt
 
-            # Epochs
-            start_epoch = ckpt['epoch'] + 1
-            if resume:
-                assert start_epoch > 0, '%s training to %g epochs is finished, nothing to resume.' % (args.weights, args.epochs)
-            if args.epochs < start_epoch:
-                ckpt_epoch = ckpt['epoch']
-                print(f'---- Model {args.weights} has been trained for {ckpt_epoch}. Fine-tuning for {args.epochs} additional epochs. ---- ')
-                args.epochs += ckpt['epoch']  # finetune additional epochs
-            '''
-            del ckpt#, state_dict
+            del ckpt  # , state_dict
         # #################
         # Create Dataloader - V0.4
         # #################
         # Image sizes
         image_dims = [int(model.hyperparams['width']), int(model.hyperparams['height'])]
         gs = 64  # int(max(model.stride))  # grid size (max stride)
-        imgsize, imgsize_test = [check_img_size(x, gs) for x in image_dims]  # verify imgsz are gs-multiples
-        workers = int(args.n_cpu)
+        imgsize, test_images = [check_img_size(x, gs) for x in image_dims]  # verify imgsz are gs-multiples
         # Trainloader
-        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args,class_names, model_imgs_logs_path,
+        dataloader, dataset = create_dataloader(train_path, imgsize, batch_size, gs, args, class_names,
+                                                model_imgs_logs_path,
                                                 hyp=hyp_config, augment=True, cache=False, rect=False,
                                                 rank=-1, world_size=1, workers=int(args.n_cpu))
 
@@ -539,8 +517,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         num_batches = len(dataloader)  # number of batches
         warmup_num = max(
             round(warmup_epochs * num_batches), 100)  # number of warmup iterations, max(5 epochs, 100 iterations)
-        if warmup_num > num_batches*args.epochs:
-            warmup_num = float(num_batches*args.epochs/2)  # limit warmup to < 1/2 of training
+        if warmup_num > num_batches * args.epochs:
+            warmup_num = float(num_batches * args.epochs / 2)  # limit warmup to < 1/2 of training
         print(f'- 🔥 - Number of calculated warmup iterations: {warmup_num} ----')
         max_batches = len(class_names) * int(model.hyperparams['max_batches_factor'])
         num_steps = num_batches * args.epochs
@@ -570,8 +548,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             req_scheduler = hyp_config['lr_scheduler']
         implemented_schedulers = ['CosineAnnealingLR', 'ChainedScheduler',
                                   'ExponentialLR', 'ReduceLROnPlateau', 'ConstantLR',
-                                  'CyclicLR', 'OneCycleLR', 'LambdaLR','MultiplicativeLR',
-                                  'StepLR','MultiStepLR','LinearLR','PolynomialLR','CosineAnnealingWarmRestarts']
+                                  'CyclicLR', 'OneCycleLR', 'LambdaLR', 'MultiplicativeLR',
+                                  'StepLR', 'MultiStepLR', 'LinearLR', 'PolynomialLR', 'CosineAnnealingWarmRestarts']
         if req_scheduler in implemented_schedulers:
             lf = lambda x: ((1 + math.cos(x * math.pi / args.epochs)) / 2) * (1 - float(hyp_config['lrf'])) + float(
                 hyp_config['lrf'])  # cosine
@@ -580,7 +558,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             if req_scheduler == 'CosineAnnealingLR':
                 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
                     optimizer,
-                    T_max=int(num_steps/10),
+                    T_max=int(num_steps / 10),
                     eta_min=float(hyp_config['lr0']) / 10000,
                     verbose=False)
             # ChainedScheduler
@@ -590,22 +568,27 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 scheduler2 = ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']), verbose=False)
                 scheduler = torch.optim.lr_scheduler.ChainedScheduler([scheduler1, scheduler2])
             elif req_scheduler == 'ExponentialLR':
-                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']), verbose=False)
+                scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=float(hyp_config['dec_gamma']),
+                                                                   verbose=False)
             elif req_scheduler == 'ReduceLROnPlateau':
-                minimum_lr = float(hyp_config['lr0'])/float(hyp_config['lrf'])
+                minimum_lr = float(hyp_config['lr0']) / float(hyp_config['lrf'])
                 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     'min',
-                    patience=int(args.epochs/10),
+                    patience=int(args.epochs / 10),
                     min_lr=minimum_lr,
                     verbose=False)
             elif req_scheduler == 'ConstantLR':
-                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5, total_iters=int(args.evaluation_interval), verbose=False)
+                scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=0.5,
+                                                                total_iters=int(args.evaluation_interval),
+                                                                verbose=False)
             elif req_scheduler == 'CyclicLR':
                 scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                              base_lr=float(hyp_config['lr0'])/float(hyp_config['lrf']),
+                                                              base_lr=float(hyp_config['lr0']) / float(
+                                                                  hyp_config['lrf']),
                                                               max_lr=float(hyp_config['lr0']), cycle_momentum=True,
-                                                              verbose=False, mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
+                                                              verbose=False,
+                                                              mode='exp_range')  # mode (str): One of {triangular, triangular2, exp_range}.
             elif req_scheduler == 'OneCycleLR':
                 scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=float(hyp_config['lrf']),
                                                                 steps_per_epoch=len(dataloader),
@@ -618,15 +601,23 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 lf = one_cycle(1, float(hyp_config['lrf']), args.epochs)  # cosine 1->hyp['lrf']
                 scheduler = torch.optim.lr_scheduler.MultiplicativeLR(optimizer, lr_lambda=lf)
             elif req_scheduler == 'StepLR':
-                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(args.epochs)/10,gamma=0.1) #Step size -> epochs
+                scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=int(args.epochs) / 10,
+                                                            gamma=0.1)  # Step size -> epochs
             elif req_scheduler == 'MultiStepLR':
-                scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30,80],gamma=0.1) #milestones size -> epochs
+                scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[30, 80],
+                                                                 gamma=0.1)  # milestones size -> epochs
             elif req_scheduler == 'LinearLR':
-                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5,total_iters=int(args.epochs)/2) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5, total_iters=int(
+                    args.epochs) / 2)  # total_iters size -> epochs
             elif req_scheduler == 'PolynomialLR':
-                scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),power=1.0) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.PolynomialLR(optimizer, total_iters=int(args.epochs),
+                                                                  power=1.0)  # total_iters size -> epochs
             elif req_scheduler == 'CosineAnnealingWarmRestarts':
-                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(num_steps/10),eta_min=float(hyp_config['lr0'])/float(hyp_config['lrf'])) #total_iters size -> epochs
+                scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=int(num_steps / 10),
+                                                                                 eta_min=float(
+                                                                                     hyp_config['lr0']) / float(
+                                                                                     hyp_config[
+                                                                                         'lrf']))  # total_iters size -> epochs
         else:
             print("- ⚠ - Unknown scheduler! Reverting to LambdaLR")
             req_scheduler = 'LambdaLR'
@@ -639,7 +630,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
         scheduler.last_epoch = start_epoch - 1  # do not move
 
-        decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR','StepLR', 'MultiStepLR','LinearLR','PolynomialLR', 'ReduceLROnPlateau']
+        decay_schedulers = ['ConstantLR', 'ExponentialLR', 'MultiplicativeLR', 'StepLR', 'MultiStepLR', 'LinearLR',
+                            'PolynomialLR', 'ReduceLROnPlateau']
         if req_scheduler in decay_schedulers:
             # Set learning rate for decaying schedulers
             lr = float(hyp_config['lr0'])
@@ -665,11 +657,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
             log_file_writer(f'Using SyncBatchNorm()', model_logfile_path)
 
         # Model parameters
-        hyp_config['cls'] = float(hyp_config['cls'])* num_classes / 80.  # scale coco-tuned hyp['cls'] to current dataset
+        hyp_config['cls'] = float(
+            hyp_config['cls']) * num_classes / 80.  # scale coco-tuned hyp['cls'] to current dataset
         model.nc = num_classes  # attach number of classes to model
         model.hyp = hyp_config  # attach hyperparameters to model
         model.gr = 1.0  # iou loss ratio (obj_loss = 1.0 or iou)
-        #model.gr = args.iou_thres
+        # model.gr = args.iou_thres
         model.class_weights = labels_to_class_weights(dataset.labels, num_classes).to(device)  # attach class weights
         model.names = class_names
 
@@ -685,7 +678,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
         for epoch in range(1, args.epochs + 1):
             epoch_start = time.time()
             if epoch > 1:
-                print(f'- ⏳ - Estimate when all {args.epochs} epochs are done: {round((exec_time * (args.epochs-epoch)) / 3600, 2)} hours ----')
+                print(
+                    f'- ⏳ - Estimate when all {args.epochs} epochs are done: {round((exec_time * (args.epochs - epoch)) / 3600, 2)} hours ----')
             if warmup_run:
                 print(f'- 🔥 - Running warmup cycle ----')
             if torch.cuda.is_available():
@@ -703,7 +697,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 batches_done = len(dataloader) * epoch + batch_i
                 integ_batch_num = batch_i + num_batches * epoch  # number integrated batches (since train start)
 
-                imgs = imgs.to(device, non_blocking=True).float() / 255 # -> causes overflow sometimes # uint8 to float32, 0-255 to 0.0-1.0
+                imgs = imgs.to(device,
+                               non_blocking=True).float() / 255  # -> causes overflow sometimes # uint8 to float32, 0-255 to 0.0-1.0
                 # imgs = imgs.to(device, non_blocking=True)
 
                 ###########
@@ -711,9 +706,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                 ###########
                 if warmup_run:
                     if integ_batch_num <= warmup_num:
-                        #scaler.step(optimizer)ät
+                        # scaler.step(optimizer)ät
                         x_interp = [0, warmup_num]
-                        #accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
+                        # accumulate = max(1, np.interp(integ_batch_num, x_interp, [1, num_batches / batch_size]).round())
                         # Simplified version
                         accumulate = max(1, min(integ_batch_num, num_batches / batch_size))
                         for j, x in enumerate(optimizer.param_groups):
@@ -722,13 +717,15 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 # Burn in
                                 x['lr'] *= (batches_done / warmup_num)
                             else:
-                                #x['lr'] = np.interp(integ_batch_num, x_interp,[hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
+                                # x['lr'] = np.interp(integ_batch_num, x_interp,[hyp_config['warmup_bias_lr'] if j == 2 else 0.0, x['initial_lr'] * lf(epoch)])
                                 conditions = [integ_batch_num < warmup_num, integ_batch_num >= warmup_num]
                                 choices = [0.0, x['initial_lr'] * epoch]  # ReduceLROnPlateau -> KeyError: 'initial_lr'
                                 x['lr'] = np.select(conditions, choices, default=float(hyp_config['warmup_bias_lr']))
 
                             if 'momentum' in x:
-                                x['momentum'] = np.interp(integ_batch_num, x_interp, [float(hyp_config['warmup_momentum']), float(hyp_config['momentum'])])
+                                x['momentum'] = np.interp(integ_batch_num, x_interp,
+                                                          [float(hyp_config['warmup_momentum']),
+                                                           float(hyp_config['momentum'])])
 
                 else:
                     warmup_run = False
@@ -773,12 +770,12 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     scaler.step(optimizer)  # optimizer.step
                     scaler.update()
                     optimizer.zero_grad()
-                    model.zero_grad() # Test
+                    model.zero_grad()  # Test
                     if ema:
                         ema.update(model)
 
                 # Plot
-                #if args.evaluation_interval % epoch == 0 and args.verbose:
+                # if args.evaluation_interval % epoch == 0 and args.verbose:
                 #    f = f'{model_logs_path}/images/train_batch{integ_batch_num}.jpg'  # filename
                 #    plot_images(images=imgs, targets=targets, paths=model_logs_path, fname=f)
                 #    # if tb_writer:
@@ -798,7 +795,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                         for g in optimizer.param_groups:
                             g['lr'] = lr
                 lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
-                #print(f'DEBUG - Scheduler last lr: {scheduler.get_last_lr()}  <-> Optimizer lr: {lr}')
+                # print(f'DEBUG - Scheduler last lr: {scheduler.get_last_lr()}  <-> Optimizer lr: {lr}')
                 # mAP
                 if loss_items.dim() != 0:
                     # ############
@@ -813,7 +810,7 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 ["Class loss", float(loss_items[2])],
                                 ["Loss", float(loss_items[3])],
                                 ["Batch Loss", float(loss.item())],
-                                #["Batch loss", to_cpu(mloss).item()],
+                                # ["Batch loss", to_cpu(mloss).item()],
                             ]).table)
 
                     # Tensorboard logging
@@ -860,11 +857,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                             float(loss_items[1]),  # Object Loss
                             float(loss_items[2]),  # Class Loss
                             float(loss_items[3]),  # Loss
-                            float(loss.item()), # Batch loss
+                            float(loss.item()),  # Batch loss
                             float(mloss_mean),  # Mean Loss
                             (lr_float)  # Learning rate
                             ]
-                    #header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Batch loss','Mean loss','Learning Rate']
+                    # header = ['Iterations', 'Iou Loss', 'Object Loss', 'Class Loss', 'Loss', 'Batch loss','Mean loss','Learning Rate']
                     csv_writer(data, model_logs_path + "/" + model_name + "_training_plots.csv", 'a')
 
                     # ############
@@ -888,9 +885,10 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     train_loss_array = np.concatenate((train_loss_array, np.array([float(loss_items[3].item())])))
                     batch_loss_array = np.concatenate((batch_loss_array, np.array([float(loss.item())])))
                     lr_array = np.concatenate((lr_array, np.array([lr_float])))
-                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, train_loss_array, lr_array,batch_loss_array,
+                    img_writer_training(iou_loss_array, obj_loss_array, cls_loss_array, train_loss_array, lr_array,
+                                        batch_loss_array,
                                         batches_array,
-                                        model_logs_path+'/'+model_name)
+                                        model_logs_path + '/' + model_name)
             # #############
             # Save progress -> changed on version 0.3.11F to save every eval epoch
             # #############
@@ -1020,11 +1018,11 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                     eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
                     precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
                     recall_array = np.concatenate((recall_array, np.array([recall.mean()])))
-                    mAP_array = np.concatenate((mAP_array, np.array([AP.mean()])))
+                    m_ap_array = np.concatenate((m_ap_array, np.array([AP.mean()])))
                     f1_array = np.concatenate((f1_array, np.array([f1.mean()])))
-                    img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array,
+                    img_writer_evaluation(precision_array, recall_array, m_ap_array, f1_array,
                                           curr_fitness_array, train_fitness_array, eval_epoch_array,
-                                          model_logs_path+'/'+model_name)
+                                          model_logs_path + '/' + model_name)
 
                     if curr_fitness > best_fitness and epoch > int(args.evaluation_interval):
                         best_fitness = curr_fitness
@@ -1043,9 +1041,9 @@ def run(args,data_config,hyp_config,ver,clearml=None):
 
                         precision, recall, AP, f1, ap_class = metrics_output
                         # Gets class AP and mean AP
-                        #print('ap cls',ap_class)
-                        #print('AP',AP)
-                        #print(class_names)
+                        # print('ap cls',ap_class)
+                        # print('AP',AP)
+                        # print(class_names)
                         csv_writer("", f"{model_logs_path}/{model_name}_eval_stats.csv", 'w')
                         eval_stats_class_array = np.array([])
                         eval_stats_ap_array = np.array([])
@@ -1055,7 +1053,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                     class_names[i],  # Class name
                                     "%.5f" % AP[i],  # Class AP
                                     ]
-                            eval_stats_class_array = np.concatenate((eval_stats_class_array, np.array([class_names[i]])))
+                            eval_stats_class_array = np.concatenate(
+                                (eval_stats_class_array, np.array([class_names[i]])))
                             eval_stats_ap_array = np.concatenate((eval_stats_ap_array, np.array([AP[i]])))
 
                             logger.scalar_summary(f"validation/class/{class_names[i]}", round(float(AP[i]), 5), epoch)
@@ -1067,7 +1066,8 @@ def run(args,data_config,hyp_config,ver,clearml=None):
                                 str(round(AP.mean(), 5)),
                                 ]
                         csv_writer(data, f"{model_logs_path}/{model_name}_eval_stats.csv", 'a')
-                        img_writer_eval_stats(eval_stats_class_array,eval_stats_ap_array,f"checkpoints/best/{model_name}")
+                        img_writer_eval_stats(eval_stats_class_array, eval_stats_ap_array,
+                                              f"checkpoints/best/{model_name}")
                         # ############
                         # ClearML csv reporter logger - V0.3.8
                         # ############
@@ -1209,6 +1209,7 @@ if __name__ == "__main__":
         clearml_cfg = configparser.ConfigParser()
         # Read the config file
         clearml_cfg.read(r'config/clearml.cfg')
-    run(args,data_config,hyp_config,ver,clearml_cfg)
+    run(args, data_config, hyp_config, ver, clearml_cfg)
 
-# python train.py -m config/yolov3_ITDM_simple.cfg -d config/Nova.data -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1
+# python train.py -m config/yolov3_ITDM_simple.cfg -d config/Nova.data
+# -e 10 -v --pretrained_weights weights/yolov3.weights --checkpoint_interval 1 --evaluation_interval 1
