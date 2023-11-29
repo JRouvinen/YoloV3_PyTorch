@@ -71,7 +71,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     ax_array[0, 0].grid(True)
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    percentage_threshold = 0.1  # Set the percentage threshold (e.g., 50%)
+    percentage_threshold = 0.25  # Set the percentage threshold (e.g., 50%)
     if np.mean(iteration) >= percentage_threshold * np.max(iteration):
         ax_array[1, 1].set_yscale('log')
         ax_array[1, 1].grid(axis='y', linestyle=' ')

@@ -58,6 +58,7 @@ import math
 import os
 import argparse
 import datetime
+import shutil
 import sys
 import time
 import traceback
@@ -1013,7 +1014,6 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                         # ############
                         task.logger.report_scalar(title="Checkpoint", series="Fitness", iteration=epoch,
                                                   value=curr_fitness)
-                    # DONE: This line needs to be fixed -> AssertionError: Tensor should contain one element (0 dimensions). Was given size: 21 and 1 dimensions.
                     # img writer - evaluation
                     eval_epoch_array = np.concatenate((eval_epoch_array, np.array([epoch])))
                     precision_array = np.concatenate((precision_array, np.array([precision.mean()])))
@@ -1029,6 +1029,9 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                         checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                         torch.save(model.state_dict(), checkpoint_path)
+                        #Make a copy of best checkpoint confusion matrix
+                        shutil.copyfile(f'{model_imgs_logs_path}/confusion_matrix_last.png',
+                                        f'{model_imgs_logs_path}/confusion_matrix_best.png')
                         ############################
                         # ClearML model update - V 3.0.0
                         ############################
@@ -1150,7 +1153,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.5B"
+    ver = "0.4.5C"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

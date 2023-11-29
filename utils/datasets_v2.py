@@ -108,7 +108,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
             data_source=dataset
         )
     elif opt.sampler == 2:
-        class_weights_all = get_class_weights(dataset, class_names, "orig")
+        class_weights_all = get_class_weights(dataset, class_names, "orig",img_log_path)
         calc_num_smples = len(class_weights_all) * int(batch_size / len(class_weights_all))
         sampler = RandomSampler(
             data_source=dataset,
