@@ -100,7 +100,7 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
                                   rank=rank
                                   )
 
-    batch_size = min(batch_size, len(dataset))
+    #batch_size = min(batch_size, len(dataset))
     nw = min([os.cpu_count() // world_size, batch_size if batch_size > 1 else 0, workers])  # number of workers
     # [0 = None, 1 = SequentialSampler, 2 = RandomSampler, 3 = SubsetRandomSampler, 4 = WeightedRandomSampler, 5 = BatchSampler]
     if opt.sampler == 1:
@@ -109,23 +109,21 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
         )
     elif opt.sampler == 2:
         class_weights_all = get_class_weights(dataset, class_names, "orig",img_log_path)
-        calc_num_smples = len(class_weights_all) * int(batch_size / len(class_weights_all))
         sampler = RandomSampler(
             data_source=dataset,
-            num_samples=calc_num_smples,
+            num_samples=batch_size,
         )
     elif opt.sampler == 3:
         sampler = SubsetRandomSampler(
             indices=[10,20,30,40,50]
 
         )
-    if opt.sampler == 4:
+    elif opt.sampler == 4:
         # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
         class_weights_all = get_class_weights(dataset, class_names, "orig", img_log_path)
-        calc_num_smples = len(class_weights_all) * int(batch_size/len(class_weights_all))
         sampler = WeightedRandomSampler(
             weights=class_weights_all,
-            num_samples=calc_num_smples,
+            num_samples=batch_size,
             replacement=True
         )
     elif opt.sampler == 5:
@@ -136,13 +134,14 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
         )
     else:
         sampler = torch.utils.data.distributed.DistributedSampler(dataset) if rank != -1 else None
+    print(f'---- Using Dataloader sampler: {opt.sampler} ----')
     dataloader = InfiniteDataLoader(dataset,
                                     batch_size=batch_size,
                                     num_workers=nw,
                                     sampler=sampler,
                                     pin_memory=True,
                                     collate_fn=LoadImagesAndLabels.collate_fn)  # torch.utils.data.DataLoader()
-    class_weights_weighted = get_class_weights(dataloader, class_names, "weight",img_log_path)
+    get_class_weights(dataloader, class_names, "weight",img_log_path)
     return dataloader, dataset
 
 

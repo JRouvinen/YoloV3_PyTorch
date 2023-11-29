@@ -528,7 +528,7 @@ def get_class_weights(dataset, class_names, type,log_path):
                 class_count[indx] = 0.1
             indx += 1
         save_path = log_path
-        img_writer_class_dist(class_count, class_names,"Class Distribution Orig",save_path)
+        img_writer_class_dist(class_count, class_names,"Class Distribution Orig", save_path)
         #class_weights = 1. / torch.tensor(class_count, dtype=torch.float)
         class_weights = [1/i for i in class_count]
         return class_weights
