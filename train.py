@@ -794,7 +794,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                     if not lr_restart or pretrained:
                         lr_restart = True
                         # Get learning rate
-                        lr = float(hyp_config['init_lr'])
+                        lr = float(hyp_config['lr0'])
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
