@@ -791,13 +791,14 @@ def run(args, data_config, hyp_config, ver, clearml=None):
 
                 else:
                     warmup_run = False
-                    if not lr_restart:
+                    if not lr_restart or pretrained:
                         lr_restart = True
                         # Get learning rate
                         lr = float(hyp_config['init_lr'])
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
+
                 '''
                 # Multi-scale
                 if opt.multi_scale:
