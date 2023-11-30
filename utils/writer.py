@@ -66,11 +66,10 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     #ax_array[1, 1].plot(x, lr, marker = 'o')
     ax_array[1, 1].plot(x, lr)
     # https://stackoverflow.com/questions/21393802/how-to-specify-values-on-y-axis-of-a-matplotlib-plot
-    #ax_array[1, 1].grid(axis='y', linestyle='-')
     ax_array[0, 0].grid(True)
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    if np.mean(iteration) >= 30*iteration:
+    if np.mean(iteration) >= 30*(np.min(iteration)+10):
         ax_array[1, 1].set_yscale('log')
     ax_array[1, 1].grid(axis='y', linestyle=' ')
     ax_array[1, 1].set_xlabel('Iteration')
