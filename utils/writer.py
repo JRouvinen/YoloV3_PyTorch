@@ -70,8 +70,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     ax_array[0, 0].grid(True)
     ax_array[1, 1].get_autoscaley_on()
     ax_array[1, 1].invert_yaxis()
-    percentage_threshold = 0.50  # Set the percentage threshold (e.g., 50%)
-    if np.mean(iteration) >= percentage_threshold * np.max(iteration):
+    if np.mean(iteration) >= 30*iteration:
         ax_array[1, 1].set_yscale('log')
         ax_array[1, 1].grid(axis='y', linestyle=' ')
     ax_array[1, 1].set_xlabel('Iteration')
@@ -145,8 +144,6 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
     ax_array[1, 0].grid(axis='y', linestyle='-')
     ax_array[1, 0].set_xlabel('Epoch')
     #ax_array[1, 0].set_ybound([0, 1])
-
-
 
     # Plot for train fitness
     ax_array[1, 1].set_ylabel('Train FITNESS')
