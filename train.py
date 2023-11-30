@@ -857,7 +857,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                         # Set learning rate
                         for g in optimizer.param_groups:
                             g['lr'] = lr
-                        lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
+                lr = [x['lr'] for x in optimizer.param_groups]  # for tensorboard
                 # print(f'DEBUG - Scheduler last lr: {scheduler.get_last_lr()}  <-> Optimizer lr: {lr}')
                 # mAP
                 if loss_items.dim() != 0:
