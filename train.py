@@ -528,7 +528,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
             #resume = True
             warmup_run = False
             lr_restart = True
-            lr = float(optimizer.param_groups[0]['lr'])
+            lr = float(hyp_config['lr0'])
             # Set learning rate
             for g in optimizer.param_groups:
                 g['lr'] = lr
@@ -791,7 +791,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
 
                 else:
                     warmup_run = False
-                    if lr_restart is False or pretrained is True:
+                    if not lr_restart:
                         lr_restart = True
                         # Get learning rate
                         lr = float(hyp_config['lr0'])
