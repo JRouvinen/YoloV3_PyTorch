@@ -131,19 +131,37 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_traini
     return dataloader
 
 
+# Python code to find and delete the oldest .pth file in the 'checkpoints/' directory
 def find_and_del_last_ckpt():
+    # Check if the file is a .pth file
     is_pth_file = False
+
+    # Get the list of files in the 'checkpoints/' directory
     list_of_files = os.listdir('checkpoints/')
+
+    # Get the full path of each file
     full_path = ["checkpoints/{0}".format(x) for x in list_of_files]
+
+    # Find the oldest file based on creation time
     oldest_file = min(full_path, key=os.path.getctime)
+
+    # Loop until a .pth file is found
     while not is_pth_file:
         if oldest_file.endswith('.pth'):
             is_pth_file = True
         else:
+            # Remove the oldest file from the list
             full_path.remove(oldest_file)
+
+            # Find the new oldest file
             oldest_file = min(full_path, key=os.path.getctime)
+
+    # Delete the oldest .pth file
     os.remove(oldest_file)
 
+
+
+# Python code to check and create necessary folders for logging, checkpoints, and output.
 
 def check_folders():
     local_path = os.getcwd()
@@ -168,9 +186,14 @@ def check_folders():
     if not output_path_there:
         os.mkdir(local_path + "/output/")
 
-
 @threaded()
 def run_tensorboard(tracking_address):
+    """
+    This code defines a function to run Tensorboard for monitoring TensorFlow models. It uses the TensorBoard library to configure and launch Tensorboard with the specified tracking address. After launching, it prints the URL where Tensorboard is active.
+
+    Example usage:
+    run_tensorboard('/path/to/tracking/address')
+    """
     tb = program.TensorBoard()
     tb.configure(argv=[None, '--logdir', tracking_address, '--bind_all'])
     url = tb.launch()
@@ -178,6 +201,13 @@ def run_tensorboard(tracking_address):
 
 
 def run(args, data_config, hyp_config, ver, clearml=None):
+    '''
+    211-339
+    The code creates a model log folder and writes log files for a deep learning model.
+    It also creates CSV files for training, evaluation, and validation. It sets up logging variables and
+    loads configuration parameters for the model. The code also checks if certain folders exist and
+    creates them if they do not. Finally, it initializes various variables and arrays for the model.
+    '''
     date = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     if args.test_cycle is True:
         # Check folders
@@ -306,7 +336,18 @@ def run(args, data_config, hyp_config, ver, clearml=None):
         # Create validation csv file
         header = ['Index', 'Class', 'AP']
         csv_writer(header, f"checkpoints/best/{model_name}_eval_stats.csv", 'a')
-
+        '''
+        346-430
+        This code is used for training a model. It includes the following steps:
+        1. Create a ClearML task.
+        2. Check if GPU is available and set the device accordingly.
+        3. Load the model with specified parameters.
+        4. Log the hyperparameters to ClearML.
+        5. Print the model summary if verbose mode is enabled.
+        6. Calculate the batch size based on the model's hyperparameters.
+        7. Perform batch size calculations and set necessary variables.
+        8. Scale the weight decay based on the batch size.
+        '''
         ################
         # Create ClearML task - version 0.3.0
         ################
@@ -390,6 +431,14 @@ def run(args, data_config, hyp_config, ver, clearml=None):
         accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
         hyp_config['weight_decay'] = float(
             hyp_config['weight_decay']) * batch_size * accumulate / nbs  # scale weight_decay
+
+        # 441 - 538
+        # This code defines an optimizer and handles smart resume functionality for training a model.
+        # It first categorizes the model's parameters into three groups: biases, weights with weight decay, and other parameters.
+        # It then selects the optimizer based on the specified or default optimizer and initializes it with the appropriate parameters.
+        # If the specified optimizer is not implemented, it reverts to using the SGD optimizer.
+        # Additionally, it adds the weight decay to the weight parameters and includes the biases in the optimizer.
+        # The code also handles smart resume by loading a pretrained model if specified and setting the learning rate accordingly.
 
         # ################
         # Create optimizer - V0.4
@@ -488,6 +537,17 @@ def run(args, data_config, hyp_config, ver, clearml=None):
             # Optimizer
 
             del ckpt  # , state_dict
+
+        '''
+        547-699
+        The code is a part of a training script for a machine learning model. 
+        It creates data loaders for training and validation datasets. 
+        It also sets up the scheduler for adjusting the learning rate during training based on the chosen optimizer. 
+        The code supports various scheduler options such as CosineAnnealingLR, ExponentialLR, ReduceLROnPlateau, etc. 
+        The maximum number of iterations and warm-up iterations are calculated based on the provided hyperparameters. 
+        The code also includes some commented out sections related to autoanchor and pre-training routines.
+        '''
+
         # #################
         # Create Dataloader - V0.4
         # #################
@@ -502,7 +562,8 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                                                 rank=-1, world_size=1, workers=int(args.n_cpu))
 
         '''
-        validation_dataloader = create_dataloader(valid_path, imgsize, batch_size, gs, args, class_names, model_imgs_logs_path,
+        validation_dataloader = create_dataloader(valid_path, imgsize, batch_size, gs, args, 
+                                        class_names, model_imgs_logs_path,
                                        hyp=hyp_config, augment=True,cache=False, rect=True,
                                        rank=-1, world_size=1, workers=int(args.n_cpu))  # testloader
         '''
@@ -1024,7 +1085,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                                           curr_fitness_array, train_fitness_array, eval_epoch_array,
                                           model_logs_path + '/' + model_name)
 
-                    if curr_fitness > best_fitness and epoch > int(args.evaluation_interval):
+                    if curr_fitness > best_fitness and epoch:
                         best_fitness = curr_fitness
                         checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
@@ -1153,7 +1214,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
 
 
 if __name__ == "__main__":
-    ver = "0.4.5D"
+    ver = "0.4.5E"
     # Check folders
     check_folders()
     parser = argparse.ArgumentParser(description="Trains the YOLOv3 model.")

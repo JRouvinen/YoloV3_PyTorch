@@ -17,7 +17,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import numpy as np
 import cv2
-from utils.util import *
+from utils.utils import *
 from models import Darknet
 from utils.preprocess import prep_image, inp_to_image, letterbox_image
 import pandas as pd
