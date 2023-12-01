@@ -17,21 +17,11 @@ import numpy as np
 import torch
 from PIL import Image, ExifTags
 from torch.utils.data import Dataset, WeightedRandomSampler, RandomSampler, SequentialSampler, SubsetRandomSampler, \
-    BatchSampler
+    BatchSampler, DataLoader
 from tqdm import tqdm
 
 from utils.utils import get_class_weights
 
-#import pickle
-#from copy import deepcopy
-#from pycocotools import mask as maskUtils
-#from torchvision.utils import save_image
-
-#from utils.general import xyxy2xywh, xywh2xyxy
-#from utils.torch_utils import torch_distributed_zero_first
-
-# Parameters
-#help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
 help_url = 'https://look_in_here.org'
 
 img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng']  # acceptable image suffixes
@@ -103,21 +93,28 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
     #batch_size = min(batch_size, len(dataset))
     nw = min([os.cpu_count() // world_size, batch_size if batch_size > 1 else 0, workers])  # number of workers
     # [0 = None, 1 = SequentialSampler, 2 = RandomSampler, 3 = SubsetRandomSampler, 4 = WeightedRandomSampler, 5 = BatchSampler]
+    set_suffle = True
     if opt.sampler == 1:
         sampler = SequentialSampler(
             data_source=dataset
         )
+        set_suffle = False
+
     elif opt.sampler == 2:
         class_weights_all = get_class_weights(dataset, class_names, "orig",img_log_path)
         sampler = RandomSampler(
             data_source=dataset,
             num_samples=batch_size,
         )
+        set_suffle = False
+
     elif opt.sampler == 3:
         sampler = SubsetRandomSampler(
             indices=[10,20,30,40,50]
 
         )
+        set_suffle = False
+
     elif opt.sampler == 4:
         # https://towardsdatascience.com/pytorch-basics-sampling-samplers-2a0f29f0bf2a
         class_weights_all = get_class_weights(dataset, class_names, "orig", img_log_path)
@@ -126,21 +123,36 @@ def create_dataloader(path, imgsz, batch_size, stride, opt, class_names, img_log
             num_samples=batch_size,
             replacement=True
         )
+        set_suffle = False
+
     elif opt.sampler == 5:
         sampler = BatchSampler(
             SequentialSampler(range(10)),
             batch_size=3,
             drop_last=True
         )
+        set_suffle = False
+
     else:
         sampler = torch.utils.data.distributed.DistributedSampler(dataset) if rank != -1 else None
     print(f'---- Using Dataloader sampler: {opt.sampler} ----')
+    '''
     dataloader = InfiniteDataLoader(dataset,
                                     batch_size=batch_size,
                                     num_workers=nw,
                                     sampler=sampler,
                                     pin_memory=True,
-                                    collate_fn=LoadImagesAndLabels.collate_fn)  # torch.utils.data.DataLoader()
+                                    collate_fn=LoadImagesAndLabels.collate_fn  # torch.utils.data.DataLoader()
+                                    )
+    '''
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=set_suffle,
+        num_workers=nw,
+        sampler=sampler,
+        pin_memory=True,
+        collate_fn=LoadImagesAndLabels.collate_fn)
     get_class_weights(dataloader, class_names, "weight",img_log_path)
     return dataloader, dataset
 
