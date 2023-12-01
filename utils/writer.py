@@ -85,7 +85,7 @@ def img_writer_training(iou_loss, obj_loss, cls_loss, loss, lr, batch_loss,itera
     fig.savefig(filename+'_training_metrics.png')
     # displaying the title
     plt.title(filename)
-    plt.close()
+    plt.close('all')
 
 def img_writer_class_dist(classes,values, header,filename):
     fig = plt.figure(layout="constrained", figsize=(20, 10))
@@ -101,7 +101,7 @@ def img_writer_class_dist(classes,values, header,filename):
     # displaying the title
     plt.title(header)
     fig.savefig(f'{filename}/{header}_for_dataset.png')
-    plt.close()
+    plt.close('all')
 
 def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness,epoch, filename):
     #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array, curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
@@ -159,7 +159,7 @@ def img_writer_evaluation(precision, recall, mAP, f1, ckpt_fitness,train_fitness
     #ax_array[1, 2].set_ybound([0, 10])
 
     fig.savefig(filename+'_evaluation_metrics.png')
-    plt.close()
+    plt.close('all')
 
 def img_writer_eval_stats(classes,ap,filename):
     #header = ['Epoch', 'Epochs','Iou Loss','Object Loss','Class Loss','Loss','Learning Rate']    # img_writer_data = global_step,x_loss,y_loss,w_loss,h_loss,conf_loss,cls_loss,loss,recall,precision
@@ -179,7 +179,7 @@ def img_writer_eval_stats(classes,ap,filename):
     fig.savefig(filename + '_evaluation_statistics.png')
     # displaying the title
     plt.title(filename)
-    plt.close()
+    plt.close('all')
 
 def img_writer_losses(train_loss, eval_loss, epoch, filename):
     #img_writer_evaluation(precision_array, recall_array, mAP_array, f1_array, ap_cls_array, curr_fitness_array, eval_epoch_array, args.logdir + "/" + date)
@@ -198,7 +198,7 @@ def img_writer_losses(train_loss, eval_loss, epoch, filename):
     plt.plot(x, eval_loss)
 
     fig.savefig(filename + '_train_eval_losses.png')
-    plt.close()
+    plt.close('all')
 
 def log_file_writer(data, filename):
     #log_path = filename.replace("checkpoints", "")
