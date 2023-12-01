@@ -5,7 +5,9 @@ from matplotlib import pyplot as plt
 #import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from utils.utils import box_iou
+from utils.utils import box_iou, xywh2xyxy
+
+
 class ConfusionMatrix:
     # Updated version of https://github.com/kaanakan/object_detection_confusion_matrix
     def __init__(self, nc, conf=0.25, iou_thres=0.45):
@@ -13,6 +15,19 @@ class ConfusionMatrix:
         self.nc = nc  # number of classes
         self.conf = conf
         self.iou_thres = iou_thres
+
+    def generate_batch_data(self, outputs, targets):
+        for si, pred in enumerate(outputs):
+            out_labels = targets[targets[:, 0] == si, 1:]
+            nl, npr = out_labels.shape[0], pred.shape[0]  # number of labels, predictions
+            predn = pred.clone()
+            # Evaluate
+            if nl:
+                tbox = xywh2xyxy(out_labels[:, 1:5])  # target boxes
+                #scale_boxes(_[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
+                labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
+                #correct = self.process_batch(predn, labelsn, iouv)
+                self.process_batch(predn, out_labels)
 
     def process_batch(self, detections, labels):
         """

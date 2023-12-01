@@ -155,7 +155,7 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     labels = []
     sample_metrics = []  # List of tuples (TP, confs, pred)
 
-    confusion_matrix = ConfusionMatrix(nc=len(class_names))
+    #confusion_matrix = ConfusionMatrix(nc=len(class_names))
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Targets', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     for _, imgs, targets in tqdm.tqdm(dataloader, desc="Validating"):
@@ -182,16 +182,16 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
             get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
         )
 
-        # Confusion matrix
-        for si, pred in enumerate(outputs):
-            out_labels = targets[targets[:, 0] == si, 1:]
-            nl, npr = out_labels.shape[0], pred.shape[0]  # number of labels, predictions
-            predn = pred.clone()
+        # Confusion matrix -> moved into confusion_matrix.py
+        #for si, pred in enumerate(outputs):
+        #    out_labels = targets[targets[:, 0] == si, 1:]
+        #    nl, npr = out_labels.shape[0], pred.shape[0]  # number of labels, predictions
+        #    predn = pred.clone()
             # Evaluate
-            if nl:
-                tbox = xywh2xyxy(out_labels[:, 1:5])  # target boxes
+        #    if nl:
+        #        tbox = xywh2xyxy(out_labels[:, 1:5])  # target boxes
                 #scale_boxes(_[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
-                labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
+        #        labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
                 #correct = process_batch(predn, labelsn, iouv)
                 #confusion_matrix.process_batch(predn, out_labels)
         #confusion_matrix.plot(True,img_log_path,class_names)
@@ -221,7 +221,7 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
     # Print speeds
     #t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (img_size, img_size, batch_size)  # tuple
     #print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
-    return metrics_output
+    return metrics_output, outputs, targets
 
 
 def _create_validation_data_loader(img_path, batch_size, img_size, n_cpu):

@@ -75,6 +75,7 @@ from tensorboard import program
 from terminaltables import AsciiTable
 from torch.cuda import amp
 from utils import threaded
+from utils.confusion_matrix import ConfusionMatrix
 
 from utils.torch_utils import ModelEMA
 # Profilers
@@ -728,6 +729,11 @@ def run(args, data_config, hyp_config, ver, clearml=None):
         model.class_weights = labels_to_class_weights(dataset.labels, num_classes).to(device)  # attach class weights
         model.names = class_names
 
+        # #################
+        # ConfusionMatrix - V 0.4.5F
+        # #################
+        confusion_matrix = ConfusionMatrix(nc=len(class_names))
+
         # skip epoch zero, because then the calculations for when to evaluate/checkpoint makes more intuitive sense
         # e.g. when you stop after 30 epochs and evaluate every 10 epochs then the evaluations happen after: 10,20,30
         # instead of: 0, 10, 20
@@ -1013,7 +1019,7 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                 # Do evaluation on every epoch for better logging
                 print("\n- 🔄 - Evaluating Model ----")
                 # Evaluate the model on the validation set
-                metrics_output = _evaluate(
+                metrics_output, eval_outputs, eval_targets = _evaluate(
                     model,
                     validation_dataloader,
                     class_names,
@@ -1091,6 +1097,9 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                         checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                         torch.save(model.state_dict(), checkpoint_path)
+                        #Create confusion matrix
+                        confusion_matrix.generate_batch_data(eval_outputs, eval_targets)
+                        confusion_matrix.plot(True, model_imgs_logs_path, class_names)
                         #Make a copy of best checkpoint confusion matrix
                         #shutil.copyfile(f'{model_imgs_logs_path}/confusion_matrix_last.png',
                         #                f'{model_imgs_logs_path}/confusion_matrix_best.png')
