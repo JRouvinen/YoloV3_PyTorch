@@ -115,7 +115,9 @@ class ConfusionMatrix:
         ax.set_title('Confusion Matrix')
         fig.savefig(f'{save_dir}/confusion_matrix_last.png', dpi=250)
         #plt.close(fig)
-        plt.close('all')
+        #plt.close('all')
+        fig.clf()
+
 
 
     def print(self):

@@ -11,7 +11,6 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from models import *
-from utils.confusion_matrix import ConfusionMatrix
 from utils.datasets import ListDataset
 from utils.parse_config import parse_data_config
 from utils.torch_utils import time_synchronized
