@@ -193,8 +193,8 @@ def _evaluate(model, dataloader, class_names, img_log_path,img_size, iou_thres, 
                 #scale_boxes(_[si].shape[1:], tbox, shape, shapes[si][1])  # native-space labels
                 labelsn = torch.cat((out_labels[:, 0:1], tbox), 1)  # native-space labels
                 #correct = process_batch(predn, labelsn, iouv)
-                confusion_matrix.process_batch(predn, out_labels)
-        confusion_matrix.plot(True,img_log_path,class_names)
+                #confusion_matrix.process_batch(predn, out_labels)
+        #confusion_matrix.plot(True,img_log_path,class_names)
 
     if len(sample_metrics) == 0:  # No detections over whole validation set.
         print("---- No detections over whole validation set ----")
