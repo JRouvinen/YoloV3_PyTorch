@@ -1031,6 +1031,9 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                     verbose=args.verbose,
                     device=device,
                 )
+                # Create confusion matrix
+                confusion_matrix.generate_batch_data(eval_outputs, eval_targets)
+                confusion_matrix.plot(True, model_imgs_logs_path, class_names)
 
                 if metrics_output is not None:
                     precision, recall, AP, f1, ap_class = metrics_output
@@ -1097,12 +1100,10 @@ def run(args, data_config, hyp_config, ver, clearml=None):
                         checkpoint_path = f"{model_ckpt_logs_path}/{model_name}_ckpt_best.pth"
                         print(f"- ⭐ - Saving best checkpoint to: '{checkpoint_path}'  ----")
                         torch.save(model.state_dict(), checkpoint_path)
-                        #Create confusion matrix
-                        confusion_matrix.generate_batch_data(eval_outputs, eval_targets)
-                        confusion_matrix.plot(True, model_imgs_logs_path, class_names)
+
                         #Make a copy of best checkpoint confusion matrix
-                        #shutil.copyfile(f'{model_imgs_logs_path}/confusion_matrix_last.png',
-                        #                f'{model_imgs_logs_path}/confusion_matrix_best.png')
+                        shutil.copyfile(f'{model_imgs_logs_path}/confusion_matrix_last.png',
+                                        f'{model_imgs_logs_path}/confusion_matrix_best.png')
                         ############################
                         # ClearML model update - V 3.0.0
                         ############################
