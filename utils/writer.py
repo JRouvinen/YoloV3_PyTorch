@@ -5,7 +5,10 @@
 # Version V3.1
 ##################################
 import csv
-import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 
 
