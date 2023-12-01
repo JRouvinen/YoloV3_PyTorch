@@ -1,4 +1,8 @@
-import matplotlib.pyplot as plt
+
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from utils.utils import box_iou
@@ -95,7 +99,9 @@ class ConfusionMatrix:
         ax.set_ylabel('Predicted')
         ax.set_title('Confusion Matrix')
         fig.savefig(f'{save_dir}/confusion_matrix_last.png', dpi=250)
-        plt.close(fig)
+        #plt.close(fig)
+        plt.close('all')
+
 
     def print(self):
         for i in range(self.nc + 1):
