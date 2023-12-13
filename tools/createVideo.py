@@ -1,7 +1,7 @@
 import cv2
 import os
 
-image_folder = 'C:/Users\Juha/Documents/AI/datasets/aug-2023.tar/aug-2023/srv/data_fetching/road_camera_data/data/datalake/digitraffic/images/2023-08-23T10/C04507-vt3_Tampere_Lakalaiva/C0450702'
+image_folder = 'C:/Users\Juha\Documents\AI\datasets/traffic_camera_images\oct-2023\srv\data_fetching/road_camera_data\data\datalake\digitraffic\images/2023-09-29T10/full_video'
 video_name = '../output/video/video.avi'
 
 images = [img for img in os.listdir(image_folder) if img.endswith(".jpg")]

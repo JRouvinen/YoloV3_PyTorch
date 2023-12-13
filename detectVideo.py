@@ -127,7 +127,7 @@ def arg_parse():
 
     """
 
-    parser = argparse.ArgumentParser(description='YOLO v3 Video Detection Module')
+    parser = argparse.ArgumentParser(description='YOLOv3 Video Detection Module')
 
     parser.add_argument("-v", "--video", dest='video', help=
     "Video to run detection upon",

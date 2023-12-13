@@ -413,10 +413,10 @@ def run():
     parser.add_argument("-o", "--output", type=str, default="output", help="Path to output directory")
     parser.add_argument("-b", "--batch_size", type=int, default=4, help="Size of each image batch")
     parser.add_argument("-d", "--draw", type=int, default=0, help="Draw detection boxes into images")
-    parser.add_argument("--img_size", type=int, default=800, help="Size of each image dimension for yolo")
+    parser.add_argument("--img_size", type=int, default=832, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=4, help="Number of cpu threads to use during batch generation")
     parser.add_argument("--conf_thres", type=float, default=0.35, help="Object confidence threshold")
-    parser.add_argument("--nms_thres", type=float, default=0.40, help="IOU threshold for non-maximum suppression")
+    parser.add_argument("--nms_thres", type=float, default=0.5, help="IOU threshold for non-maximum suppression")
     parser.add_argument("-g", "--gpu",type=int, default=-1, help="GPU to use")
 
     args = parser.parse_args()
